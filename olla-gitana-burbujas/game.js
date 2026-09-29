@@ -31,7 +31,7 @@ let jugando = false, estado = null, finMostrado = false, modoSolo = false, conBo
 let soundOn = true, beepCtx = null, connected = false, rivalNombre = '';
 let input = { dir: 0 };
 let fondoImg = null, fondoIdx = 11, fondoListo = false, fondoManual = false;   // por defecto, la huerta
-let particulas = [], miX = 400, ultimoN = 0;
+let particulas = [], miX = 400, ultimoN = 0, flashRojo = 0;
 
 /* ---------------- Audio ---------------- */
 function beep(freq = 880, dur = 0.07, vol = 0.09, type = 'triangle') {
@@ -134,7 +134,16 @@ function conectar(room, name, esBot) {
           particulas.push({ x: b.x, y: b.y, r: b.r, t: 0 });
         }
       }
+      // ¿me han rozado? -> hit.mp3 del usuario + pantalla roja
+      const vidasAntes = (estado && estado.vidas) ? estado.vidas[mySlot] : null;
+      const invAntes = (estado && estado.invuln) ? estado.invuln[mySlot] : 0;
       estado = m;
+      const vidasAhora = (m.vidas || [3, 3])[mySlot];
+      if (vidasAntes != null && vidasAhora < vidasAntes) {
+        sfxHit();                       // audio del usuario SOLO para golpes
+        flashRojo = 0.5;
+        try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+      }
       if (m.fase === 'over' && m.res && !finMostrado) terminar(m.res);
     } else if (m.t === 'error') {
       toast(m.msg || 'Error de sala', 2600);
@@ -255,6 +264,7 @@ function loop(now) {
   }
   for (const p of particulas) p.t += dt;
   particulas = particulas.filter(p => p.t < 0.5);
+  if (flashRojo > 0) flashRojo = Math.max(0, flashRojo - dt * 1.8);
   dibujar();
   requestAnimationFrame(loop);
 }
@@ -349,7 +359,7 @@ function dibujar() {
       ctx.fillStyle = `rgba(0,0,0,${0.34 * (1 - altura * 0.55)})`;
       ctx.beginPath(); ctx.ellipse(b.x, gy + 6, r * 0.85 * (1 - altura * 0.35), r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
       // cuerpo con brillo irisado
-      const col = r >= 50 ? '253,224,71' : r >= 36 ? '110,231,183' : '147,197,253';
+      const col = r >= 68 ? '244,114,182' : r >= 50 ? '253,224,71' : r >= 36 ? '110,231,183' : '147,197,253';
       const gb = ctx.createRadialGradient(b.x - r * .33, b.y - r * .38, r * .06, b.x, b.y, r);
       gb.addColorStop(0, 'rgba(255,255,255,.99)');
       gb.addColorStop(.30, `rgba(${col},.95)`);
@@ -366,7 +376,7 @@ function dibujar() {
       // puntos que vale
       ctx.font = `900 ${Math.round(r * .5)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(0,0,0,.45)';
-      ctx.fillText(String({ 54: 30, 40: 50, 28: 70 }[r] || 30), b.x, b.y + 1);
+      ctx.fillText(String({ 72: 20, 54: 30, 40: 50, 28: 70 }[r] || 30), b.x, b.y + 1);
     }
   }
 
@@ -397,8 +407,8 @@ function dibujar() {
   if (e && e.items) {
     for (const it of e.items) {
       const bob = Math.sin(performance.now() / 260 + it.x) * 3;
-      const icono = { linea: '⚡', pistola: '🔫', hielo: '❄️', corazon: '❤️' }[it.clase] || '⭐';
-      const color = { linea: '56,189,248', pistola: '251,146,60', hielo: '165,243,252', corazon: '248,113,113' }[it.clase] || '250,204,21';
+      const icono = { linea: '⚡', pistola: '🔫', hielo: '❄️', corazon: '❤️', fantasma: '🌫️' }[it.clase] || '⭐';
+      const color = { linea: '56,189,248', pistola: '251,146,60', hielo: '165,243,252', corazon: '248,113,113', fantasma: '196,181,253' }[it.clase] || '250,204,21';
       // halo
       ctx.fillStyle = `rgba(${color},.30)`;
       ctx.beginPath(); ctx.arc(it.x, it.y + bob, 34, 0, Math.PI * 2); ctx.fill();
@@ -425,6 +435,8 @@ function dibujar() {
     if (ef.linea > 0) activos.push(['⚡ LÍNEA', ef.linea]);
     if (ef.pistola > 0) activos.push(['🔫 PISTOLA', ef.pistola]);
     if (ef.hielo > 0) activos.push(['❄️ HIELO', ef.hielo]);
+    if (ef.fantasma > 0) activos.push(['🌫️ FANTASMA', ef.fantasma]);
+    const DUR = { '⚡ LÍNEA': 8, '🔫 PISTOLA': 8, '❄️ HIELO': 4.5, '🌫️ FANTASMA': 6 };
     let yy = 132;
     for (const [txt, t] of activos) {
       ctx.font = '900 17px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
@@ -435,7 +447,7 @@ function dibujar() {
       ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillText(txt, 26, yy);
       ctx.fillStyle = 'rgba(255,255,255,.28)';
-      ctx.fillRect(26, yy + 13, (wpx - 46) * clamp(t / 8, 0, 1), 4);
+      ctx.fillRect(26, yy + 13, (wpx - 46) * clamp(t / (DUR[txt] || 8), 0, 1), 4);
       yy += 42;
     }
     if (ef.hielo > 0) {   // tinte azul de pantalla congelada
@@ -471,7 +483,20 @@ function dibujar() {
   }
 
   // ---------- jugadores ----------
+  // la olla se ve TRANSPARENTE durante la invulnerabilidad (3 s tras el roce)
+  const inv = (e && e.invuln) ? (e.invuln[mySlot] || 0) : 0;
+  const fanta = (e && e.efectos && e.efectos[mySlot]) ? (e.efectos[mySlot].fantasma || 0) > 0 : false;
+  ctx.save();
+  if (inv > 0 || fanta) ctx.globalAlpha = fanta ? 0.45 : (0.35 + 0.65 * (1 - inv / 3));
   dibujarOlla(miX, gy, true, myName || 'Tú');
+  ctx.restore();
+  if (inv > 0 || fanta) {   // burbuja de protección alrededor
+    ctx.strokeStyle = fanta ? 'rgba(196,181,253,.85)' : 'rgba(125,211,252,.8)';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath(); ctx.arc(miX, gy - 44, 52, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
   if (e && e.botx != null) dibujarOlla(e.botx, gy, false, rivalNombre || 'Máquina');
 
   ctx.restore();
@@ -494,6 +519,7 @@ function dibujar() {
     ctx.font = '900 16px system-ui'; ctx.fillStyle = '#fff';
     ctx.fillText('❤️'.repeat(Math.max(0, Math.min(3, (e.vidas || [3, 3])[mySlot] ?? 3))), bx + boxW * .5, by + 57);
   }
+  dibujarFlash();
 }
 
 function dibujarOlla(x, gy, soy, nombre) {
@@ -506,6 +532,13 @@ function dibujarOlla(x, gy, soy, nombre) {
   ctx.fillText(soy ? '🥘' : '🍳', x, gy - 42);
   ctx.font = '28px system-ui';
   ctx.fillText('🔱', x, gy - 78);
+}
+
+/* ---------------- Flash de daño ---------------- */
+function dibujarFlash() {
+  if (flashRojo <= 0) return;
+  ctx.fillStyle = `rgba(220,38,38,${0.30 * flashRojo})`;
+  ctx.fillRect(0, 0, W, H);
 }
 
 /* ---------------- Controles ---------------- */

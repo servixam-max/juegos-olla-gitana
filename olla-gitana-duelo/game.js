@@ -392,8 +392,18 @@ function dibujar() {
     ctx.textAlign = 'center';
     ctx.font = '900 22px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.9)';
     ctx.fillText(`${ron[mySlot] ?? 0} - ${ron[1 - mySlot] ?? 0}`, bx + boxW / 2, by + 17);
-    ctx.font = '900 11px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText(`RONDA ${e.ronda_n || 1} · al mejor de 5`, bx + boxW / 2, by + 34);
+    const rt = e.ronda_t == null ? 75 : e.ronda_t;
+    const presion = rt <= 0;
+    ctx.font = '900 11px system-ui';
+    ctx.fillStyle = presion ? '#f87171' : 'rgba(255,255,255,.5)';
+    const segs = presion ? '¡PRESIÓN!' : `${Math.ceil(rt)}s`;
+    ctx.fillText(`RONDA ${e.ronda_n || 1} · al mejor de 5 · ${segs}`, bx + boxW / 2, by + 34);
+    // barra de tiempo de ronda
+    const frac = clamp(rt / 75, 0, 1);
+    ctx.fillStyle = 'rgba(255,255,255,.14)';
+    ctx.fillRect(bx + 12, by + 44, boxW - 24, 5);
+    ctx.fillStyle = presion ? '#f87171' : (frac < 0.3 ? '#fbbf24' : '#4ade80');
+    ctx.fillRect(bx + 12, by + 44, (boxW - 24) * frac, 5);
     // ---- efectos activos de cada jugador (bajo el marcador) ----
     const EFE = { arco: '🏹', escudo: '🛡️', rapido: '⚡', invisible: '🌫️' };
     const ef = (e.efectos || [])[mySlot] || {};
@@ -409,6 +419,22 @@ function dibujar() {
       }
     }
   }
+  // ---- PRESIÓN: tinte rojo late ----
+  if (e && e.presion) {
+    const pulso = 0.5 + Math.sin(performance.now() / 260) * 0.5;
+    ctx.fillStyle = `rgba(220,38,38,${0.06 + pulso * 0.07})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = '900 15px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = `rgba(248,113,113,${0.6 + pulso * 0.4})`;
+    ctx.fillText('💀 ¡PRESIÓN! Se acaba el tiempo', W / 2, 96);
+  }
+  // ---- SACUDIDA al recibir un golpe ----
+  if (flash > 0) {
+    ctx.save();
+    ctx.translate((Math.random() - 0.5) * 10 * flash, (Math.random() - 0.5) * 10 * flash);
+    ctx.restore();
+  }
+
   // ---- CUENTA ATRÁS 3·2·1 (grande, en el centro) ----
   const cd = (e && e.countdown) || 0;
   if (cd > 0) {
