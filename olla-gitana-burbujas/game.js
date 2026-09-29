@@ -65,7 +65,7 @@ function cargarFondo(i) {
 }
 function pintarSelectorFondos() {
   const cont = el('fondoRow');
-  if (!cont) return;
+  if (!cont) return;   // ya no hay selector: el fondo lo pone el nivel
   cont.innerHTML = FONDOS.map((f, i) =>
     `<button class="fondoBtn ${i === fondoIdx ? 'on' : ''}" data-i="${i}" aria-label="Escenario ${i + 1}"></button>`
   ).join('');
@@ -240,9 +240,19 @@ resize();
 
 let lastFrame = performance.now();
 
+let velOlla = 0;      // velocidad actual (para acelerar/frenar suave)
 function loop(now) {
   const dt = clamp((now - lastFrame) / 1000, 0, 0.05); lastFrame = now;
-  if (jugando) { miX = clamp(miX + input.dir * 460 * dt, 26, GW - 26); avisarPosicion(now); }
+  if (jugando) {
+    // manejo con inercia: acelera hasta 620 px/s y frena con roce (se siente fino)
+    const objetivo = input.dir * 640;
+    const acel = input.dir !== 0 ? 4200 : 5200;
+    if (velOlla < objetivo) velOlla = Math.min(objetivo, velOlla + acel * dt);
+    else if (velOlla > objetivo) velOlla = Math.max(objetivo, velOlla - acel * dt);
+    miX = clamp(miX + velOlla * dt, 26, GW - 26);
+    if (miX <= 26 || miX >= GW - 26) velOlla = 0;
+    avisarPosicion(now);
+  }
   for (const p of particulas) p.t += dt;
   particulas = particulas.filter(p => p.t < 0.5);
   dibujar();
@@ -357,6 +367,79 @@ function dibujar() {
       ctx.font = `900 ${Math.round(r * .5)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(0,0,0,.45)';
       ctx.fillText(String({ 54: 30, 40: 50, 28: 70 }[r] || 30), b.x, b.y + 1);
+    }
+  }
+
+  // ---------- LÍNEAS FIJAS (Power Wire) ----------
+  if (e && e.lineas) {
+    for (const ln of e.lineas) {
+      const alfa = Math.min(1, ln.t / 1.2);
+      ctx.save();
+      ctx.globalAlpha = alfa;
+      const gr = ctx.createLinearGradient(ln.x - 26, 0, ln.x + 26, 0);
+      gr.addColorStop(0, 'rgba(56,189,248,0)');
+      gr.addColorStop(.5, 'rgba(56,189,248,.85)');
+      gr.addColorStop(1, 'rgba(56,189,248,0)');
+      ctx.fillStyle = gr; ctx.fillRect(ln.x - 26, 40, 52, gy - 60);
+      ctx.strokeStyle = 'rgba(224,242,254,.95)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(ln.x, 44); ctx.lineTo(ln.x, gy - 20); ctx.stroke();
+      // chispas que suben por la línea
+      for (let k = 0; k < 5; k++) {
+        const yy = gy - ((performance.now() / 3 + k * 220) % (gy - 60));
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.beginPath(); ctx.arc(ln.x, Math.max(46, yy), 4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // ---------- ITEMS que caen (power-ups) ----------
+  if (e && e.items) {
+    for (const it of e.items) {
+      const bob = Math.sin(performance.now() / 260 + it.x) * 3;
+      const icono = { linea: '⚡', pistola: '🔫', hielo: '❄️', corazon: '❤️' }[it.clase] || '⭐';
+      const color = { linea: '56,189,248', pistola: '251,146,60', hielo: '165,243,252', corazon: '248,113,113' }[it.clase] || '250,204,21';
+      // halo
+      ctx.fillStyle = `rgba(${color},.30)`;
+      ctx.beginPath(); ctx.arc(it.x, it.y + bob, 34, 0, Math.PI * 2); ctx.fill();
+      // cápsula
+      const gi = ctx.createRadialGradient(it.x - 8, it.y - 10 + bob, 3, it.x, it.y + bob, 26);
+      gi.addColorStop(0, 'rgba(255,255,255,.98)'); gi.addColorStop(1, `rgba(${color},.92)`);
+      ctx.fillStyle = gi;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(it.x - 24, it.y - 24 + bob, 48, 48, 16); else ctx.rect(it.x - 24, it.y - 24 + bob, 48, 48);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(it.x - 24, it.y - 24 + bob, 48, 48, 16); else ctx.rect(it.x - 24, it.y - 24 + bob, 48, 48);
+      ctx.stroke();
+      ctx.font = '26px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(icono, it.x, it.y + bob + 1);
+    }
+  }
+
+  // ---------- EFECTOS activos (esquinas) ----------
+  if (e && e.efectos && e.efectos[mySlot]) {
+    const ef = e.efectos[mySlot];
+    const activos = [];
+    if (ef.linea > 0) activos.push(['⚡ LÍNEA', ef.linea]);
+    if (ef.pistola > 0) activos.push(['🔫 PISTOLA', ef.pistola]);
+    if (ef.hielo > 0) activos.push(['❄️ HIELO', ef.hielo]);
+    let yy = 132;
+    for (const [txt, t] of activos) {
+      ctx.font = '900 17px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const wpx = ctx.measureText(txt).width + 46;
+      ctx.fillStyle = 'rgba(0,0,0,.62)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(14, yy - 17, wpx, 34, 17); else ctx.rect(14, yy - 17, wpx, 34);
+      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillText(txt, 26, yy);
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      ctx.fillRect(26, yy + 13, (wpx - 46) * clamp(t / 8, 0, 1), 4);
+      yy += 42;
+    }
+    if (ef.hielo > 0) {   // tinte azul de pantalla congelada
+      ctx.fillStyle = 'rgba(165,243,252,.10)'; ctx.fillRect(0, 0, GW, GH);
     }
   }
 
@@ -495,8 +578,7 @@ function salir() {
   pintarSelectorFondos();
 }
 
-cargarFondo(leerEscenario());
-pintarSelectorFondos();
+cargarFondo(0);          // el fondo lo cambia el nivel automáticamente
 requestAnimationFrame(loop);
 window.__burbujasState = () => ({ conectado: connected, slot: mySlot, sala: roomCode, jugando, finMostrado,
   rival: rivalNombre, score: estado ? estado.score : null,

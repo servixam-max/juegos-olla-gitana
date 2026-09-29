@@ -33,6 +33,16 @@ let input = { mx: 0, my: 0, ax: 0, ay: 0, fire: false };
 let joyActivo = false, joyCx = 0, joyCy = 0, joyId = null;
 
 /* ---------------- Audio ---------------- */
+let ultimoShot = 0;
+function sfxShot() {
+  const ahora = performance.now();
+  if (ahora - ultimoShot < 90) return;      // no spamear
+  ultimoShot = ahora;
+  // ¿tengo el arco? -> sonido más grave y potente
+  const ef = (estado && estado.efectos && estado.efectos[mySlot]) || {};
+  if ((ef.arco || 0) > 0) { beep(180, .12, .12, 'sawtooth'); setTimeout(() => beep(90, .1, .1, 'square'), 30); }
+  else { beep(320, .05, .09, 'square'); }
+}
 function beep(freq = 880, dur = 0.07, vol = 0.09, type = 'triangle') {
   if (!soundOn) return;
   try {
@@ -142,9 +152,14 @@ function terminar(res) {
   const gane = res.ganador === mySlot;
   el('endTitle').textContent = res.abandonó ? '¡TU RIVAL SE FUE!' : (gane ? '¡HAS GANADO! 🏆' : '¡TE HAN GANAO!');
   el('endPhrase').textContent = gane ? PHRASES_WIN[(Math.random() * PHRASES_WIN.length) | 0] : PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0];
-  const hp = res.hp || [0, 0];
-  el('endMe').textContent = hp[mySlot] ?? 0;
-  el('endRival').textContent = hp[1 - mySlot] ?? 0;
+  const ron = res.rondas || [0, 0];
+  el('endMe').textContent = `🏆 ${ron[mySlot] ?? 0}`;
+  el('endRival').textContent = `🏆 ${ron[1 - mySlot] ?? 0}`;
+  try {
+    const lbls = document.querySelectorAll('#endScreen .resultGrid span.k');
+    if (lbls[0]) lbls[0].textContent = 'Tus rondas';
+    if (lbls[1]) lbls[1].textContent = 'Rondas rival';
+  } catch (e) {}
   show(el('endScreen'));
   if (gane) { beep(1046, .12, .1); setTimeout(() => beep(1318, .16, .09), 110); }
   else sfxHit();
@@ -240,25 +255,73 @@ function dibujar() {
         ctx.beginPath(); ctx.moveTo(w.x + 2, yy); ctx.lineTo(w.x + w.w - 2, yy); ctx.stroke();
       }
     }
-    // ---- power-ups (curaciones) ----
+    // ---- power-ups (curaciones, arco, escudo, rapidez, invisibilidad) ----
+    const EST = {
+      curar: { ic: '❤️', co: '52,211,153' }, arco: { ic: '🏹', co: '251,146,60' },
+      escudo: { ic: '🛡️', co: '125,211,252' }, rapido: { ic: '⚡', co: '250,204,21' },
+      invisible: { ic: '🌫️', co: '196,181,253' },
+    };
     for (const pw of (e.poder || [])) {
+      const est = EST[pw.clase] || EST.curar;
       const pulso = 1 + Math.sin(performance.now() / 220) * 0.12;
       ctx.save(); ctx.translate(pw.x, pw.y); ctx.scale(pulso, pulso);
-      ctx.fillStyle = 'rgba(52,211,153,.25)';
-      ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#34d399'; ctx.lineWidth = 3; ctx.stroke();
-      ctx.font = '30px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('❤️', 0, 0);
+      ctx.fillStyle = `rgba(${est.co},.28)`;
+      ctx.beginPath(); ctx.arc(0, 0, 36, 0, Math.PI * 2); ctx.fill();
+      const gp2 = ctx.createRadialGradient(-6, -8, 3, 0, 0, 26);
+      gp2.addColorStop(0, 'rgba(255,255,255,.98)'); gp2.addColorStop(1, `rgba(${est.co},.9)`);
+      ctx.fillStyle = gp2;
+      ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.font = '26px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(est.ic, 0, 0);
       ctx.restore();
     }
-    // ---- balas ----
+    // ---- balas (con estela; las del arco son gordas y naranjas) ----
     for (const b of (e.b || [])) {
       const mio = b.o === mySlot;
-      ctx.fillStyle = mio ? 'rgba(167,243,208,.3)' : 'rgba(253,230,138,.3)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, 20, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = mio ? '#a7f3d0' : '#fde68a';
-      ctx.beginPath(); ctx.arc(b.x, b.y, 11, 0, Math.PI * 2); ctx.fill();
+      const rr = b.r || 11;
+      // estela
+      const vx = b.vx || 0, vy = b.vy || 0, vl = Math.hypot(vx, vy) || 1;
+      const tg = ctx.createLinearGradient(b.x, b.y, b.x - vx / vl * rr * 3.2, b.y - vy / vl * rr * 3.2);
+      tg.addColorStop(0, mio ? 'rgba(167,243,208,.55)' : 'rgba(253,230,138,.55)');
+      tg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.strokeStyle = tg; ctx.lineWidth = rr * 1.15; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - vx / vl * rr * 3.2, b.y - vy / vl * rr * 3.2); ctx.stroke();
+      // halo
+      ctx.fillStyle = b.arco ? 'rgba(251,146,60,.35)' : (mio ? 'rgba(167,243,208,.3)' : 'rgba(253,230,138,.3)');
+      ctx.beginPath(); ctx.arc(b.x, b.y, rr * 1.8, 0, Math.PI * 2); ctx.fill();
+      // núcleo
+      ctx.fillStyle = b.arco ? '#fb923c' : (mio ? '#a7f3d0' : '#fde68a');
+      ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+      if (b.arco) {   // chispa del arco
+        ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🔥', b.x, b.y);
+      }
+    }
+    // ---- impactos (chispas) ----
+    for (const im of (e.impactos || [])) {
+      const k = im.t / 0.4, r = 12 + k * 46;
+      ctx.globalAlpha = 1 - k;
+      const col = im.tipo === 'ko' ? '248,113,113' : im.tipo === 'poder' ? '134,239,172'
+                : im.tipo === 'escudo' ? '125,211,252' : '253,224,71';
+      ctx.strokeStyle = `rgba(${col},.95)`; ctx.lineWidth = 5 - k * 3;
+      ctx.beginPath(); ctx.arc(im.x, im.y, r, 0, Math.PI * 2); ctx.stroke();
+      for (let a = 0; a < 6; a++) {
+        const ang = (a / 6) * Math.PI * 2 + k * 2;
+        ctx.fillStyle = `rgba(${col},${.9 - k})`;
+        ctx.beginPath(); ctx.arc(im.x + Math.cos(ang) * r, im.y + Math.sin(ang) * r, 5 - k * 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // ---- números de daño flotantes ----
+    for (const dn of (e.daños || [])) {
+      const k = dn.t / 0.8;
+      ctx.globalAlpha = 1 - k;
+      ctx.font = '900 30px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(`-${dn.n}`, dn.x + 2, dn.y - k * 44 + 2);
+      ctx.fillStyle = '#f87171'; ctx.fillText(`-${dn.n}`, dn.x, dn.y - k * 44);
+      ctx.globalAlpha = 1;
     }
     // ---- jugadores ----
     e.p.forEach((p, i) => {
@@ -324,10 +387,47 @@ function dibujar() {
     ctx.fillText((rivalNombre || 'Rival').slice(0, 10), bx + boxW - 14, by + 16);
     ctx.font = '900 14px system-ui';
     ctx.fillText('❤️'.repeat(Math.max(0, Math.min(6, el2.hp))), bx + boxW - 14, by + 33);
-    // centro: marcador
+    // centro: marcador de RONDAS (al mejor de 5)
+    const ron = e.rondas || [0, 0];
     ctx.textAlign = 'center';
-    ctx.font = '900 20px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.fillText(`${yo.hp} - ${el2.hp}`, bx + boxW / 2, by + 24);
+    ctx.font = '900 22px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fillText(`${ron[mySlot] ?? 0} - ${ron[1 - mySlot] ?? 0}`, bx + boxW / 2, by + 17);
+    ctx.font = '900 11px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillText(`RONDA ${e.ronda_n || 1} · al mejor de 5`, bx + boxW / 2, by + 34);
+    // ---- efectos activos de cada jugador (bajo el marcador) ----
+    const EFE = { arco: '🏹', escudo: '🛡️', rapido: '⚡', invisible: '🌫️' };
+    const ef = (e.efectos || [])[mySlot] || {};
+    let ex = bx + 12;
+    ctx.font = '900 13px system-ui'; ctx.textAlign = 'left';
+    for (const k in EFE) {
+      if ((ef[k] || 0) > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,.55)';
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(ex, by + 46, 40, 22, 11); ctx.fill(); }
+        ctx.fillStyle = '#fff';
+        ctx.fillText(EFE[k], ex + 8, by + 57);
+        ex += 44;
+      }
+    }
+  }
+  // ---- CUENTA ATRÁS 3·2·1 (grande, en el centro) ----
+  const cd = (e && e.countdown) || 0;
+  if (cd > 0) {
+    const n = Math.ceil(cd);
+    const frac = cd - Math.floor(cd);
+    const esc2 = 1 + (1 - frac) * 0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+    ctx.translate(W / 2, H * 0.42);
+    ctx.scale(esc2, esc2);
+    ctx.font = '900 120px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(n > 0 ? String(n) : '¡YA!', 4, 6);
+    ctx.fillStyle = n === 1 ? '#fde68a' : n === 2 ? '#fca5a5' : '#86efac';
+    ctx.fillText(n > 0 ? String(n) : '¡YA!', 0, 0);
+    ctx.font = '900 22px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillText(`RONDA ${(e && e.ronda_n) || 1}`, 0, 92);
+    ctx.restore();
   }
   // joystick visual
   if (joyActivo) {
@@ -351,8 +451,10 @@ function actualizarJoystick(ev) {
   const { x, y } = posCanvas(ev);
   let dx = x - joyCx, dy = y - joyCy;
   const d = Math.hypot(dx, dy) || 1;
-  const max = 62;
+  const max = 68;
   const k = Math.min(1, d / max);
+  // zona muerta mínima para que no tiemble al apoyar el dedo
+  if (d < 8) { input.mx = 0; input.my = 0; return; }
   input.mx = (dx / d) * k;
   input.my = (dy / d) * k;
   if (k > 0.2) { input.ax = dx / d; input.ay = dy / d; }   // apunta hacia donde empujas
@@ -395,7 +497,7 @@ cv.style.zIndex = '5';
 // botón de disparo
 function bindFire(id, val) {
   const n = el(id); if (!n) return;
-  const down = e => { e.preventDefault(); n.classList.add('on'); input.fire = val; if (val) beep(300, .06, .08, 'square'); };
+  const down = e => { e.preventDefault(); n.classList.add('on'); input.fire = val; if (val) sfxShot(); };
   const up = () => { n.classList.remove('on'); input.fire = false; };
   n.addEventListener('pointerdown', down);
   n.addEventListener('pointerup', up);
@@ -439,7 +541,7 @@ cv.addEventListener('pointermove', ev => {
   const yo = estado.p[mySlot];
   if (yo) { const dx = wx - yo.x, dy = wy - yo.y; const n = Math.hypot(dx, dy) || 1; input.ax = dx / n; input.ay = dy / n; }
 });
-cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'mouse' && jugando) input.fire = true; });
+cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'mouse' && jugando) { input.fire = true; sfxShot(); } });
 cv.addEventListener('pointerup', ev => { if (ev.pointerType === 'mouse') input.fire = false; });
 
 /* ---------------- UI ---------------- */
