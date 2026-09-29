@@ -27,10 +27,10 @@ const PHRASES_LOSE = ['¡Arrea!', '¡Menudo pijo!', '¡Ojú!', '¡Cagüen la mar
 const FONDOS = Array.from({ length: 14 }, (_, i) => `../olla-gitana-runner/assets/bg_${i + 1}.jpg`);
 
 let ws = null, mySlot = 0, roomCode = '', myName = '';
-let jugando = false, estado = null, finMostrado = false;
+let jugando = false, estado = null, finMostrado = false, modoSolo = false, conBot = false;
 let soundOn = true, beepCtx = null, connected = false, rivalNombre = '';
 let input = { dir: 0 };
-let fondoImg = null, fondoIdx = 11, fondoListo = false;   // por defecto, la huerta
+let fondoImg = null, fondoIdx = 11, fondoListo = false, fondoManual = false;   // por defecto, la huerta
 let particulas = [], miX = 400, ultimoN = 0;
 
 /* ---------------- Audio ---------------- */
@@ -74,6 +74,7 @@ function pintarSelectorFondos() {
     b.style.backgroundImage = `url('${FONDOS[+b.dataset.i]}')`;
     b.addEventListener('click', () => {
       cargarFondo(+b.dataset.i);
+      fondoManual = true;
       setPrefs({ fondo: +b.dataset.i });
       cont.querySelectorAll('.fondoBtn').forEach(x => x.classList.toggle('on', x === b));
       beep(880, .06, .07);
@@ -82,24 +83,35 @@ function pintarSelectorFondos() {
 }
 
 /* ---------------- WebSocket ---------------- */
-function conectar(room, name, conBot) {
+function conectar(room, name, esBot) {
+  conBot = !!esBot;
   try { ws && ws.close(); } catch (e) {}
   ws = new WebSocket(WS_BASE);
   ws.onopen = () => {
     connected = true;
     ws.send(JSON.stringify({ t: 'join', room: room || '', game: GAME, name,
-                             bot: !!conBot, vw: window.innerWidth, vh: window.innerHeight }));
+                             bot: conBot, vw: window.innerWidth, vh: window.innerHeight }));
   };
   ws.onclose = () => { connected = false; };
   ws.onmessage = ev => {
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (m.t === 'welcome') {
       mySlot = m.you; roomCode = m.room;
-      el('roomCode').textContent = roomCode; el('bigCode').textContent = roomCode;
+      const rc = el('roomCode'); if (rc) rc.textContent = roomCode;
+      const bc = el('bigCode'); if (bc) bc.textContent = roomCode;
       pintarLobby(m.players);
       hide(el('startScreen')); show(el('lobbyScreen'));
       guardarNombre(myName);
       if (el('btnCopy')) el('btnCopy').style.display = 'none';
+      // en solitario: arranca ya (sin lobby ni esperas)
+      if (!conBot && modoSolo) {
+        setTimeout(() => {
+          try {
+            ws.send(JSON.stringify({ t: 'ready', v: true }));
+            ws.send(JSON.stringify({ t: 'startgame' }));
+          } catch (e) {}
+        }, 120);
+      }
     } else if (m.t === 'joined') {
       pintarLobby(m.players);
       // contra la máquina: arranca solo (el bot ya está listo)
@@ -143,7 +155,7 @@ function pintarLobby(players) {
   pinta(el('slot1'), porSlot(1), porSlot(1) && porSlot(1).slot === mySlot);
   rivalNombre = (players.find(p => p.slot !== mySlot) || {}).name || '';
   const nm = el('nameMe'); if (nm) nm.textContent = myName || 'Tú';
-  const nr = el('nameRival'); if (nr) nr.textContent = rivalNombre || 'Rival';
+  const nr = el('nameRival'); if (nr) { nr.textContent = rivalNombre || 'Rival'; nr.parentElement && (nr.parentElement.style.display = rivalNombre ? '' : 'none'); }
   const hay2 = players.length >= 2;
   const esBot = players.some(p => p.bot);
   el('lobbyMsg').textContent = esBot ? 'Jugando contra la máquina 🤖 ¡dale a empezar!'
@@ -222,6 +234,10 @@ function avisarPosicion(now) {
 function dibujar() {
   ctx.clearRect(0, 0, W, H);
   if (estado && estado.W) { GW = estado.W; GH = estado.H; }
+  // fondo por nivel (el servidor manda cuál toca)
+  if (estado && typeof estado.fondo === 'number' && estado.fondo !== fondoIdx && !fondoManual) {
+    cargarFondo(estado.fondo);
+  }
   // el mundo ocupa TODO el ancho y el alto que haga falta: llena la pantalla
   scale = W / GW;
   const altoMundo = GH * scale;
@@ -347,26 +363,21 @@ function dibujar() {
 
   // ---------- marcador flotante ----------
   if (e && e.score) {
-    const boxW = Math.min(W * .66, 340), bx = (W - boxW) / 2, by = 12;
+    const boxW = Math.min(W * .8, 360), bx = (W - boxW) / 2, by = 10;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 52, 26); else ctx.rect(bx, by, boxW, 52);
+    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 66, 22); else ctx.rect(bx, by, boxW, 66);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2; ctx.stroke();
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = '900 24px system-ui';
-    ctx.fillStyle = '#bbf7d0'; ctx.fillText(`${e.score[mySlot] ?? 0}`, bx + boxW * .26, by + 20);
-    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = '800 14px system-ui';
-    ctx.fillText('VS', bx + boxW * .5, by + 20);
-    ctx.fillStyle = '#fde68a'; ctx.font = '900 24px system-ui';
-    ctx.fillText(`${e.score[1 - mySlot] ?? 0}`, bx + boxW * .74, by + 20);
-    ctx.font = '800 13px system-ui'; ctx.fillStyle = '#fde68a';
-    ctx.fillText(`NIVEL ${e.nivel || 1}`, bx + boxW * .5, by + 41);
-    ctx.font = '900 13px system-ui'; ctx.fillStyle = '#fff';
-    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(3, (e.vidas || [0, 0])[mySlot] ?? 0))), bx + boxW * .26, by + 55);
-    ctx.textAlign = 'right';
-    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(3, (e.vidas || [0, 0])[1 - mySlot] ?? 0))), bx + boxW * .74, by + 55);
-    ctx.textAlign = 'center';
+    ctx.fillStyle = '#bbf7d0'; ctx.font = '900 26px system-ui';
+    ctx.fillText(`${e.score[mySlot] ?? 0}`, bx + boxW * .5, by + 20);
+    ctx.font = '900 14px system-ui'; ctx.fillStyle = '#fde68a';
+    const quedan = (e.b || []).length;
+    ctx.fillText(`NIVEL ${e.nivel || 1} · quedan ${quedan} 🫧`, bx + boxW * .5, by + 41);
+    ctx.font = '900 16px system-ui'; ctx.fillStyle = '#fff';
+    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(3, (e.vidas || [3, 3])[mySlot] ?? 3))), bx + boxW * .5, by + 57);
   }
 }
 
@@ -419,13 +430,10 @@ function toast(msg, ms = 1700) {
 const nombreGuardado = leerNombre();
 if (nombreGuardado) el('inputName').value = nombreGuardado;
 
-el('btnBot').addEventListener('click', () => {
-  myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar('', myName, true);
-});
 el('btnSolo').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar('SOLO', myName, false);      // sala privada de práctica (sin rival)
+  modoSolo = true;
+  conectar('', myName, false);          // partida en solitario (arranca sola)
 });
 el('btnStart').addEventListener('click', () => {
   if (!ws || ws.readyState !== 1) return;

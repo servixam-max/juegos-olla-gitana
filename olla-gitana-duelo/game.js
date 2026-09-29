@@ -79,11 +79,6 @@ function conectar(room, name, createRoom, conBot) {
     } else if (m.t === 'state') {
       estado = m; lastEstado = performance.now();
       if (m.fase === 'over' && m.res && !finMostrado) terminar(m.res);
-    } else if (m.t === 'chat') {
-      const log = el('chatLog');
-      const d = document.createElement('div');
-      d.innerHTML = `<b>${esc(m.name)}:</b> ${esc(m.msg)}`;
-      log.appendChild(d); log.scrollTop = log.scrollHeight;
     } else if (m.t === 'error') {
       toast(m.msg || 'Error de sala', 2600);
       hide(el('lobbyScreen')); show(el('startScreen'));
@@ -135,7 +130,7 @@ let finMostrado = false;
 function empezarPartida() {
   jugando = true; finMostrado = false;
   hide(el('lobbyScreen')); hide(el('startScreen')); hide(el('endScreen'));
-  show(el('hud')); show(el('controls')); show(el('chatBox'));
+  show(el('hud')); show(el('controls'));
   toast('¡A por el rival! 🔫');
   beep(880, .1, .1);
 }
@@ -143,7 +138,7 @@ function empezarPartida() {
 function terminar(res) {
   if (finMostrado) return;
   finMostrado = true; jugando = false;
-  hide(el('controls')); hide(el('chatBox'));
+  hide(el('controls'));
   const gane = res.ganador === mySlot;
   el('endTitle').textContent = res.abandonó ? '¡TU RIVAL SE FUE!' : (gane ? '¡HAS GANADO! 🏆' : '¡TE HAN GANAO!');
   el('endPhrase').textContent = gane ? PHRASES_WIN[(Math.random() * PHRASES_WIN.length) | 0] : PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0];
@@ -210,11 +205,12 @@ function dibujar() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
   const e = estado;
-  // ---- cámara cenital: el mundo es cuadrado (W_mundo x H_mundo) y se ajusta a la pantalla ----
-  const MW = (e && e.W) || 1000, MH = (e && e.H) || 1000;
-  const tam = Math.min(W, H * 0.92);                 // cuadrado de juego
-  const esc = tam / Math.max(MW, MH);
-  const ox = (W - MW * esc) / 2, oy = 44 + (H - 100 - MH * esc) / 2;
+  // ---- arena cenital RECTANGULAR: usa toda la pantalla disponible ----
+  const MW = (e && e.W) || 800, MH = (e && e.H) || 1500;
+  const arriba = 58, abajo = Math.min(180, H * 0.22);      // hueco del marcador y controles
+  const dispW = W - 8, dispH = H - arriba - abajo;
+  const esc = Math.min(dispW / MW, dispH / MH);
+  const ox = (W - MW * esc) / 2, oy = arriba + (dispH - MH * esc) / 2;
 
   ctx.save();
   ctx.translate(ox, oy); ctx.scale(esc, esc);
@@ -355,20 +351,24 @@ function actualizarJoystick(ev) {
   const { x, y } = posCanvas(ev);
   let dx = x - joyCx, dy = y - joyCy;
   const d = Math.hypot(dx, dy) || 1;
-  const max = 60;
+  const max = 62;
   const k = Math.min(1, d / max);
   input.mx = (dx / d) * k;
   input.my = (dy / d) * k;
-  // apuntado: hacia donde empuja el joystick
-  if (k > 0.25) { input.ax = dx / d; input.ay = dy / d; }
+  if (k > 0.2) { input.ax = dx / d; input.ay = dy / d; }   // apunta hacia donde empujas
+  // aro visual del joystick de la izquierda
+  const js = document.getElementById('joyStick');
+  if (js) js.style.transform = `translate(${(dx / d) * k * 36}px, ${(dy / d) * k * 36}px)`;
 }
 cv.addEventListener('pointerdown', ev => {
   if (!jugando) return;
   ev.preventDefault();
   const { x, y } = posCanvas(ev);
-  // mitad izquierda: joystick de movimiento
-  if (x < W * 0.55) {
-    joyId = ev.pointerId; joyActivo = true; joyCx = x; joyCy = y;
+  // toda la mitad izquierda mueve (el pad se centra donde toques)
+  if (x < W * 0.5) {
+    joyId = ev.pointerId; joyActivo = true;
+    joyCx = W * 0.16 + 66; joyCy = H - 90 - 66;      // centro del pad de la izquierda
+    if (Math.abs(x - joyCx) < 110 && Math.abs(y - joyCy) < 110) { joyCx = x; joyCy = y; }
     input.mx = 0; input.my = 0;
     actualizarJoystick(ev);
     try { cv.setPointerCapture && cv.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -382,6 +382,8 @@ cv.addEventListener('pointermove', ev => {
 function soltarJoystick(ev) {
   if (ev && ev.pointerId !== joyId) return;
   joyActivo = false; joyId = null; input.mx = 0; input.my = 0;
+  const js = document.getElementById('joyStick');
+  if (js) js.style.transform = 'translate(0,0)';
 }
 cv.addEventListener('pointerup', soltarJoystick);
 cv.addEventListener('pointercancel', soltarJoystick);
@@ -494,21 +496,13 @@ el('btnSound').addEventListener('click', () => {
 el('btnHow').addEventListener('click', () => show(el('howModal')));
 el('btnCloseHow').addEventListener('click', () => hide(el('howModal')));
 el('btnCloseHow2').addEventListener('click', () => hide(el('howModal')));
-el('btnChat').addEventListener('click', enviarChat);
-el('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') enviarChat(); });
-function enviarChat() {
-  const v = el('chatInput').value.trim();
-  if (!v || !ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify({ t: 'chat', msg: v }));
-  el('chatInput').value = '';
-}
 
 function salir() {
   try { ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: 'leave' })); } catch (e) {}
   try { ws && ws.close(); } catch (e) {}
   jugando = false; estado = null; finMostrado = false;
   hide(el('lobbyScreen')); hide(el('endScreen')); hide(el('hud'));
-  hide(el('controls')); hide(el('chatBox'));
+  hide(el('controls')); const cb = el('chatBox'); if (cb) hide(cb);
   el('btnReady').classList.remove('on');
   show(el('startScreen'));
 }

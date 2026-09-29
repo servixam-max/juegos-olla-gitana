@@ -109,18 +109,15 @@
 
 <!-- Controles táctiles -->
 <div id="controls" class="hidden">
-  <div class="ctl-hint">🕹️ Arrastra a la izquierda para moverte</div>
+  <div class="ctl-left">
+    <div id="joyPad" class="joyPad">
+      <div id="joyStick" class="joyStick"></div>
+    </div>
+    <div class="ctl-lbl">MOVER</div>
+  </div>
   <div class="ctl-right">
     <button id="btnFire" class="ctl ctl-fire">🔴</button>
-  </div>
-</div>
-
-<!-- Chat -->
-<div id="chatBox" class="hidden">
-  <div id="chatLog"></div>
-  <div class="chatRow">
-    <input id="chatInput" maxlength="80" placeholder="Di algo…">
-    <button id="btnChat" class="btn small">➤</button>
+    <div class="ctl-lbl">DISPARAR</div>
   </div>
 </div>
 
