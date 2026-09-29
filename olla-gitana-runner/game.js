@@ -166,6 +166,7 @@ function startGame(diff) {
   difficulty = diff || difficulty;
   const cfg = DIFF[difficulty];
   running = true; paused = false;
+  try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
   meters = 0; itemPoints = 0; points = 0; lives = 3; level = 1; combo = 0; maxCombo = 0; itemsGot = 0;
   invuln = 0; shake = 0; shield = 0;
   obstacles = []; items = []; particles = []; popups = [];
@@ -193,6 +194,12 @@ function gameOver() {
   el('endMeters').textContent = Math.floor(meters);
   el('endItems').textContent = itemsGot;
   el('endLevel').textContent = level;
+  try {
+    logros.set('puntos1k', points); logros.set('puntos5k', points);
+    logros.set('nivel5', level); logros.set('velocidad', level);
+    logros.set('combo10', maxCombo); logros.set('combo25', maxCombo);
+    if (lives === 3) logros.check('sinfallo');
+  } catch (e) {}
   // ¿récord nuevo?
   try {
     const best = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0);
@@ -319,6 +326,7 @@ function update(dt) {
     }
     if (hit(pr, { x: it.x + 6 * S, y: it.y + 6 * S, w: it.w - 12 * S, h: it.h - 12 * S })) {
       itemsGot++; combo++; maxCombo = Math.max(maxCombo, combo); comboTimer = 0;
+      try { logros.set('combo10', combo); logros.set('combo25', combo); logros.count('items50'); } catch (e) {}
       if (it.shield) { shield = Math.max(shield, 5); popup('🛡️ ¡ESCUDO!', '#a5f3fc', player.x + 40 * S, GROUND_Y - 200 * S); beep(1200, .1, .09); }
       itemPoints += 10 * mult();
       burst(it.x, it.y + it.h / 2, 7, '#fcd34d');
@@ -621,6 +629,7 @@ function toggleSound() {
   el('btnSound').textContent = soundOn ? '🔊' : '🔇';
   if (audio.music) audio.music.muted = !soundOn;
 }
+el('btnLogros').addEventListener('click', () => { try { logros.panel(); } catch (e) {} });
 el('btnRanking').addEventListener('click', () => {
   rankDiff = difficulty;
   [...el('rankTabs').children].forEach(c => c.classList.toggle('active', c.dataset.diff === rankDiff));

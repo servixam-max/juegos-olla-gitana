@@ -297,37 +297,61 @@ const AudioEngine = {
         }
     },
 
-    playTone: function(type) {
+    /* ---------- Síntesis mejorada (2026-09) ----------
+       Antes: un solo oscilador con envelope duro (sonaba sintético).
+       Ahora: 2 osciladores desafinados + filtro + envolvente ADSR suave. */
+    _blip: function(opts) {
         if (!this.ctx) return;
-        if (this.ctx.state === 'suspended') this.ctx.resume().catch(console.error);
+        if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+        const {
+            type = 'triangle', f0 = 880, f1 = null, dur = 0.22, vol = 0.16,
+            detune = 6, filter = 2600, q = 1, second = null, delay = 0
+        } = opts || {};
+        const t0 = this.ctx.currentTime + delay;
+        const out = this.ctx.createGain();
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = filter; lp.Q.value = q;
+        lp.connect(out); out.connect(this.ctx.destination);
+        // envolvente: ataque corto, caída exponencial (suena a instrumento, no a pitido)
+        out.gain.setValueAtTime(0.0001, t0);
+        out.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+        out.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        const mk = (freq, det) => {
+            const o = this.ctx.createOscillator();
+            o.type = type; o.frequency.setValueAtTime(freq, t0);
+            if (det) o.detune.value = det;
+            if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t0 + dur * 0.9);
+            o.connect(lp); o.start(t0); o.stop(t0 + dur + 0.03);
+            return o;
+        };
+        mk(f0, 0);
+        if (detune) mk(f0, detune);
+        if (second) setTimeout(() => this._blip(second), (delay + second.at) * 1000);
+    },
+
+    playTone: function(type) {
+        if (!this.ctx) this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
 
         if (type === 'good') {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            const now = this.ctx.currentTime;
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now);
-            osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-            osc.start(now);
-            osc.stop(now + 0.3);
+            // nota musical corta y dulce (sabor a "coger fruta")
+            this._blip({ type: 'triangle', f0: 660, f1: 990, dur: 0.16, vol: 0.13, filter: 3200, detune: 8 });
         } else if (type === 'heart') {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            const now = this.ctx.currentTime;
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(1000, now);
-            osc.frequency.linearRampToValueAtTime(2000, now + 0.3);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.linearRampToValueAtTime(0.001, now + 0.5);
-            osc.start(now);
-            osc.stop(now + 0.5);
+            // arpegio ascendente de 3 notas
+            this._blip({ type: 'triangle', f0: 784, dur: 0.16, vol: 0.13, filter: 2800 });
+            this._blip({ type: 'triangle', f0: 988, dur: 0.18, vol: 0.12, filter: 2800, delay: 0.10 });
+            this._blip({ type: 'triangle', f0: 1319, dur: 0.24, vol: 0.11, filter: 2800, delay: 0.20 });
+        } else if (type === 'levelup') {
+            // fanfarria corta al subir de nivel
+            [0, .10, .20, .32].forEach((d, i) => {
+                const f = [523, 659, 784, 1046][i];
+                this._blip({ type: 'square', f0: f, dur: i === 3 ? 0.35 : 0.16, vol: 0.085, filter: 2200, delay: d, detune: 4 });
+            });
+        } else if (type === 'zen') {
+            this._blip({ type: 'sine', f0: 523, dur: 0.3, vol: 0.12, filter: 1800, second: { at: 0.18, type: 'sine', f0: 784, dur: 0.4, vol: 0.09 } });
         } else if (type === 'bad') {
+            // SIEMPRE el audio del usuario (regla del proyecto)
             if (this.badHitElement) {
                 this.badHitElement.currentTime = 0;
                 this.badHitElement.play().catch(() => this.playSynthBad());
@@ -613,7 +637,8 @@ function startGame(difficulty) {
         timeFreeze: 0, // Timer for slow motion
         originalSpeed: 0, // Store speed before slow motion
         isDragging: false, // Reset drag state
-        countdown: 0
+        countdown: 0,
+        zenMode: ZEN_ARCADE
     };
 
     startScreen.classList.add('hidden');
@@ -624,6 +649,22 @@ function startGame(difficulty) {
     
     setBackground('game');
     updateHUD();
+    // badge ZEN visible durante la partida
+    if (state.zenMode) {
+        let zb = document.getElementById('zenBadgeArcade');
+        if (!zb) {
+            zb = document.createElement('div');
+            zb.id = 'zenBadgeArcade';
+            zb.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(16,185,129,.92);border:2px solid #fff;border-radius:999px;padding:3px 12px;font-size:11px;font-weight:900;letter-spacing:.06em;color:#fff';
+            zb.textContent = '🧘 MODO ZEN';
+            document.body.appendChild(zb);
+        }
+        zb.style.display = 'block';
+    } else {
+        const zb = document.getElementById('zenBadgeArcade');
+        if (zb) zb.style.display = 'none';
+    }
+    try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
     // Cuenta atrás: el juego empezaba de golpe y caía fruta enseguida
     state.countdown = 3.0;
     state.items = [];
@@ -737,6 +778,8 @@ function update() {
     VFX.update();
 }
 
+let ZEN_ARCADE = false;   // se conserva entre partidas (el state se resetea)
+
 function spawnItem() {
     if (state.level % 5 === 0 && !state.heartSpawnedForLevel && Math.random() < 0.15) {
         state.items.push({
@@ -796,7 +839,7 @@ function spawnItem() {
     }
 
     const pool = getItemPool();
-    const isBad = Math.random() < 0.3;
+    const isBad = !state.zenMode && Math.random() < 0.3;   // en ZEN no caen porquerías
     const sourceArray = isBad ? pool.bad : pool.good;
     // Ensure randomization
     const text = sourceArray[Math.floor(Math.random() * sourceArray.length)];
@@ -868,12 +911,14 @@ function handleCollision(item, index) {
         AudioEngine.playTone('good');
         VFX.spawnConfetti(cx, cy);
         VFX.spawnText(cx, cy - 50, `¡ZARANGOLLO! +${pts}`, '#FFD700', 40);
+        try { logros.count('zarangollo10'); logros.set('combo10', state.combo); logros.set('combo25', state.combo); } catch (e) {}
         if (state.combo > 1) VFX.spawnText(cx, cy - 80, `COMBO x${multiplier.toFixed(1)}`, '#FFD700', 30);
         checkLevelUp();
     } else if (item.type === 'good') {
         const pts = Math.floor(10 * multiplier);
         state.score += pts;
         state.combo = (state.combo || 0) + 1;
+        try { logros.count('items50'); logros.set('combo10', state.combo); logros.set('combo25', state.combo); } catch (e) {}
         AudioEngine.playTone('good');
         VFX.spawnConfetti(cx, cy);
         
@@ -916,6 +961,7 @@ function checkLevelUp() {
         state.lemonSpawnedForLevel = false;
         setBackground('game'); 
         AudioEngine.playLevelUp(state.level);
+        AudioEngine.playTone('levelup');
         showLevelUpParams();
     }
 }
@@ -932,6 +978,12 @@ function victory() {
     }
     
     finalScoreVictoryDisplay.innerText = state.score;
+    try {
+        logros.set('puntos1k', state.score); logros.set('puntos5k', state.score);
+        logros.set('nivel5', state.level); logros.set('nivel10', state.level);
+        if (state.lives === CONFIG.MAX_LIVES) logros.check('sinfallo');
+        if (state.zenMode) logros.check('zenpartida');
+    } catch (e) {}
     try { const pr = ollaPrefsArcade(); if (pr.name && playerNameInputVictory) playerNameInputVictory.value = pr.name; } catch (e) {}
     
     submitScoreBtnVictory.disabled = false;
@@ -1179,7 +1231,7 @@ function updateHUD() {
 // Preferencias del jugador (nombre) — compartidas con los otros juegos del sitio
 const PREFS_KEY_ARCADIA = 'olla_prefs_v1';
 function ollaPrefsArcade() { try { return JSON.parse(localStorage.getItem(PREFS_KEY_ARCADIA) || '{}'); } catch (e) { return {}; } }
-function savePrefArcade(name, sound) { try { const p = ollaPrefsArcade(); if (name) p.name = name; if (sound !== undefined) p.sound = sound; localStorage.setItem(PREFS_KEY_ARCADIA, JSON.stringify(p)); } catch (e) {} }
+function savePrefArcade(name, sound, extra) { try { const p = ollaPrefsArcade(); if (name) p.name = name; if (sound !== undefined) p.sound = sound; if (extra) Object.assign(p, extra); localStorage.setItem(PREFS_KEY_ARCADIA, JSON.stringify(p)); } catch (e) {} }
 
 function updateArcadeBest() {
     const node = document.getElementById('arcadeBest');
@@ -1201,6 +1253,12 @@ function gameOver() {
     finalScoreDisplay.innerText = state.score;
     
     updateArcadeBest();
+    try {
+        logros.set('puntos1k', state.score); logros.set('puntos5k', state.score);
+        logros.set('nivel5', state.level); logros.set('nivel10', state.level);
+        if (state.lives === CONFIG.MAX_LIVES) logros.check('sinfallo');
+        if (state.zenMode) logros.check('zenpartida');
+    } catch (e) {}
     submitScoreBtn.disabled = false;
     submitScoreBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     document.getElementById('submitMsg').innerText = "";
@@ -1311,6 +1369,17 @@ document.getElementById('closeInstructionsBtnBottom').addEventListener('click', 
 
 document.getElementById('restartBtn').addEventListener('click', () => startGame(state.difficulty));
 document.getElementById('resumeBtn').addEventListener('click', togglePause);
+// Modo ZEN del arcade
+const zenArcade = document.getElementById('zenCheckArcade');
+if (zenArcade) {
+    try { const pr = ollaPrefsArcade(); if (pr.zenArcade) { zenArcade.checked = true; ZEN_ARCADE = true; state.zenMode = true; } } catch (e) {}
+    zenArcade.addEventListener('change', () => {
+        ZEN_ARCADE = zenArcade.checked;
+        state.zenMode = ZEN_ARCADE;
+        try { savePrefArcade(undefined, undefined, { zenArcade: state.zenMode }); } catch (e) {}
+        if (state.zenMode) AudioEngine.playTone('zen');
+    });
+}
 // botón de pausa explícito (antes solo se pausaba tocando el HUD: poco claro)
 const pauseBtnEl = document.getElementById('pauseBtn');
 if (pauseBtnEl) pauseBtnEl.addEventListener('click', (e) => { e.stopPropagation(); togglePause(); });
@@ -1319,6 +1388,7 @@ document.getElementById('hud').addEventListener('click', (e) => {
 });
 
 // Ranking Screen Logic
+document.getElementById('btnLogrosArcade').addEventListener('click', () => { try { logros.panel(); } catch (e) {} });
 document.getElementById('rankingBtn').addEventListener('click', () => {
     rankingScreen.classList.remove('hidden');
     loadLeaderboard('easy', fullLeaderboardBody); // Default view

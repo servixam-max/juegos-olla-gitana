@@ -169,6 +169,7 @@ function actions(state) {
 function startGame(diff) {
   difficulty = diff || difficulty;
   running = true; paused = false; busy = false; handResolved = false;
+  try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
   lives = 3; points = 0; level = 1; streak = 0; maxStreak = 0; handsWon = 0; handsPlayed = 0;
   hide(el('startScreen')); hide(el('endScreen')); hide(el('pauseScreen')); hide(el('rankScreen'));
   show(el('hud')); show(el('table'));
@@ -292,11 +293,12 @@ function settle() {
 
   if (won) {
     streak++; maxStreak = Math.max(maxStreak, streak); handsWon++;
+    try { logros.set('combo10', streak); logros.set('combo25', streak); if (doubled) logros.check('doblar'); } catch (e) {}
     const exact = pt === TARGET;
     const baseGain = (100 + Math.round(pt * 40) + (exact ? 300 : 0)) * mult();
     const gain = doubled ? baseGain * 2 : baseGain;
     points += gain;
-    if (exact) { say(`¡SIETE Y MEDIA! +${gain}${doubled ? ' 💰x2' : ''} 🎉`, true); sfxLevel(); }
+    if (exact) { say(`¡SIETE Y MEDIA! +${gain}${doubled ? ' 💰x2' : ''} 🎉`, true); sfxLevel(); try { logros.check('sieteymedia'); } catch (e) {} }
     else { say(`${PHRASES_WIN[Math.floor(Math.random() * PHRASES_WIN.length)]} +${gain}${doubled ? ' 💰x2' : ''}`, true); beep(988, 0.09, 0.09); setTimeout(() => beep(1319, 0.11, 0.08), 90); }
     const nextLevel = Math.floor(points / 500) + 1;
     if (nextLevel > level) {
@@ -334,6 +336,11 @@ function gameOver() {
   el('endHands').textContent = handsWon;
   el('endStreak').textContent = maxStreak;
   el('endLevel').textContent = level;
+  try {
+    logros.set('puntos1k', points); logros.set('puntos5k', points);
+    logros.set('nivel5', level); logros.set('nivel10', level);
+    if (lives === 3) logros.check('sinfallo');
+  } catch (e) {}
   // ¿récord nuevo?
   try {
     const best = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0);
@@ -461,6 +468,7 @@ el('btnSound').addEventListener('click', () => {
   if (music) music.muted = !soundOn;
   toast(soundOn ? 'Sonido ON' : 'Sonido OFF', 1000);
 });
+el('btnLogros').addEventListener('click', () => { try { logros.panel(); } catch (e) {} });
 el('btnRanking').addEventListener('click', () => {
   rankDiff = difficulty;
   [...el('rankTabs').children].forEach(c => c.classList.toggle('active', c.dataset.diff === rankDiff));

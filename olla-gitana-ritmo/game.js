@@ -211,6 +211,7 @@ function startGame(diff) {
   popups = []; shake = 0; laneFlash = [0, 0, 0, 0]; particles = []; judgePulse = 0;
   bgIndex = -1; lastBgChange = -1;
   running = true; paused = false; finished = false;
+  try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
   el('endScreen').classList.add('hidden');
   hide(el('startScreen')); show(el('hud'));
   ensureMusic();
@@ -238,6 +239,15 @@ function endGame(timedOut) {
   el('endCombo').textContent = 'x' + maxCombo;
   el('endAcc').textContent = acc + '%';
   el('endPerfect').textContent = perfect;
+  try {
+    logros.set('puntos1k', score); logros.set('puntos5k', score); logros.set('combo10', maxCombo); logros.set('combo25', maxCombo);
+    logros.count('items50', hitsCount);                       // cada nota acertada cuenta como ingrediente
+    logros.set('nivel5', Math.floor(score / 1000) + 1);       // nivel aproximado por puntos
+    logros.set('nivel10', Math.floor(score / 1000) + 1);
+    if (zenMode) logros.check('zenpartida');
+    if (miss === 0 && hitsCount > 50) logros.check('perfecto');
+    if (lives === cfg.lives && !zenMode && timedOut) logros.check('sinfallo');
+  } catch (e) {}
   // ¿récord nuevo? (antes de guardar, comparamos con el mejor local)
   try {
     const best = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0);
@@ -331,9 +341,10 @@ function pressLane(i, x, y) {
       const base = best.kind === 'zarangollo' ? 50 : (isPerfect ? 20 : 12);
       if (isPerfect) { perfect++; } else { good++; }
       combo++; maxCombo = Math.max(maxCombo, combo);
+      try { logros.set('combo10', combo); logros.set('combo25', combo); } catch (e) {}
       mult = combo >= 40 ? 4 : combo >= 25 ? 3 : combo >= 12 ? 2 : 1;
       score += base * mult;
-      if (best.kind === 'zarangollo') { beep(1318, 0.10, 0.10); beep(1760, 0.13, 0.07); }
+      if (best.kind === 'zarangollo') { beep(1318, 0.10, 0.10); beep(1760, 0.13, 0.07); try { logros.count('zarangollo10'); } catch (e) {} }
       else beep(isPerfect ? 1046 : 880);
       spark(x || laneCenter(i), (y || judgeY) - 6, isPerfect ? '#fde047' : '#a7f3d0', isPerfect ? 12 : 7);
       judgePulse = 1;
@@ -473,6 +484,7 @@ el('rankTabs').addEventListener('click', e => {
   [...el('rankTabs').children].forEach(c => c.classList.toggle('active', c === b));
   renderRanking(rankDiff);
 });
+el('btnLogros').addEventListener('click', () => { try { logros.panel(); } catch (e) {} });
 el('btnRanking').addEventListener('click', () => { rankDiff = difficulty; [...el('rankTabs').children].forEach(c => c.classList.toggle('active', c.dataset.diff === rankDiff)); renderRanking(rankDiff); show(el('rankScreen')); });
 el('btnCloseRank').addEventListener('click', () => hide(el('rankScreen')));
 el('btnSaveScore').addEventListener('click', async () => {

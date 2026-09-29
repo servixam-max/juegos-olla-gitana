@@ -79,7 +79,13 @@
                 ¡JUGAR!
             </button>
 
-             <!-- Récord personal -->
+             <!-- Modo ZEN -->
+            <label id="zenLabelArcade" class="flex items-center justify-center gap-2 mb-1 text-emerald-200 font-bold text-base cursor-pointer select-none">
+                <input type="checkbox" id="zenCheckArcade" class="w-5 h-5 accent-emerald-400">
+                🧘 Modo ZEN <span class="text-xs font-semibold text-white/60">sin porquerías, para disfrutar</span>
+            </label>
+
+            <!-- Récord personal -->
             <p id="arcadeBest" class="font-game text-yellow-300 text-lg drop-shadow-[0_2px_0_rgba(0,0,0,0.6)] -mt-2"></p>
 
             <!-- Start Screen Music Toggle -->
@@ -93,6 +99,7 @@
             <span class="text-6xl drop-shadow-lg filter drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">🏆</span>
             <span class="font-game text-white text-xl border-2 border-white bg-black/50 px-2 rounded-full -mt-2 group-hover:bg-yellow-500 group-hover:text-black transition-colors">RANKING</span>
         </button>
+        <button id="btnLogrosArcade" class="bg-purple-600 hover:bg-purple-500 text-white font-game text-xl py-2 px-8 rounded-full border-4 border-white shadow-[0_4px_0_#6b21a8] active:translate-y-1 active:shadow-none transition-all mt-2">🏅 LOGROS</button>
         
         <p class="mt-auto mb-4 text-yellow-300 font-bold text-lg animate-pulse drop-shadow-md pt-4">🔊 ¡Sound ON para disfrutar a tope! 🔊</p>
         <p class="text-xs text-white/80 font-bold drop-shadow-md pb-4">Versión Canalla 1.3 - Hecho en Murcia</p>
@@ -256,6 +263,7 @@
     <!-- Background Music -->
     <audio id="bgMusic" loop src="music.mp3" preload="auto"></audio>
 
-    <script src="script.js"></script>
+    <script src="../logros.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
