@@ -1,6 +1,9 @@
-/* Olla Gitana: Las Burbujas — estilo Super Pang.
-   Servidor autoritativo (salas.py, juego "pang"); aquí se pinta y se mandan inputs.
-   Modo solo para 1 jugador: se conecta igual (sala propia) y el servidor simula. */
+/* Olla Gitana: Las Burbujas — estilo Super Pang (rediseño visual 2026-09)
+   - El mundo LLENA la pantalla (800 de ancho; alto proporcional al móvil).
+   - Fondos de Murcia de la banda (seleccionables) + decorado de cocina.
+   - Física clásica: las burbujas CAEN y REBOTAN en el suelo (servidor).
+   - Modos: solo / contra la máquina / con un amigo (sala con código).
+   Servidor autoritativo: salas.py (juego "pang"). */
 'use strict';
 
 const el = id => document.getElementById(id);
@@ -20,10 +23,15 @@ const WS_BASE = (function () {
 const PHRASES_WIN = ['¡Toma ya!', '¡Ole tu pijo!', '¡Zarangollo!', '¡Vaya tela!'];
 const PHRASES_LOSE = ['¡Arrea!', '¡Menudo pijo!', '¡Ojú!', '¡Cagüen la mar!'];
 
+/* Fondos de Murcia reutilizados (mismos que el runner/ritmo) */
+const FONDOS = Array.from({ length: 14 }, (_, i) => `../olla-gitana-runner/assets/bg_${i + 1}.jpg`);
+
 let ws = null, mySlot = 0, roomCode = '', myName = '';
 let jugando = false, estado = null, finMostrado = false;
 let soundOn = true, beepCtx = null, connected = false, rivalNombre = '';
 let input = { dir: 0 };
+let fondoImg = null, fondoIdx = 11, fondoListo = false;   // por defecto, la huerta
+let particulas = [], miX = 400, ultimoN = 0;
 
 /* ---------------- Audio ---------------- */
 function beep(freq = 880, dur = 0.07, vol = 0.09, type = 'triangle') {
@@ -38,17 +46,50 @@ function beep(freq = 880, dur = 0.07, vol = 0.09, type = 'triangle') {
   } catch (e) {}
 }
 function sfxHit() { if (!soundOn) return; try { const a = new Audio('../olla-gitana/hit.mp3'); a.volume = .8; a.play().catch(() => {}); } catch (e) {} }
+function sfxPop() { beep(880, 0.09, 0.10, 'sine'); setTimeout(() => beep(1320, 0.07, 0.07, 'sine'), 45); }
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function guardarNombre(n) { try { const p = JSON.parse(localStorage.getItem('olla_prefs_v1') || '{}'); if (n) p.name = n; localStorage.setItem('olla_prefs_v1', JSON.stringify(p)); } catch (e) {} }
-function leerNombre() { try { return JSON.parse(localStorage.getItem('olla_prefs_v1') || '{}').name || ''; } catch (e) { return ''; } }
+function prefs() { try { return JSON.parse(localStorage.getItem('olla_prefs_v1') || '{}'); } catch (e) { return {}; } }
+function setPrefs(o) { try { localStorage.setItem('olla_prefs_v1', JSON.stringify(Object.assign(prefs(), o))); } catch (e) {} }
+function guardarNombre(n) { if (n) setPrefs({ name: n }); }
+function leerNombre() { return prefs().name || ''; }
+function leerEscenario() { const f = prefs().fondo; return typeof f === 'number' ? f : 11; }
+
+/* ---------------- Fondo ---------------- */
+function cargarFondo(i) {
+  fondoIdx = ((i % FONDOS.length) + FONDOS.length) % FONDOS.length;
+  const img = new Image();
+  img.onload = () => { fondoImg = img; fondoListo = true; };
+  img.src = FONDOS[fondoIdx];
+}
+function pintarSelectorFondos() {
+  const cont = el('fondoRow');
+  if (!cont) return;
+  cont.innerHTML = FONDOS.map((f, i) =>
+    `<button class="fondoBtn ${i === fondoIdx ? 'on' : ''}" data-i="${i}" aria-label="Escenario ${i + 1}"></button>`
+  ).join('');
+  // miniatura por CSS (background-image en style para que no lo bloquee el CSP)
+  cont.querySelectorAll('.fondoBtn').forEach(b => {
+    b.style.backgroundImage = `url('${FONDOS[+b.dataset.i]}')`;
+    b.addEventListener('click', () => {
+      cargarFondo(+b.dataset.i);
+      setPrefs({ fondo: +b.dataset.i });
+      cont.querySelectorAll('.fondoBtn').forEach(x => x.classList.toggle('on', x === b));
+      beep(880, .06, .07);
+    });
+  });
+}
 
 /* ---------------- WebSocket ---------------- */
-function conectar(room, name) {
+function conectar(room, name, conBot) {
   try { ws && ws.close(); } catch (e) {}
   ws = new WebSocket(WS_BASE);
-  ws.onopen = () => { connected = true; ws.send(JSON.stringify({ t: 'join', room: room || '', game: GAME, name })); };
+  ws.onopen = () => {
+    connected = true;
+    ws.send(JSON.stringify({ t: 'join', room: room || '', game: GAME, name,
+                             bot: !!conBot, vw: window.innerWidth, vh: window.innerHeight }));
+  };
   ws.onclose = () => { connected = false; };
   ws.onmessage = ev => {
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
@@ -58,14 +99,29 @@ function conectar(room, name) {
       pintarLobby(m.players);
       hide(el('startScreen')); show(el('lobbyScreen'));
       guardarNombre(myName);
+      el('btnCopy').style.display = conBot ? 'none' : '';
     } else if (m.t === 'joined') {
       pintarLobby(m.players);
+      // contra la máquina: arranca solo (el bot ya está listo)
+      if (conBot && !jugando) {
+        ws.send(JSON.stringify({ t: 'ready', v: true }));
+        setTimeout(() => { try { ws.send(JSON.stringify({ t: 'startgame' })); } catch (e) {} }, 250);
+      }
     } else if (m.t === 'left') {
-      pintarLobby(m.players);
-      toast('Tu rival se fue, sigues tú solo');
+      pintarLobby(m.players); toast('Tu rival se fue, sigues tú solo');
+    } else if (m.t === 'start') {
+      empezar();
     } else if (m.t === 'state') {
-      // el servidor arranca cuando el jugador pulsa empezar (fase play)
       if (m.fase === 'play' && !jugando) empezar();
+      // reventón: efecto de anillo + sonido
+      if (estado && estado.b && m.b && m.b.length < estado.b.length) {
+        sfxPop();
+        const perdidas = Math.min(3, estado.b.length - m.b.length);
+        for (let i = 0; i < perdidas; i++) {
+          const b = estado.b[i] || { x: 400, y: 400, r: 40 };
+          particulas.push({ x: b.x, y: b.y, r: b.r, t: 0 });
+        }
+      }
       estado = m;
       if (m.fase === 'over' && m.res && !finMostrado) terminar(m.res);
     } else if (m.t === 'error') {
@@ -80,21 +136,24 @@ function pintarLobby(players) {
   const porSlot = s => players.find(p => p.slot === s);
   const pinta = (node, p, soy) => {
     if (!p) { node.innerHTML = '<span class="ico">⏳</span><b class="nm">Esperando…</b>'; node.className = 'playerSlot'; return; }
-    node.className = 'playerSlot ' + (soy ? 'me' : 'rival');
-    node.innerHTML = `<span class="ico">🥘</span><b class="nm">${esc(p.name)}${soy ? ' (tú)' : ''}</b><span class="st">${p.score || 0} pts</span>`;
+    node.className = 'playerSlot ' + (soy ? 'me' : (p.bot ? 'bot' : 'rival'));
+    node.innerHTML = `<span class="ico">${p.bot ? '🤖' : '🥘'}</span><b class="nm">${esc(p.name)}${soy ? ' (tú)' : ''}</b><span class="st">${p.score || 0} pts</span>`;
   };
   pinta(el('slot0'), porSlot(0), porSlot(0) && porSlot(0).slot === mySlot);
   pinta(el('slot1'), porSlot(1), porSlot(1) && porSlot(1).slot === mySlot);
   rivalNombre = (players.find(p => p.slot !== mySlot) || {}).name || '';
   el('nameMe').textContent = myName || 'Tú';
   el('nameRival').textContent = rivalNombre || 'Rival';
-  el('lobbyMsg').textContent = players.length < 2
-    ? 'Puedes empezar tú solo y esperar a que entre alguien…'
-    : '¡Los dos dentro! Dale a empezar cuando quieras.';
+  const hay2 = players.length >= 2;
+  const esBot = players.some(p => p.bot);
+  el('lobbyMsg').textContent = esBot ? 'Jugando contra la máquina 🤖 ¡dale a empezar!'
+    : hay2 ? '¡Los dos dentro! Dale a empezar cuando quieras.'
+    : 'Puedes empezar tú solo y esperar a que entre alguien…';
+  el('btnStart').textContent = esBot ? '▶ ¡JUGAR CONTRA LA MÁQUINA!' : '▶ ¡EMPEZAR!';
 }
 
 function empezar() {
-  jugando = true; finMostrado = false;
+  jugando = true; finMostrado = false; particulas = [];
   hide(el('lobbyScreen')); hide(el('startScreen')); hide(el('endScreen'));
   show(el('hud')); show(el('controls'));
   toast('¡A reventar burbujas! 🫧');
@@ -109,7 +168,9 @@ function terminar(res) {
   const empate = sc[0] === sc[1];
   const gane = !empate && res.ganador === mySlot;
   el('endTitle').textContent = empate ? '¡EMPATE!' : (gane ? '¡HAS GANAO! 🏆' : '¡TE HAN GANAO!');
-  el('endPhrase').textContent = empate ? '¡Menudo empate, zagal!' : (gane ? PHRASES_WIN[(Math.random() * PHRASES_WIN.length) | 0] : PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0]);
+  try { el('endPhrase').dataset.nivel = (estado && estado.nivel) || 1; } catch (e) {}
+  const niv = (estado && estado.nivel) || 1;
+  el('endPhrase').textContent = (empate ? '¡Menudo empate, zagal!' : (gane ? PHRASES_WIN[(Math.random() * PHRASES_WIN.length) | 0] : PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0])) + ` · nivel ${niv}`;
   el('endMe').textContent = sc[mySlot] ?? 0;
   el('endRival').textContent = sc[1 - mySlot] ?? 0;
   show(el('endScreen'));
@@ -119,7 +180,9 @@ function terminar(res) {
 
 /* ---------------- Dibujo ---------------- */
 const canvas = el('stage'), ctx = canvas.getContext('2d');
-let W = 0, H = 0, DPR = 1, scale = 1, offX = 0, offY = 0;
+let W = 0, H = 0, DPR = 1, scale = 1, offY = 0;
+let GW = 800, GH = 1776;
+
 function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   W = window.innerWidth; H = window.innerHeight;
@@ -127,23 +190,16 @@ function resize() {
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
-window.addEventListener('resize', resize); resize();
+window.addEventListener('resize', () => { resize(); if (estado && estado.W) { GW = estado.W; GH = estado.H; } });
+resize();
 
-const GW = 800, GH = 420;
-let lastFrame = performance.now(), ultimoEnvio = 0, miX = GW / 2, arpLocal = [];
-let ultimoScore = [0, 0];
+let lastFrame = performance.now();
 
 function loop(now) {
   const dt = clamp((now - lastFrame) / 1000, 0, 0.05); lastFrame = now;
-
-  // mover al jugador local (predicción suave)
-  if (jugando) {
-    miX = clamp(miX + input.dir * 340 * dt, 24, GW - 24);
-    if (ws && ws.readyState === 1 && now - ultimoEnvio > 60) {
-      ultimoEnvio = now;
-      // mandar movimiento + disparo (el disparo va por evento aparte)
-    }
-  }
+  if (jugando) miX = clamp(miX + input.dir * 460 * dt, 26, GW - 26);
+  for (const p of particulas) p.t += dt;
+  particulas = particulas.filter(p => p.t < 0.5);
   dibujar();
   requestAnimationFrame(loop);
 }
@@ -152,91 +208,173 @@ function disparar() {
   if (!jugando || !ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify({ t: 'shoot', x: miX }));
   beep(520, .07, .08, 'sawtooth');
-  arpLocal.push({ x: miX, y: GH, t: performance.now() });
 }
 
 function dibujar() {
   ctx.clearRect(0, 0, W, H);
-  scale = Math.min(W / GW, H / GH); offX = (W - GW * scale) / 2; offY = (H - GH * scale) / 2;
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#0d1a26'); g.addColorStop(.6, '#12202e'); g.addColorStop(1, '#070d13');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (estado && estado.W) { GW = estado.W; GH = estado.H; }
+  // el mundo ocupa TODO el ancho y el alto que haga falta: llena la pantalla
+  scale = W / GW;
+  const altoMundo = GH * scale;
+  offY = H - altoMundo;                  // alineado ABAJO (el suelo siempre visible)
+  if (offY > 0) offY = 0;
 
-  ctx.save(); ctx.translate(offX, offY); ctx.scale(scale, scale);
-  ctx.fillStyle = 'rgba(125,211,252,.05)'; ctx.fillRect(0, 0, GW, GH);
-  ctx.strokeStyle = 'rgba(125,211,252,.3)'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, GW, GH);
+  // ---------- fondo de Murcia ----------
+  if (fondoListo && fondoImg) {
+    const es = Math.max(W / fondoImg.width, H / fondoImg.height) * 1.05;
+    const dw = fondoImg.width * es, dh = fondoImg.height * es;
+    ctx.globalAlpha = 0.62;
+    ctx.drawImage(fondoImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    ctx.globalAlpha = 1;
+  }
+  const vg = ctx.createLinearGradient(0, 0, 0, H);
+  vg.addColorStop(0, 'rgba(6,12,22,.78)');
+  vg.addColorStop(.45, 'rgba(6,12,22,.42)');
+  vg.addColorStop(1, 'rgba(4,8,16,.85)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(0, offY); ctx.scale(scale, scale);
 
   const e = estado;
-  const suelo = GH - 40;
-  // suelo
-  ctx.fillStyle = 'rgba(8,16,24,.92)'; ctx.fillRect(0, suelo, GW, GH - suelo);
-  ctx.strokeStyle = 'rgba(125,211,252,.55)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(0, suelo); ctx.lineTo(GW, suelo); ctx.stroke();
+  const gy = GH - 96;                    // línea del suelo
 
-  // burbujas (el servidor manda su estado)
+  // ---------- decorado ----------
+  // estantes de cocina
+  ctx.strokeStyle = 'rgba(125,211,252,.10)'; ctx.lineWidth = 2;
+  for (let y = 90; y < gy - 40; y += 150) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(GW, y); ctx.stroke();
+  }
+  // ---------- LADRILLOS (las burbujas rebotan en ellos) ----------
+  if (e && e.ladrillos) {
+    for (const L of e.ladrillos) {
+      ctx.fillStyle = 'rgba(0,0,0,.45)';
+      ctx.fillRect(L.x + 5, L.y + 7, L.w, L.h);
+      const gl = ctx.createLinearGradient(L.x, L.y, L.x, L.y + L.h);
+      gl.addColorStop(0, '#b06a30'); gl.addColorStop(1, '#7c4519');
+      ctx.fillStyle = gl; ctx.fillRect(L.x, L.y, L.w, L.h);
+      ctx.strokeStyle = 'rgba(250,204,21,.5)'; ctx.lineWidth = 3;
+      ctx.strokeRect(L.x, L.y, L.w, L.h);
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2;
+      for (let yy = L.y + 15; yy < L.y + L.h - 3; yy += 15) {
+        ctx.beginPath(); ctx.moveTo(L.x + 3, yy); ctx.lineTo(L.x + L.w - 3, yy); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(L.x + L.w / 2, L.y + 3); ctx.lineTo(L.x + L.w / 2, L.y + L.h - 3); ctx.stroke();
+    }
+  }
+  // suelo de cocina (baldosas)
+  const gs = ctx.createLinearGradient(0, gy, 0, GH);
+  gs.addColorStop(0, 'rgba(30,48,66,.94)'); gs.addColorStop(1, 'rgba(14,24,36,.98)');
+  ctx.fillStyle = gs; ctx.fillRect(0, gy, GW, GH - gy);
+  ctx.strokeStyle = 'rgba(125,211,252,.7)'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(GW, gy); ctx.stroke();
+  ctx.strokeStyle = 'rgba(125,211,252,.14)'; ctx.lineWidth = 2;
+  for (let x = -40; x < GW + 80; x += 90) {
+    ctx.beginPath(); ctx.moveTo(x + 40, gy); ctx.lineTo(x, GH); ctx.stroke();
+  }
+
+  // ---------- burbujas ----------
   if (e && e.b) {
     for (const b of e.b) {
       const r = b.r;
-      // brillo
-      const grad = ctx.createRadialGradient(b.x - r * .3, b.y - r * .35, r * .1, b.x, b.y, r);
-      grad.addColorStop(0, 'rgba(255,255,255,.95)');
-      grad.addColorStop(.35, b.r > 40 ? 'rgba(96,165,250,.85)' : b.r > 30 ? 'rgba(52,211,153,.85)' : 'rgba(250,204,21,.9)');
-      grad.addColorStop(1, 'rgba(30,64,175,.75)');
-      ctx.fillStyle = grad;
+      // sombra proyectada en el suelo (más pequeña cuanto más alta)
+      const altura = clamp(1 - (b.y / Math.max(1, gy)), 0, 1);
+      ctx.fillStyle = `rgba(0,0,0,${0.34 * (1 - altura * 0.55)})`;
+      ctx.beginPath(); ctx.ellipse(b.x, gy + 6, r * 0.85 * (1 - altura * 0.35), r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+      // cuerpo con brillo irisado
+      const col = r >= 50 ? '253,224,71' : r >= 36 ? '110,231,183' : '147,197,253';
+      const gb = ctx.createRadialGradient(b.x - r * .33, b.y - r * .38, r * .06, b.x, b.y, r);
+      gb.addColorStop(0, 'rgba(255,255,255,.99)');
+      gb.addColorStop(.30, `rgba(${col},.95)`);
+      gb.addColorStop(.78, `rgba(${col},.72)`);
+      gb.addColorStop(1, 'rgba(10,26,48,.6)');
+      ctx.fillStyle = gb;
       ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2.5; ctx.stroke();
-      // puntitos de puntos que vale
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 3.5; ctx.stroke();
+      // reflejo
+      ctx.fillStyle = 'rgba(255,255,255,.8)';
+      ctx.beginPath(); ctx.ellipse(b.x - r * .34, b.y - r * .4, r * .26, r * .15, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.45)';
+      ctx.beginPath(); ctx.arc(b.x + r * .3, b.y + r * .34, r * .12, 0, Math.PI * 2); ctx.fill();
+      // puntos que vale
       ctx.font = `900 ${Math.round(r * .5)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(0,0,0,.55)';
-      ctx.fillText(String({ 46: 30, 34: 50, 23: 70 }[r] || 30), b.x, b.y);
+      ctx.fillStyle = 'rgba(0,0,0,.45)';
+      ctx.fillText(String({ 54: 30, 40: 50, 28: 70 }[r] || 30), b.x, b.y + 1);
     }
   }
-  // arpones del servidor
+
+  // ---------- anillos de reventón ----------
+  for (const p of particulas) {
+    const k = p.t / 0.5;
+    ctx.globalAlpha = (1 - k) * 0.9;
+    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 + k * 1.8), 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(125,211,252,.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 + k * 1.2), 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- arpones ----------
   if (e && e.arp) {
     for (const a of e.arp) {
-      ctx.strokeStyle = a.slot === mySlot ? '#a7f3d0' : '#fde68a';
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x, a.y + 26); ctx.stroke();
-      ctx.fillStyle = a.slot === mySlot ? '#a7f3d0' : '#fde68a';
-      ctx.beginPath(); ctx.moveTo(a.x, a.y - 8); ctx.lineTo(a.x - 8, a.y + 8); ctx.lineTo(a.x + 8, a.y + 8); ctx.closePath(); ctx.fill();
+      const mio = a.slot === mySlot;
+      // cuerda hasta el suelo
+      ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y + 44); ctx.lineTo(a.x, gy - 30); ctx.stroke();
+      // lanza
+      ctx.strokeStyle = mio ? 'rgba(167,243,208,.95)' : 'rgba(253,230,138,.95)';
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x, a.y + 44); ctx.stroke();
+      ctx.fillStyle = mio ? '#a7f3d0' : '#fde68a';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y - 16); ctx.lineTo(a.x - 12, a.y + 10); ctx.lineTo(a.x + 12, a.y + 10); ctx.closePath(); ctx.fill();
     }
   }
 
-  // jugador local (la olla con el arpón)
-  dibujarOlla(miX, suelo, true, myName || 'Tú');
-  // rival
-  if (e && e.score && rivalNombre) {
-    // el rival se dibuja en su lado: no tenemos su x (juego cooperativo/versus por puntos)
-    dibujarOlla(GW - 70, suelo, false, rivalNombre);
-  }
+  // ---------- jugadores ----------
+  dibujarOlla(miX, gy, true, myName || 'Tú');
+  if (e && e.botx != null) dibujarOlla(e.botx, gy, false, rivalNombre || 'Máquina');
 
-  // marcador en el centro
-  if (e && e.score) {
-    ctx.font = '900 22px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(GW / 2 - 90, 12, 180, 34);
-    ctx.fillStyle = '#bbf7d0'; ctx.fillText(`${e.score[mySlot] ?? 0}`, GW / 2 - 30, 18);
-    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText('·', GW / 2, 18);
-    ctx.fillStyle = '#fde68a'; ctx.fillText(`${e.score[1 - mySlot] ?? 0}`, GW / 2 + 30, 18);
-  }
   ctx.restore();
+
+  // ---------- marcador flotante ----------
+  if (e && e.score) {
+    const boxW = Math.min(W * .66, 340), bx = (W - boxW) / 2, by = 12;
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 52, 26); else ctx.rect(bx, by, boxW, 52);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 24px system-ui';
+    ctx.fillStyle = '#bbf7d0'; ctx.fillText(`${e.score[mySlot] ?? 0}`, bx + boxW * .26, by + 20);
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = '800 14px system-ui';
+    ctx.fillText('VS', bx + boxW * .5, by + 20);
+    ctx.fillStyle = '#fde68a'; ctx.font = '900 24px system-ui';
+    ctx.fillText(`${e.score[1 - mySlot] ?? 0}`, bx + boxW * .74, by + 20);
+    ctx.font = '800 12px system-ui'; ctx.fillStyle = '#fde68a';
+    ctx.fillText(`NIVEL ${e.nivel || 1}`, bx + boxW * .5, by + 41);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '700 11px system-ui';
+    ctx.fillText('🫧'.repeat(Math.min(8, (e.b || []).length)), bx + boxW * .5, by + 55);
+  }
 }
 
-function dibujarOlla(x, suelo, soy, nombre) {
-  ctx.fillStyle = 'rgba(0,0,0,.4)';
-  ctx.beginPath(); ctx.ellipse(x, suelo + 3, 24, 7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.font = '900 13px system-ui'; ctx.textAlign = 'center';
+function dibujarOlla(x, gy, soy, nombre) {
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.beginPath(); ctx.ellipse(x, gy + 6, 32, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.font = '900 16px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = soy ? '#86efac' : '#fde68a';
-  ctx.fillText(nombre, x, suelo - 56);
-  ctx.font = '48px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('🥘', x, suelo - 26);
-  ctx.font = '24px system-ui';
-  ctx.fillText('🔱', x, suelo - 52);
+  ctx.fillText(nombre, x, gy - 84);
+  ctx.font = '62px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(soy ? '🥘' : '🍳', x, gy - 42);
+  ctx.font = '28px system-ui';
+  ctx.fillText('🔱', x, gy - 78);
 }
 
 /* ---------------- Controles ---------------- */
 function setInput(k, v) { input[k] = v; }
 function bindHold(id, on, off) {
   const n = el(id);
+  if (!n) return;
   const down = e => { e.preventDefault(); n.classList.add('on'); on(); };
   const up = () => { n.classList.remove('on'); off && off(); };
   n.addEventListener('pointerdown', down);
@@ -271,28 +409,30 @@ if (nombreGuardado) el('inputName').value = nombreGuardado;
 
 el('btnCreate').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar('', myName);
+  conectar('', myName, false);
+});
+el('btnBot').addEventListener('click', () => {
+  myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
+  conectar('', myName, true);
 });
 el('btnSolo').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar('SOLO', myName);   // sala privada de práctica
+  conectar('SOLO', myName, false);      // sala privada de práctica (sin rival)
 });
 el('btnJoin').addEventListener('click', () => {
   const code = (el('inputCode').value.trim() || '').toUpperCase();
   if (!code) { toast('Escribe el código'); return; }
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar(code, myName);
+  conectar(code, myName, false);
 });
 el('btnStart').addEventListener('click', () => {
   if (!ws || ws.readyState !== 1) return;
-  // arrancar en el servidor: pedimos empezar (fase play) vía ready
   ws.send(JSON.stringify({ t: 'ready', v: true }));
   ws.send(JSON.stringify({ t: 'startgame' }));
-  empezar();
 });
 el('btnLeave').addEventListener('click', salir);
 el('btnMenu').addEventListener('click', salir);
-el('btnAgain').addEventListener('click', () => { hide(el('endScreen')); show(el('lobbyScreen')); });
+el('btnAgain').addEventListener('click', () => { hide(el('endScreen')); salir(); });
 el('btnEndMenu').addEventListener('click', salir);
 el('btnCopy').addEventListener('click', async () => {
   const txt = `¡Vaya reto de burbujas en los juegos de Olla Gitana! 🫧🥘\nEntra con el código: ${roomCode}\n${location.origin}/champi/olla-gitana-burbujas/`;
@@ -307,12 +447,16 @@ el('btnCloseHow2').addEventListener('click', () => hide(el('howModal')));
 function salir() {
   try { ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: 'leave' })); } catch (e) {}
   try { ws && ws.close(); } catch (e) {}
-  jugando = false; estado = null; finMostrado = false; arpLocal = [];
+  jugando = false; estado = null; finMostrado = false; particulas = [];
   hide(el('lobbyScreen')); hide(el('endScreen')); hide(el('hud')); hide(el('controls'));
   show(el('startScreen'));
+  pintarSelectorFondos();
 }
 
-resize();
+cargarFondo(leerEscenario());
+pintarSelectorFondos();
 requestAnimationFrame(loop);
-window.__burbujasState = () => ({ conectado: connected, slot: mySlot, sala: roomCode, jugando, finMostrado, rival: rivalNombre,
-  score: estado ? estado.score : null, burbujas: estado && estado.b ? estado.b.length : 0, miX: Math.round(miX) });
+window.__burbujasState = () => ({ conectado: connected, slot: mySlot, sala: roomCode, jugando, finMostrado,
+  rival: rivalNombre, score: estado ? estado.score : null,
+  burbujas: estado && estado.b ? estado.b.length : 0, miX: Math.round(miX),
+  mundo: estado ? [estado.W, estado.H] : null, fondo: fondoIdx, fondoListo });

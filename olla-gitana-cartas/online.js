@@ -40,7 +40,8 @@
           <div id="nameRowOnline" style="display:flex;gap:8px;margin-bottom:10px">
             <input id="onlineName" maxlength="14" placeholder="Tu mote" style="flex:1;padding:13px 14px;border-radius:12px;border:2px solid #d6d3d1;font-size:16px;min-width:0;user-select:text">
           </div>
-          <button id="btnCrearSala" class="btn btn-play">🏠 Crear sala</button>
+          <button id="btnMaquina" class="btn btn-play">🤖 Jugar contra la máquina</button>
+          <button id="btnCrearSala" class="btn btn-call">🏠 Crear sala (con un amigo)</button>
           <div style="display:flex;gap:8px;margin:10px 0">
             <input id="onlineCode" maxlength="6" placeholder="CÓDIGO" style="flex:1;padding:13px;border-radius:12px;border:2px solid #d6d3d1;font-size:16px;text-align:center;letter-spacing:.15em;text-transform:uppercase;min-width:0;user-select:text">
             <button id="btnEntrarSala" class="btn btn-call small">🔑 Entrar</button>
@@ -96,7 +97,8 @@
   function bindEventos() {
     el('btnOnline').addEventListener('click', () => { showe('salaScreen'); });
     el('btnCerrarSala').addEventListener('click', () => { cerrarTodo(); });
-    el('btnCrearSala').addEventListener('click', () => conectar(''));
+    el('btnCrearSala').addEventListener('click', () => conectar('', false));
+    el('btnMaquina').addEventListener('click', () => { conBotNow = true; conectar('', true); });
     el('btnEntrarSala').addEventListener('click', () => {
       const c = (el('onlineCode').value || '').trim().toUpperCase();
       if (!c) return alert('Escribe el código de la sala');
@@ -117,12 +119,14 @@
   const hideo = id => { const n = el(id); n && n.classList.add('hidden'); };
   const wsSend = o => { try { ws && ws.readyState === 1 && ws.send(JSON.stringify(o)); } catch (e) {} };
 
-  function conectar(code) {
+  let conBotNow = false;
+  function conectar(code, conBot) {
     const name = (el('onlineName').value || '').trim().slice(0, 14) || 'Zagal';
     try { window.savePref && window.savePref(name, undefined); } catch (e) {}
+    conBotNow = !!conBot;
     try { ws && ws.close(); } catch (e) {}
     ws = new WebSocket(WS_BASE);
-    ws.onopen = () => wsSend({ t: 'join', room: code, game: 'cartas', name });
+    ws.onopen = () => wsSend({ t: 'join', room: code, game: 'cartas', name, bot: conBotNow });
     ws.onmessage = ev => {
       let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (m.t === 'welcome') {
@@ -132,6 +136,7 @@
         pintarSala(m.players);
       } else if (m.t === 'joined') {
         pintarSala(m.players);
+        if (conBotNow && !online) wsSend({ t: 'ready' });
       } else if (m.t === 'left') {
         pintarSala(m.players);
         if (online) { el('onMsg').textContent = 'Tu rival se fue.'; setTimeout(cerrarTodo, 1600); }
@@ -218,5 +223,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', montarUI);
   else montarUI();
 
-  window.__cartasOnline = () => ({ conectado: !!(ws && ws.readyState === 1), online, sala: roomCode, slot: mySlot });
+  window.__cartasOnline = () => ({ conectado: !!(ws && ws.readyState === 1), online, sala: roomCode, slot: mySlot, bot: conBotNow });
 })();

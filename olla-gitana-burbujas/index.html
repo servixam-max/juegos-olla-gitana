@@ -33,18 +33,25 @@
   <div class="pane">
     <h1 class="title">OLLA GITANA</h1>
     <h2 class="subtitle">LAS BURBUJAS 🫧🥘</h2>
-    <p class="tag">Como el <b>Super Pang</b> de los recreativos: revienta todas las burbujas con el arpón. Las grandes se parten en dos, y las pequeñas valen más. <b>El que más puntúa gana.</b></p>
+    <p class="tag">Como el <b>Super Pang</b> de los recreativos: revienta las burbujas con el arpón. <b>Caen y rebotan</b>, y al reventarlas las grandes se parten en dos. ¡Las pequeñas valen más!</p>
 
     <div id="nameBox"><input id="inputName" maxlength="14" placeholder="Tu mote"></div>
-    <button id="btnCreate" class="btn btn-play">🏠 Crear sala</button>
-    <div class="orRow"><span>o</span></div>
+
+    <button id="btnBot" class="btn btn-play">🤖 Jugar contra la máquina</button>
+    <button id="btnCreate" class="btn btn-call">🏠 Crear sala (2 jugadores)</button>
+    <div class="orRow"><span>o entra en una sala</span></div>
     <div class="joinRow">
       <input id="inputCode" maxlength="6" placeholder="CÓDIGO" autocapitalize="characters">
-      <button id="btnJoin" class="btn btn-call small">🔑 Entrar</button>
+      <button id="btnJoin" class="btn btn-ghost small">🔑 Entrar</button>
     </div>
-    <button id="btnSolo" class="btn btn-ghost">👤 Jugar solo (práctica)</button>
+    <button id="btnSolo" class="btn btn-ghost">👤 Jugar solo (sin rival)</button>
+
+    <div class="fondoBox">
+      <span class="fondoLbl">Elige escenario 🏞️</span>
+      <div id="fondoRow" class="fondoRow"></div>
+    </div>
+
     <button id="btnHow" class="btn btn-ghost">ℹ️ Cómo se juega</button>
-    <p class="foot" id="bestScore"></p>
     <p class="foot">1 o 2 jugadores · Hecho en Murcia</p>
   </div>
 </div>
@@ -91,11 +98,14 @@
     <h3>CÓMO SE JUEGA</h3>
     <ul>
       <li><b>Mover</b>: botones ◀ ▶ (o teclado <b>A/D</b>).</li>
-      <li><b>Disparar</b>: botón 🔴 (o <b>ESPACIO</b>): sube un arpón hacia las burbujas.</li>
-      <li>Al reventar una burbuja grande se <b>parte en dos</b> más pequeñas.</li>
+      <li><b>Disparar</b>: botón 🔴 (o <b>ESPACIO</b>): el arpón sube desde tu olla.</li>
+      <li>Las burbujas <b>caen y rebotan</b> en el suelo y en los <b>ladrillos</b> 🧱.</li>
+      <li>Al reventar una grande se <b>parte en dos</b> más pequeñas.</li>
       <li>Puntos: grande <b>30</b>, mediana <b>50</b>, pequeña <b>70</b>.</li>
-      <li><b>Si te toca una burbuja, pierdes una vida</b> (tienes 3).</li>
-      <li>Gana quien más puntos tenga cuando se acaben todas.</li>
+      <li><b>No se pierden vidas</b>: juega tranquilo a reventar burbujas.</li>
+      <li>Cada nivel trae <b>más burbujas, más rápidas y más ladrillos</b> (hasta 12).</li>
+      <li>Modos: <b>contra la máquina</b> 🤖, <b>solo</b> 👤 o <b>con un amigo</b> 🏠 (sala con código).</li>
+      <li>Puedes <b>cambiar el escenario</b> (las fotos de Murcia) antes de jugar.</li>
     </ul>
     <button id="btnCloseHow2" class="btn btn-play">¡ENTENDIDO!</button>
   </div>

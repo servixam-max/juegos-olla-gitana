@@ -30,6 +30,7 @@ const KEYMAP = { d: 0, f: 1, j: 2, k: 3, arrowleft: 0, arrowdown: 1, arrowup: 2,
 /* Velocidad de caída de las notas (multiplica el scroll de la dificultad) */
 const SPEED_MULT = { slow: 0.72, normal: 1.0, fast: 1.35 };
 let noteSpeed = 'normal';
+let nivelRitmo = 1;            // sube con la puntuación: acelera las notas
 let zenMode = false;             // sin trampas ni vidas: modo práctica
 
 const STORAGE_KEY = 'olla_gitana_ritmo_scores_v1';
@@ -171,7 +172,11 @@ function ensureMusic() {
 }
 
 /* Velocidad efectiva de las notas: dificultad x ajuste del jugador */
-function scrollEff(cfg) { return cfg.scroll * (SPEED_MULT[noteSpeed] || 1); }
+function scrollEff(cfg) {
+  // velocidad del jugador x factor del NIVEL (cada nivel acelera las notas)
+  const fNivel = Math.min(1.55, 1 + (nivelRitmo - 1) * 0.06);
+  return cfg.scroll * (SPEED_MULT[noteSpeed] || 1) * fNivel;
+}
 
 /* ---------------- Beatmap ---------------- */
 function prepareNotes(diff) {
@@ -207,6 +212,7 @@ function startGame(diff) {
   resize();
   prepareNotes(diff);
   score = 0; combo = 0; maxCombo = 0; mult = 1; perfect = 0; good = 0; miss = 0; hitsCount = 0; judged = 0;
+  nivelRitmo = 1;
   lives = zenMode ? 99 : cfg.lives;
   popups = []; shake = 0; laneFlash = [0, 0, 0, 0]; particles = []; judgePulse = 0;
   bgIndex = -1; lastBgChange = -1;
@@ -352,6 +358,14 @@ function pressLane(i, x, y) {
       popup(x || laneCenter(i), (y || judgeY) - 34,
         best.kind === 'zarangollo' ? '🥘 +50' : `+${base * mult}`,
         isPerfect ? '#fde047' : '#bbf7d0', isPerfect ? 30 : 24);
+      // NIVEL: cada 800 puntos la cosa se pone más rápida
+      const nivelNuevo = Math.min(10, 1 + Math.floor(score / 800));
+      if (nivelNuevo > nivelRitmo) {
+        nivelRitmo = nivelNuevo;
+        popup(W / 2, H * 0.24, `⚡ NIVEL ${nivelRitmo} — ¡más rápido!`, '#fbbf24', 30);
+        beep(1318, 0.10, 0.10); setTimeout(() => beep(1760, 0.12, 0.08), 90);
+        try { logros.set('nivel5', nivelRitmo); logros.set('nivel10', nivelRitmo); } catch (e) {}
+      }
       if (combo > 0 && combo % 12 === 0) {
         const txt = GOOD_HITS[(Math.random() * GOOD_HITS.length) | 0];
         popup(W / 2, H * 0.32, txt, '#fbbf24', 34);
@@ -367,6 +381,8 @@ function pressLane(i, x, y) {
 
 function updateHUD() {
   el('score').textContent = score;
+  const nl = el('nivelR');
+  if (nl) nl.textContent = nivelRitmo;
   el('lives').textContent = lives;
   el('combo').textContent = 'x' + combo;
   el('mult').textContent = 'x' + mult;

@@ -26,8 +26,11 @@ const PHRASES_LOSE = ['¡Arrea!', '¡Menudo pijo!', '¡Ojú!', '¡Cagüen la mar
 let ws = null, mySlot = 0, roomCode = '', myName = '';
 let jugando = false, estado = null, lastEstado = 0;
 let soundOn = true, beepCtx = null;
-let connected = false, rivalNombre = '';
-let input = { dir: 0, fire: false, jump: false };
+let connected = false, rivalNombre = '', conBotNow = false;
+let fondoImg = null, fondoIdx = 11, fondoListo = false;   // por defecto, la huerta
+const FONDOS = Array.from({ length: 14 }, (_, i) => `../olla-gitana-runner/assets/bg_${i + 1}.jpg`);
+let input = { mx: 0, my: 0, ax: 0, ay: 0, fire: false };
+let joyActivo = false, joyCx = 0, joyCy = 0, joyId = null;
 
 /* ---------------- Audio ---------------- */
 function beep(freq = 880, dur = 0.07, vol = 0.09, type = 'triangle') {
@@ -44,12 +47,13 @@ function beep(freq = 880, dur = 0.07, vol = 0.09, type = 'triangle') {
 function sfxHit() { if (!soundOn) return; try { const a = new Audio('../olla-gitana/hit.mp3'); a.volume = .8; a.play().catch(() => {}); } catch (e) {} }
 
 /* ---------------- WebSocket ---------------- */
-function conectar(room, name, createRoom) {
+function conectar(room, name, createRoom, conBot) {
   try { ws && ws.close(); } catch (e) {}
   ws = new WebSocket(WS_BASE);
   ws.onopen = () => {
     connected = true;
-    ws.send(JSON.stringify({ t: 'join', room: room || '', game: GAME, name }));
+    ws.send(JSON.stringify({ t: 'join', room: room || '', game: GAME, name,
+                             bot: !!conBot, vw: window.innerWidth, vh: window.innerHeight }));
   };
   ws.onclose = () => { connected = false; if (jugando) toast('Conexión perdida'); };
   ws.onerror = () => { connected = false; };
@@ -64,6 +68,9 @@ function conectar(room, name, createRoom) {
       guardarNombre(myName);
     } else if (m.t === 'joined') {
       pintarLobby(m.players);
+      if (conBotNow && !jugando) {
+        ws.send(JSON.stringify({ t: 'ready', v: true }));   // el bot ya está listo: arranca
+      }
     } else if (m.t === 'left') {
       pintarLobby(m.players);
       if (jugando) { toast('Tu rival se fue'); terminar({ ganador: mySlot, abandonó: true }); }
@@ -108,7 +115,8 @@ function pintarLobby(players) {
   const pinta = (node, p, etiqueta) => {
     if (!p) { node.innerHTML = '<span class="ico">⏳</span><b class="nm">Esperando…</b>'; return; }
     const st = p.ready ? '<span class="st">✅ listo</span>' : '<span class="st" style="color:#fca5a5">…preparando</span>';
-    node.innerHTML = `<span class="ico">🥘</span><b class="nm">${esc(p.name)}${etiqueta}</b>${st}`;
+    node.className = 'playerSlot' + (p.bot ? ' bot' : '');
+    node.innerHTML = `<span class="ico">${p.bot ? '🤖' : '🥘'}</span><b class="nm">${esc(p.name)}${etiqueta}</b>${st}`;
   };
   const porSlot = s => players.find(p => p.slot === s);
   pinta(s0, porSlot(0), porSlot(0) && porSlot(0).slot === mySlot ? ' (tú)' : '');
@@ -161,11 +169,13 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-const GW = 800, GH = 420;
+let GW = 800, GH = 1100;              // alto: que llene el móvil en vertical
 function ajustarEscena() {
-  scale = Math.min(W / GW, H / GH);
-  offX = (W - GW * scale) / 2;
-  offY = (H - GH * scale) / 2;
+  scale = W / GW;                     // ocupa todo el ancho
+  const altoMundo = GH * scale;
+  offX = 0;
+  offY = Math.max(0, (H - altoMundo) / 2);   // centrado si sobra
+  if (altoMundo > H) offY = 0;               // si no cabe, alineado arriba
 }
 
 let lastFrame = performance.now(), ultimoEnvio = 0, flash = 0;
@@ -174,10 +184,11 @@ function loop(now) {
   if (flash > 0) flash -= dt * 3;
   ajustarEscena();
 
-  // enviar input al servidor (~20/s)
-  if (jugando && ws && ws.readyState === 1 && now - ultimoEnvio > 50) {
+  // enviar input al servidor (~22/s)
+  if (jugando && ws && ws.readyState === 1 && now - ultimoEnvio > 45) {
     ultimoEnvio = now;
-    ws.send(JSON.stringify({ t: 'input', ...input }));
+    ws.send(JSON.stringify({ t: 'input', mx: input.mx, my: input.my,
+                             ax: input.ax, ay: input.ay, fire: input.fire }));
   }
 
   dibujar();
@@ -186,103 +197,229 @@ function loop(now) {
 
 function dibujar() {
   ctx.clearRect(0, 0, W, H);
-  // fondo
+  // fondo de Murcia
+  if (fondoListo && fondoImg) {
+    const es = Math.max(W / fondoImg.width, H / fondoImg.height) * 1.05;
+    const dw = fondoImg.width * es, dh = fondoImg.height * es;
+    ctx.globalAlpha = 0.42;
+    ctx.drawImage(fondoImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    ctx.globalAlpha = 1;
+  }
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#1a0f08'); g.addColorStop(.6, '#2b1608'); g.addColorStop(1, '#0b0705');
+  g.addColorStop(0, 'rgba(10,8,4,.8)'); g.addColorStop(.6, 'rgba(16,12,6,.6)'); g.addColorStop(1, 'rgba(6,4,2,.86)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-  ctx.save();
-  ctx.translate(offX, offY); ctx.scale(scale, scale);
-  // marco del escenario
-  ctx.fillStyle = 'rgba(250,204,21,.06)'; ctx.fillRect(0, 0, GW, GH);
-  ctx.strokeStyle = 'rgba(250,204,21,.35)'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, GW, GH);
-
   const e = estado;
-  if (e && e.p) {
-    const suelo = e.suelo || 360;
-    // suelo
-    ctx.fillStyle = 'rgba(20,12,6,.9)'; ctx.fillRect(0, suelo, GW, GH - suelo);
-    ctx.strokeStyle = 'rgba(250,204,21,.6)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(0, suelo); ctx.lineTo(GW, suelo); ctx.stroke();
+  // ---- cámara cenital: el mundo es cuadrado (W_mundo x H_mundo) y se ajusta a la pantalla ----
+  const MW = (e && e.W) || 1000, MH = (e && e.H) || 1000;
+  const tam = Math.min(W, H * 0.92);                 // cuadrado de juego
+  const esc = tam / Math.max(MW, MH);
+  const ox = (W - MW * esc) / 2, oy = 44 + (H - 100 - MH * esc) / 2;
 
-    // jugadores
+  ctx.save();
+  ctx.translate(ox, oy); ctx.scale(esc, esc);
+
+  // suelo de la arena
+  const grad = ctx.createLinearGradient(0, 0, 0, MH);
+  grad.addColorStop(0, 'rgba(46,34,20,.92)'); grad.addColorStop(1, 'rgba(30,20,12,.95)');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, MW, MH);
+  // rejilla sutil
+  ctx.strokeStyle = 'rgba(250,204,21,.06)'; ctx.lineWidth = 2;
+  for (let x = 0; x <= MW; x += 100) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, MH); ctx.stroke(); }
+  for (let y = 0; y <= MH; y += 100) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(MW, y); ctx.stroke(); }
+
+  if (e) {
+    // ---- paredes y bloques (con sombra 3D) ----
+    for (const w of (e.wall || [])) {
+      ctx.fillStyle = 'rgba(0,0,0,.45)';
+      ctx.fillRect(w.x + 6, w.y + 8, w.w, w.h);
+      const gw = ctx.createLinearGradient(w.x, w.y, w.x, w.y + w.h);
+      gw.addColorStop(0, '#8a5a2b'); gw.addColorStop(1, '#5d3a18');
+      ctx.fillStyle = gw; ctx.fillRect(w.x, w.y, w.w, w.h);
+      ctx.strokeStyle = 'rgba(250,204,21,.45)'; ctx.lineWidth = 3;
+      ctx.strokeRect(w.x, w.y, w.w, w.h);
+      // ladrillos
+      ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 2;
+      for (let yy = w.y + 14; yy < w.y + w.h - 4; yy += 14) {
+        ctx.beginPath(); ctx.moveTo(w.x + 2, yy); ctx.lineTo(w.x + w.w - 2, yy); ctx.stroke();
+      }
+    }
+    // ---- power-ups (curaciones) ----
+    for (const pw of (e.poder || [])) {
+      const pulso = 1 + Math.sin(performance.now() / 220) * 0.12;
+      ctx.save(); ctx.translate(pw.x, pw.y); ctx.scale(pulso, pulso);
+      ctx.fillStyle = 'rgba(52,211,153,.25)';
+      ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#34d399'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.font = '30px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('❤️', 0, 0);
+      ctx.restore();
+    }
+    // ---- balas ----
+    for (const b of (e.b || [])) {
+      const mio = b.o === mySlot;
+      ctx.fillStyle = mio ? 'rgba(167,243,208,.3)' : 'rgba(253,230,138,.3)';
+      ctx.beginPath(); ctx.arc(b.x, b.y, 20, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mio ? '#a7f3d0' : '#fde68a';
+      ctx.beginPath(); ctx.arc(b.x, b.y, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    // ---- jugadores ----
     e.p.forEach((p, i) => {
       const esYo = i === mySlot;
-      const hp = p.hp;
+      const r = p.r || 34;
       // sombra
-      ctx.fillStyle = 'rgba(0,0,0,.45)';
-      ctx.beginPath(); ctx.ellipse(p.x, suelo + 3, 26, 7, 0, 0, Math.PI * 2); ctx.fill();
-      // etiqueta
-      ctx.font = '900 14px system-ui'; ctx.textAlign = 'center';
-      ctx.fillStyle = esYo ? '#86efac' : '#fde68a';
-      ctx.fillText(esYo ? (myName || 'Tú') : (rivalNombre || 'Rival'), p.x, p.y - 54);
-      // barras de vida
-      for (let h = 0; h < 3; h++) {
-        ctx.fillStyle = h < hp ? (esYo ? '#34d399' : '#f59e0b') : 'rgba(255,255,255,.16)';
-        ctx.fillRect(p.x - 24 + h * 17, p.y - 46, 14, 5);
-      }
-      // la olla
-      ctx.save();
-      ctx.translate(p.x, p.y - 20);
-      if (!p.alive) ctx.rotate(Math.PI / 2 * Math.min(1, (performance.now() % 1000) / 500));
-      ctx.font = '54px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🥘', 0, 0);
+      ctx.fillStyle = 'rgba(0,0,0,.5)';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y + r * 0.55, r * 1.05, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      // cuerpo (círculo del equipo)
+      const gp = ctx.createRadialGradient(p.x - r * .3, p.y - r * .35, r * .1, p.x, p.y, r);
+      if (esYo) { gp.addColorStop(0, '#86efac'); gp.addColorStop(1, '#15803d'); }
+      else { gp.addColorStop(0, '#fde68a'); gp.addColorStop(1, '#b45309'); }
+      ctx.fillStyle = gp;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke();
+      // la olla encima
+      ctx.font = `${Math.round(r * 1.5)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(esYo ? '🥘' : '🍳', p.x, p.y);
+      // cañón apuntando
+      const ax = p.dirx || 1, ay = p.diry || 0;
+      ctx.save(); ctx.translate(p.x + ax * r * 1.15, p.y + ay * r * 1.15);
+      ctx.rotate(Math.atan2(ay, ax));
+      ctx.font = `${Math.round(r * 0.9)}px system-ui`;
+      ctx.fillText('🔫', 0, 0);
       ctx.restore();
-      // cañón
-      ctx.font = '26px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🔫', p.x + (p.dir || 1) * 26, p.y - 22);
+      // nombre + vidas
+      ctx.font = '900 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(0,0,0,.55)';
+      ctx.fillText(esYo ? (myName || 'Tú') : (rivalNombre || 'Rival'), p.x + 1, p.y - r - 19);
+      ctx.fillStyle = esYo ? '#86efac' : '#fde68a';
+      ctx.fillText(esYo ? (myName || 'Tú') : (rivalNombre || 'Rival'), p.x, p.y - r - 20);
+      // corazones
+      const hp = Math.max(0, p.hp || 0);
+      ctx.font = '900 15px system-ui';
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText('❤️'.repeat(hp), p.x + 1, p.y - r - 2);
+      ctx.fillStyle = '#fff'; ctx.fillText('❤️'.repeat(hp), p.x, p.y - r - 3);
     });
-
-    // balas
-    ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    for (const b of (e.b || [])) {
-      ctx.fillStyle = b.o === mySlot ? '#a7f3d0' : '#fde68a';
-      ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI * 2); ctx.fill();
-    }
   } else {
-    ctx.font = '900 26px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.7)';
-    ctx.fillText('Esperando al rival…', GW / 2, GH / 2);
+    ctx.font = '900 30px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.fillText('Esperando al rival…', MW / 2, MH / 2);
   }
   ctx.restore();
 
-  // aviso de espera
-  if (!estado || !estado.p) {
-    ctx.font = '900 16px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
-    ctx.fillText('Sala ' + roomCode, W / 2, H * .12);
+  // marcador arriba (puntos de vida de cada uno)
+  if (e && e.p) {
+    const boxW = Math.min(W * .8, 380), bx = (W - boxW) / 2, by = 6;
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 34, 17); else ctx.rect(bx, by, boxW, 34);
+    ctx.fill();
+    ctx.font = '900 15px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#86efac'; ctx.fillText(`${myName || 'Tú'} ${e.p[mySlot] ? e.p[mySlot].hp : 0}`, bx + boxW * .26, by + 17);
+    ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fillText('VS', bx + boxW * .5, by + 17);
+    ctx.fillStyle = '#fde68a'; ctx.fillText(`${e.p[1 - mySlot] ? e.p[1 - mySlot].hp : 0} ${rivalNombre || 'Rival'}`, bx + boxW * .74, by + 17);
   }
-  // marco flash al recibir disparo
-  if (flash > 0) { ctx.fillStyle = `rgba(239,68,68,${flash * .25})`; ctx.fillRect(0, 0, W, H); }
+  // joystick visual
+  if (joyActivo) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(joyCx, joyCy, 60, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(250,204,21,.35)';
+    ctx.beginPath(); ctx.arc(joyCx + input.mx * 50, joyCy + input.my * 50, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
 }
 
-/* ---------------- Controles ---------------- */
-function setInput(k, v) { input[k] = v; }
-function bindHold(id, on, off) {
-  const n = el(id);
-  const down = e => { e.preventDefault(); n.classList.add('on'); on(); };
-  const up = e => { n.classList.remove('on'); off && off(); };
+/* ---------------- Controles cenitales: joystick + disparo ---------------- */
+const cv = el('stage');
+function posCanvas(ev) {
+  const r = cv.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+function actualizarJoystick(ev) {
+  const { x, y } = posCanvas(ev);
+  let dx = x - joyCx, dy = y - joyCy;
+  const d = Math.hypot(dx, dy) || 1;
+  const max = 60;
+  const k = Math.min(1, d / max);
+  input.mx = (dx / d) * k;
+  input.my = (dy / d) * k;
+  // apuntado: hacia donde empuja el joystick
+  if (k > 0.25) { input.ax = dx / d; input.ay = dy / d; }
+}
+cv.addEventListener('pointerdown', ev => {
+  if (!jugando) return;
+  ev.preventDefault();
+  const { x, y } = posCanvas(ev);
+  // mitad izquierda: joystick de movimiento
+  if (x < W * 0.55) {
+    joyId = ev.pointerId; joyActivo = true; joyCx = x; joyCy = y;
+    input.mx = 0; input.my = 0;
+    actualizarJoystick(ev);
+    cv.setPointerCapture && cv.setPointerCapture(ev.pointerId);
+  }
+}, { passive: false });
+cv.addEventListener('pointermove', ev => {
+  if (!joyActivo || ev.pointerId !== joyId) return;
+  ev.preventDefault();
+  actualizarJoystick(ev);
+}, { passive: false });
+function soltarJoystick(ev) {
+  if (ev && ev.pointerId !== joyId) return;
+  joyActivo = false; joyId = null; input.mx = 0; input.my = 0;
+}
+cv.addEventListener('pointerup', soltarJoystick);
+cv.addEventListener('pointercancel', soltarJoystick);
+
+// botón de disparo
+function bindFire(id, val) {
+  const n = el(id); if (!n) return;
+  const down = e => { e.preventDefault(); n.classList.add('on'); input.fire = val; if (val) beep(300, .06, .08, 'square'); };
+  const up = () => { n.classList.remove('on'); input.fire = false; };
   n.addEventListener('pointerdown', down);
   n.addEventListener('pointerup', up);
   n.addEventListener('pointerleave', up);
   n.addEventListener('pointercancel', up);
 }
-bindHold('btnLeft', () => setInput('dir', -1), () => setInput('dir', 0));
-bindHold('btnRight', () => setInput('dir', 1), () => setInput('dir', 0));
-bindHold('btnJump', () => setInput('jump', true), () => setInput('jump', false));
-bindHold('btnFire', () => { setInput('fire', true); beep(300, .08, .09, 'square'); }, () => setInput('fire', false));
+bindFire('btnFire', true);
 
+// teclado: WASD/flechas para mover, ratón para apuntar, click para disparar
+const teclas = {};
+function recalcularTeclas() {
+  let mx = 0, my = 0;
+  if (teclas['a'] || teclas['arrowleft']) mx -= 1;
+  if (teclas['d'] || teclas['arrowright']) mx += 1;
+  if (teclas['w'] || teclas['arrowup']) my -= 1;
+  if (teclas['s'] || teclas['arrowdown']) my += 1;
+  input.mx = mx; input.my = my;
+  if (mx || my) { const n = Math.hypot(mx, my) || 1; input.ax = mx / n; input.ay = my / n; }
+}
 document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
-  if (k === 'arrowleft' || k === 'a') setInput('dir', -1);
-  else if (k === 'arrowright' || k === 'd') setInput('dir', 1);
-  else if (k === 'arrowup' || k === 'w' || k === ' ') { e.preventDefault(); setInput('jump', true); }
-  else if (k === 'f' || k === 'control') setInput('fire', true);
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+    e.preventDefault(); teclas[k] = true; recalcularTeclas();
+  }
+  if (k === 'f' || k === ' ') { e.preventDefault(); input.fire = true; }
 });
 document.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
-  if (k === 'arrowleft' || k === 'a' || k === 'arrowright' || k === 'd') setInput('dir', 0);
-  if (k === 'arrowup' || k === 'w' || k === ' ') setInput('jump', false);
-  if (k === 'f' || k === 'control') setInput('fire', false);
+  if (teclas[k] !== undefined) { teclas[k] = false; recalcularTeclas(); }
+  if (k === 'f' || k === ' ') input.fire = false;
 });
+// en escritorio: apuntar con el ratón
+cv.addEventListener('pointermove', ev => {
+  if (joyActivo) return;
+  if (ev.pointerType !== 'mouse' || !estado || !estado.p) return;
+  const { x, y } = posCanvas(ev);
+  const MW = estado.W || 1000, MH = estado.H || 1000;
+  const tam = Math.min(W, H * 0.92), esc2 = tam / Math.max(MW, MH);
+  const ox = (W - MW * esc2) / 2, oy = 44 + (H - 100 - MH * esc2) / 2;
+  const wx = (x - ox) / esc2, wy = (y - oy) / esc2;
+  const yo = estado.p[mySlot];
+  if (yo) { const dx = wx - yo.x, dy = wy - yo.y; const n = Math.hypot(dx, dy) || 1; input.ax = dx / n; input.ay = dy / n; }
+});
+cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'mouse' && jugando) input.fire = true; });
+cv.addEventListener('pointerup', ev => { if (ev.pointerType === 'mouse') input.fire = false; });
 
 /* ---------------- UI ---------------- */
 let toastT = null;
@@ -296,7 +433,13 @@ if (nombreGuardado) el('inputName').value = nombreGuardado;
 
 el('btnCreate').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar('', myName, true);
+  conBotNow = false; conectar('', myName, true);
+});
+el('btnBot').addEventListener('click', () => {
+  myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
+  conBotNow = true; conectar('', myName, false, true);
+  el('lobbyMsg') && (el('lobbyMsg').textContent = 'Jugando contra la máquina 🤖');
+  el('btnCopy') && (el('btnCopy').style.display = 'none');
 });
 el('btnJoin').addEventListener('click', () => {
   const code = (el('inputCode').value.trim() || '').toUpperCase();
@@ -351,7 +494,31 @@ function salir() {
   show(el('startScreen'));
 }
 
+/* ---------------- Escenarios (fotos de Murcia) ---------------- */
+function prefsD() { try { return JSON.parse(localStorage.getItem('olla_prefs_v1') || '{}'); } catch (e) { return {}; } }
+function setPrefsD(o) { try { localStorage.setItem('olla_prefs_v1', JSON.stringify(Object.assign(prefsD(), o))); } catch (e) {} }
+function cargarFondoD(i) {
+  fondoIdx = ((i % FONDOS.length) + FONDOS.length) % FONDOS.length;
+  const img = new Image();
+  img.onload = () => { fondoImg = img; fondoListo = true; };
+  img.src = FONDOS[fondoIdx];
+}
+function pintarEscenarios() {
+  const c = el('fondoRow'); if (!c) return;
+  c.innerHTML = FONDOS.map((f, i) => `<button class="fondoBtn ${i === fondoIdx ? 'on' : ''}" data-i="${i}" aria-label="Escenario ${i + 1}"></button>`).join('');
+  c.querySelectorAll('.fondoBtn').forEach(b => {
+    b.style.backgroundImage = `url('${FONDOS[+b.dataset.i]}')`;
+    b.addEventListener('click', () => {
+      cargarFondoD(+b.dataset.i); setPrefsD({ fondoDuelo: +b.dataset.i });
+      c.querySelectorAll('.fondoBtn').forEach(x => x.classList.toggle('on', x === b));
+      beep(880, .06, .07);
+    });
+  });
+}
+
 /* ---------------- Arranque ---------------- */
+cargarFondoD(typeof prefsD().fondoDuelo === 'number' ? prefsD().fondoDuelo : 11);
+pintarEscenarios();
 resize();
 requestAnimationFrame(loop);
-window.__dueloState = () => ({ conectado: connected, slot: mySlot, sala: roomCode, jugando, finMostrado, ws: !!ws, rival: rivalNombre });
+window.__dueloState = () => ({ conectado: connected, slot: mySlot, sala: roomCode, jugando, finMostrado, ws: !!ws, rival: rivalNombre, bot: conBotNow, fondo: fondoIdx, fondoListo });

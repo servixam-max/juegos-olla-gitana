@@ -12,6 +12,7 @@ html, body {
 
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; padding: max(8px, env(safe-area-inset-top)) 10px 0; }
+@media (max-width: 520px) { #roomTag { display: none; } }
 .hud-left, .hud-right { position: absolute; top: max(8px, env(safe-area-inset-top)); display: flex; gap: 6px; align-items: center; pointer-events: auto; }
 .hud-left { left: 10px; }
 .hud-right { right: 10px; }
@@ -34,6 +35,8 @@ html, body {
 #controls { position: absolute; inset: auto 0 0 0; z-index: 15; pointer-events: none;
   padding: 0 14px calc(14px + env(safe-area-inset-bottom)); display: flex; justify-content: space-between; align-items: flex-end; }
 .ctl-left, .ctl-right { display: flex; gap: 12px; pointer-events: auto; }
+.ctl-hint { position: absolute; left: 14px; bottom: calc(24px + env(safe-area-inset-bottom));
+  font-size: 12px; font-weight: 800; color: rgba(255,255,255,.5); pointer-events: none; }
 .ctl {
   width: 74px; height: 74px; border-radius: 999px; border: 3px solid rgba(255,255,255,.6);
   background: rgba(20,12,6,.6); color: #fff; font-size: 26px; font-weight: 900;
@@ -137,3 +140,16 @@ html, body {
   .pane { width: min(92vw, 640px); } .title { font-size: clamp(26px, 7vw, 40px); }
   .ctl { width: 60px; height: 60px; font-size: 22px; }
 }
+
+
+/* ---------- Selector de escenario ---------- */
+.fondoBox { margin: 12px 0 6px; }
+.fondoLbl { display: block; font-size: 12.5px; font-weight: 800; color: #fde68a; margin-bottom: 7px; letter-spacing: .04em; }
+.fondoRow { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.fondoRow::-webkit-scrollbar { display: none; }
+.fondoBtn { flex: 0 0 auto; width: 56px; height: 42px; border-radius: 10px; border: 3px solid rgba(255,255,255,.35);
+  background-color: #1b2a3a; background-size: cover; background-position: center; cursor: pointer; padding: 0;
+  transition: transform .1s ease, border-color .15s ease, box-shadow .15s ease; }
+.fondoBtn:active { transform: scale(.94); }
+.fondoBtn.on { border-color: #facc15; box-shadow: 0 0 0 3px rgba(250,204,21,.35), 0 4px 12px rgba(0,0,0,.5); transform: translateY(-2px); }
+.playerSlot.bot { border-color: #a78bfa; background: rgba(167,139,250,.16); }

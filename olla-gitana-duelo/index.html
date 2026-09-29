@@ -33,17 +33,23 @@
   <div class="pane">
     <h1 class="title">OLLA GITANA</h1>
     <h2 class="subtitle">EL DUELO 🔫🥘</h2>
-    <p class="tag">Combate de disparos <b>1 contra 1</b>: muévete, salta y dispara a la olla rival. El primero que le quite las 3 vidas gana.</p>
+    <p class="tag">Arena de disparos <b>vista desde arriba</b>: muévete por todo el escenario, escóndete tras los bloques y dispara a la olla rival. <b>6 vidas</b> cada uno.</p>
 
     <div id="nameBox">
       <input id="inputName" maxlength="14" placeholder="Tu mote">
     </div>
 
-    <button id="btnCreate" class="btn btn-play">🏠 Crear sala</button>
-    <div class="orRow"><span>o</span></div>
+    <button id="btnBot" class="btn btn-play">🤖 Jugar contra la máquina</button>
+    <button id="btnCreate" class="btn btn-call">🏠 Crear sala (con un amigo)</button>
+    <div class="orRow"><span>o entra en una sala</span></div>
     <div class="joinRow">
       <input id="inputCode" maxlength="6" placeholder="CÓDIGO" autocapitalize="characters">
-      <button id="btnJoin" class="btn btn-call small">🔑 Entrar</button>
+      <button id="btnJoin" class="btn btn-ghost small">🔑 Entrar</button>
+    </div>
+
+    <div class="fondoBox">
+      <span class="fondoLbl">Elige escenario 🏞️</span>
+      <div id="fondoRow" class="fondoRow"></div>
     </div>
 
     <button id="btnHow" class="btn btn-ghost">ℹ️ Cómo se juega</button>
@@ -93,12 +99,13 @@
     <button id="btnCloseHow" class="x">✕</button>
     <h3>CÓMO SE JUEGA</h3>
     <ul>
-      <li><b>1v1 en directo</b>: crea una sala y pásale el código a tu rival (o entra con el suyo).</li>
-      <li><b>Moverse</b>: botones ◀ ▶ en pantalla · <b>Saltar</b>: ⬆️ o toque en la zona de arriba.</li>
-      <li><b>Disparar</b>: botón 🔴 (o la barra espaciadora). Cada disparo tiene su recarga.</li>
-      <li>Cada jugador tiene <b>3 vidas</b>. Gana quien deje a cero al rival.</li>
-      <li>Los dos tenéis que pulsar <b>¡ESTOY LISTO!</b> para empezar.</li>
-      <li>Hay un <b>chat</b> para piques rápidos mientras jugáis 😄</li>
+      <li><b>Arena cenital</b> (vista desde arriba), como los juegos de disparos modernos.</li>
+      <li><b>Moverse</b>: arrastra el dedo en la mitad izquierda (joystick) · teclado <b>WASD</b>/flechas.</li>
+      <li><b>Disparar</b>: botón 🔴 o <b>ESPACIO</b>. La olla dispara <b>hacia donde te mueves</b>.</li>
+      <li><b>Esquiva y celébrate</b>: los bloques te <b>cubren</b> de los disparos rivales.</li>
+      <li>Recoge los <b>❤️ corazones</b> que aparecen para recuperar vida.</li>
+      <li><b>6 vidas</b> cada uno. Gana quien deje a cero al rival.</li>
+      <li>Crea una <b>sala</b> y pásale el código, o juega <b>contra la máquina</b> 🤖.</li>
     </ul>
     <button id="btnCloseHow2" class="btn btn-play">¡ENTENDIDO!</button>
   </div>
@@ -108,12 +115,8 @@
 
 <!-- Controles táctiles -->
 <div id="controls" class="hidden">
-  <div class="ctl-left">
-    <button id="btnLeft" class="ctl">◀</button>
-    <button id="btnRight" class="ctl">▶</button>
-  </div>
+  <div class="ctl-hint">🕹️ Arrastra a la izquierda para moverte</div>
   <div class="ctl-right">
-    <button id="btnJump" class="ctl ctl-jump">⬆️</button>
     <button id="btnFire" class="ctl ctl-fire">🔴</button>
   </div>
 </div>
