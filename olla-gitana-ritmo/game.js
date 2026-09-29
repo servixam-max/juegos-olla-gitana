@@ -383,14 +383,13 @@ el('btnCloseRank').addEventListener('click', () => hide(el('rankScreen')));
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
   el('nameRow').classList.add('hidden');
-  toast(r.online ? '¡Guardada en el ranking de casa! 🏆' : 'Guardada en este dispositivo (servidor no disponible)', 2200);
+  toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
 function setRankSource(online) {
   const p = document.getElementById('rankSource');
   if (!p) return;
-  p.textContent = online
-    ? 'Ranking guardado en el servidor de casa (Mac) — se comparte entre todos los móviles.'
-    : 'Sin conexión al servidor: mostrando el ranking guardado en este dispositivo.';
+  p.textContent = online ? '' : 'Sin conexión — mostrando las puntuaciones de este dispositivo.';
+  p.style.display = online ? 'none' : 'block';
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 

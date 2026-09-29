@@ -407,7 +407,7 @@ document.addEventListener('keyup', e => {
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-/* ---------------- Ranking (servidor de casa + respaldo local) ---------------- */
+/* ---------------- Ranking (servidor + respaldo local) ---------------- */
 const API = (function () {
   const p = location.pathname;                        // '/juegos-olla/olla-gitana-runner/…'
   const i = p.indexOf('/olla-gitana-runner');
@@ -444,9 +444,10 @@ async function renderRanking(diff) {
     online = true;
   } catch (e) { rows = readLocal().filter(s => s.diff === diff).sort((a, b) => b.score - a.score).slice(0, 20); }
   const src = el('rankSource');
-  if (src) src.textContent = online
-    ? 'Ranking guardado en el servidor de casa (Mac) — se comparte entre todos los móviles.'
-    : 'Sin conexión al servidor: mostrando el ranking guardado en este dispositivo.';
+  if (src) {
+    src.textContent = online ? '' : 'Sin conexión — mostrando las puntuaciones de este dispositivo.';
+    src.style.display = online ? 'none' : 'block';
+  }
   if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="muted">Aún no hay zagales aquí.</td></tr>'; return; }
   body.innerHTML = rows.slice(0, 20).map((s, i) =>
     `<tr class="${i === 0 ? 'top1' : ''}"><td>${i + 1}</td><td>${esc(s.name)}</td><td>${s.acc || 0} m</td><td>${s.score}</td></tr>`
@@ -500,7 +501,7 @@ el('rankTabs').addEventListener('click', e => {
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
   el('nameRow').classList.add('hidden');
-  toast(r.online ? '¡Guardada en el ranking de casa! 🏆' : 'Guardada en este dispositivo (servidor no disponible)', 2200);
+  toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
 
 /* ---------------- Toast ---------------- */

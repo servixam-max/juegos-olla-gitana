@@ -31,7 +31,7 @@
 <body>
 <div class="wrap">
   <h1>🏆 Rankings de los juegos</h1>
-  <div class="sub">Se guardan en este Mac: <code>/Users/servimac/scripts/ollajuegos/scores.json</code> · <a href="../">volver a los juegos</a></div>
+  <div class="sub">Rankings de los juegos · <a href="../">volver a los juegos</a></div>
 
   <div class="bar">
     <select id="fGame">
@@ -82,7 +82,7 @@ async function load() {
     render();
     $('#msg').textContent = `${cache.length} puntuaciones guardadas en el servidor.`;
   } catch (e) {
-    $('#rows').innerHTML = '<tr><td colspan="8" class="empty">No se pudo conectar con la API de casa.</td></tr>';
+    $('#rows').innerHTML = '<tr><td colspan="8" class="empty">No se pudo conectar con el servidor.</td></tr>';
   }
 }
 function render() {

@@ -1120,7 +1120,7 @@ function gameOver() {
 }
 
 // --- SUPABASE & LEADERBOARD (ranking en este PC: API local con respaldo localStorage) ---
-const SUPABASE_URL = ""; // nube original muerta; el ranking real vive en la API de casa
+const SUPABASE_URL = ""; // nube original muerta; el ranking real usa la API del servidor
 const SUPABASE_KEY = "";
 const MOCK_DB_KEY = 'olla_gitana_scores_v4';
 const API_BASE = (function () {
@@ -1132,7 +1132,7 @@ const API_BASE = (function () {
 
 async function getScores(difficulty) {
     const prefix = CONFIG.DIFFICULTY[difficulty].prefix;
-    // 1) API de casa (este PC)
+    // 1) API del servidor
     try {
         const res = await fetch(`${API_BASE}/top?game=arcade&diff=${encodeURIComponent(difficulty)}&limit=100`, { cache: 'no-store' });
         if (res.ok) {
@@ -1140,7 +1140,7 @@ async function getScores(difficulty) {
             const list = (data.scores || []).map(s => ({ name: s.name, score: s.score }));
             if (list.length) return list;
         }
-    } catch (e) { console.warn("API de casa no disponible", e); }
+    } catch (e) { console.warn("API no disponible", e); }
     // 2) respaldo local del navegador
     let scores = JSON.parse(localStorage.getItem(MOCK_DB_KEY) || "[]");
     return scores
@@ -1156,7 +1156,7 @@ async function saveScore(name, score) {
     let scores = JSON.parse(localStorage.getItem(MOCK_DB_KEY) || "[]");
     scores.push({ name, score, diff: diffKey });
     localStorage.setItem(MOCK_DB_KEY, JSON.stringify(scores.slice(-200)));
-    // y al servidor de casa
+    // y al servidor
     try {
         const res = await fetch(`${API_BASE}/score`, {
             method: 'POST',
