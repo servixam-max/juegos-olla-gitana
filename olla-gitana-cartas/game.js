@@ -102,6 +102,7 @@ let running = false, paused = false;
 let deck = [], player = [], dealer = [];
 let lives = 3, points = 0, level = 1, streak = 0, maxStreak = 0, handsWon = 0, handsPlayed = 0;
 let dealerHidden = false, phase = 'idle', busy = false, handResolved = false;
+let doubled = false;          // apuesta DOBLAR activa en esta mano
 
 const multTier = s => (s >= 10 ? 5 : s >= 6 ? 4 : s >= 4 ? 3 : s >= 2 ? 2 : 1);
 const mult = () => multTier(streak);
@@ -158,6 +159,10 @@ function actions(state) {
   el('btnNext').classList.toggle('hidden', state !== 'next');
   el('btnPedir').disabled = state !== 'play';
   el('btnPlantar').disabled = state !== 'play';
+  // DOBLAR: solo en 'play', con vidas de sobra y sin haber doblado ya
+  const canDouble = state === 'play' && !doubled && lives > 1;
+  const db = el('btnDoblar');
+  if (db) { db.classList.toggle('hidden', state !== 'play'); db.disabled = !canDouble; db.classList.toggle('active', doubled); }
 }
 
 /* ---------------- Flujo de partida ---------------- */
@@ -174,7 +179,7 @@ function startGame(diff) {
 function newHand() {
   deck = buildDeck();
   player = []; dealer = [];
-  dealerHidden = true; handResolved = false; busy = false;
+  dealerHidden = true; handResolved = false; busy = false; doubled = false;
   actions('none');
   render();
   say('Se reparte la mano…');
@@ -212,6 +217,18 @@ function pedir() {
       say('Cinco cartas… ¡plántate, zagal!');
     }
   }, 180);
+}
+
+/* DOBLAR: pagas 1 vida y, si ganas, los puntos van x2. Se decide antes de plantarse. */
+function doblar() {
+  if (!running || paused || busy || phase !== 'play' || handResolved || doubled || lives <= 1) return;
+  doubled = true;
+  lives--;                       // la apuesta se paga ya
+  beep(700, .08, .09); setTimeout(() => beep(950, .1, .08), 80);
+  say('💰 ¡DOBLADO! Si ganas, x2 puntos', true);
+  render();
+  actions('play');               // refresca el botón (queda marcado)
+  if (lives <= 0) { setTimeout(() => { if (running) gameOver(); }, 800); }
 }
 
 /* Te has pasao: se revela la banca y se pierde la mano (sin que juegue) */
@@ -276,10 +293,11 @@ function settle() {
   if (won) {
     streak++; maxStreak = Math.max(maxStreak, streak); handsWon++;
     const exact = pt === TARGET;
-    const gain = (100 + Math.round(pt * 40) + (exact ? 300 : 0)) * mult();
+    const baseGain = (100 + Math.round(pt * 40) + (exact ? 300 : 0)) * mult();
+    const gain = doubled ? baseGain * 2 : baseGain;
     points += gain;
-    if (exact) { say(`¡SIETE Y MEDIA! +${gain} 🎉`, true); sfxLevel(); }
-    else { say(`${PHRASES_WIN[Math.floor(Math.random() * PHRASES_WIN.length)]} +${gain}`, true); beep(988, 0.09, 0.09); setTimeout(() => beep(1319, 0.11, 0.08), 90); }
+    if (exact) { say(`¡SIETE Y MEDIA! +${gain}${doubled ? ' 💰x2' : ''} 🎉`, true); sfxLevel(); }
+    else { say(`${PHRASES_WIN[Math.floor(Math.random() * PHRASES_WIN.length)]} +${gain}${doubled ? ' 💰x2' : ''}`, true); beep(988, 0.09, 0.09); setTimeout(() => beep(1319, 0.11, 0.08), 90); }
     const nextLevel = Math.floor(points / 500) + 1;
     if (nextLevel > level) {
       level = nextLevel;
@@ -428,6 +446,7 @@ el('btnCloseHow').addEventListener('click', () => hide(el('howModal')));
 el('btnCloseHow2').addEventListener('click', () => hide(el('howModal')));
 el('btnPedir').addEventListener('click', pedir);
 el('btnPlantar').addEventListener('click', stand);
+el('btnDoblar').addEventListener('click', doblar);
 el('btnNext').addEventListener('click', () => { if (running) newHand(); });
 el('btnPause').addEventListener('click', togglePause);
 el('btnResume').addEventListener('click', togglePause);
@@ -462,6 +481,7 @@ el('btnSaveScore').addEventListener('click', async () => {
 
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); if (phase === 'play') pedir(); else if (phase === 'over' && running) newHand(); }
+  if (e.key === 'd' || e.key === 'D') doblar();
   if (e.key === 'p' || e.key === 'P') togglePause();
   if (e.key === 'm' || e.key === 'M') el('btnSound').click();
 });
@@ -475,6 +495,6 @@ actions('none');
 window.__cartasState = () => ({
   running, paused, phase, lives, points, level, streak, maxStreak,
   handsWon, handsPlayed, playerTotal: handTotal(player), dealerTotal: handTotal(dealer),
-  dealerHidden, api: API, difficulty
+  dealerHidden, api: API, difficulty, doubled
 });
 updateBest();

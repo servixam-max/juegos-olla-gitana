@@ -33,6 +33,8 @@ const DIFF = {
 };
 
 const ITEMS = ['🍐', '🌿', '🧆', '🌶️', '🥘'];
+const SHIELD_ITEM = '🌶️';        // el chile da escudo temporal
+let shield = 0;                   // segundos de escudo restantes
 const OBSTACLES_GROUND = ['🚧', '💊', '🧱'];
 const OBSTACLES_AIR = ['🚬', '💉', '🦟'];
 
@@ -57,7 +59,7 @@ let difficulty = 'normal';
 let GROUND_Y = 0;
 
 let meters = 0, itemPoints = 0, points = 0, lives = 3, level = 1;
-let combo = 0, maxCombo = 0, itemsGot = 0, invuln = 0, shake = 0;
+let combo = 0, maxCombo = 0, itemsGot = 0, invuln = 0, shake = 0, comboTimer = 0;
 let speed = 0, spawnTimer = 0, itemTimer = 0;
 let obstacles = [], items = [], particles = [], popups = [];
 let bgIdx = 0, bgImgs = {}, bgReady = null;
@@ -165,7 +167,7 @@ function startGame(diff) {
   const cfg = DIFF[difficulty];
   running = true; paused = false;
   meters = 0; itemPoints = 0; points = 0; lives = 3; level = 1; combo = 0; maxCombo = 0; itemsGot = 0;
-  invuln = 0; shake = 0;
+  invuln = 0; shake = 0; shield = 0;
   obstacles = []; items = []; particles = []; popups = [];
   speed = SPEED_BASE * S * cfg.speed;
   spawnTimer = 1.1; itemTimer = 0.8;
@@ -245,7 +247,7 @@ function spawnItem() {
   const size = 44 * S;
   const air = Math.random() < 0.55;
   items.push({
-    emoji, x: W + size, w: size, h: size,
+    emoji, x: W + size, w: size, h: size, shield: emoji === SHIELD_ITEM,
     y: air ? GROUND_Y - rand(96, 190) * S : GROUND_Y - size - 6 * S
   });
   itemTimer = rand(0.7, 1.5);
@@ -277,6 +279,7 @@ function update(dt) {
 
   // invulnerabilidad
   if (invuln > 0) invuln -= dt;
+  if (shield > 0) shield -= dt;
   if (shake > 0) shake -= dt * 2.4;
 
   // obstáculos
@@ -288,7 +291,7 @@ function update(dt) {
     const o = obstacles[i];
     if (o.x + o.w < -20) { obstacles.splice(i, 1); continue; }
     const ob = { x: o.x + o.w * 0.18, y: o.y + o.h * 0.12, w: o.w * 0.64, h: o.h * 0.76 };
-    if (invuln <= 0 && hit(pr, ob)) {
+    if (invuln <= 0 && shield <= 0 && hit(pr, ob)) {
       lives--; combo = 0; invuln = 1.6; shake = 1;
       sfx('hit', 0.85);
       buzz(45);
@@ -306,8 +309,17 @@ function update(dt) {
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i];
     if (it.x + it.w < -20) { items.splice(i, 1); continue; }
+    // imán: si el ingrediente está cerca, se acerca solo a la olla (se siente bien)
+    const dx = (player.x) - (it.x + it.w / 2), dy = (player.y + player.h / 2) - (it.y + it.h / 2);
+    const dist = Math.hypot(dx, dy);
+    if (dist < 150 * S) {
+      const pull = (1 - dist / (150 * S)) * 420 * S * dt;
+      it.x += (dx / (dist || 1)) * pull;
+      it.y += (dy / (dist || 1)) * pull;
+    }
     if (hit(pr, { x: it.x + 6 * S, y: it.y + 6 * S, w: it.w - 12 * S, h: it.h - 12 * S })) {
-      itemsGot++; combo++; maxCombo = Math.max(maxCombo, combo);
+      itemsGot++; combo++; maxCombo = Math.max(maxCombo, combo); comboTimer = 0;
+      if (it.shield) { shield = Math.max(shield, 5); popup('🛡️ ¡ESCUDO!', '#a5f3fc', player.x + 40 * S, GROUND_Y - 200 * S); beep(1200, .1, .09); }
       itemPoints += 10 * mult();
       burst(it.x, it.y + it.h / 2, 7, '#fcd34d');
       popup('+' + 10 * mult(), '#fde68a', it.x, it.y - 10 * S);
@@ -315,6 +327,14 @@ function update(dt) {
       buzz(8);
       items.splice(i, 1);
     }
+  }
+
+  // el combo se enfría si no coges ingredientes en 4 s (antes solo se rompía al golpe)
+  comboTimer += dt;
+  if (comboTimer > 4.0 && combo > 0) {
+    comboTimer = 0;
+    combo = Math.max(0, combo - Math.ceil(combo * 0.25));
+    if (combo === 0) el('mult').classList.remove('pop');
   }
 
   // estela de la olla cuando corre (sensación de velocidad)
@@ -420,6 +440,15 @@ function draw() {
   ctx.globalAlpha = blink ? 0.35 : 1;
   ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath(); ctx.ellipse(player.x, GROUND_Y + 4 * S, player.w * 0.4, player.h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  // escudo activo: aro protector
+  if (shield > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(performance.now() / 130);
+    ctx.strokeStyle = '#67e8f9'; ctx.lineWidth = 4 * S;
+    ctx.beginPath(); ctx.ellipse(player.x, player.y + player.h / 2, player.w * 0.72, player.h * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
   ctx.save();
   const ducking = player.ducking && player.onGround;
   const sq = ducking ? 0.5 : player.squash;              // agachada se aplasta de verdad
@@ -624,7 +653,7 @@ window.addEventListener('resize', () => { if (!running) { resize(); resetPlayer(
 setBg(0); loadBg(1); loadBg(2);
 resetPlayer();
 draw();
-window.__runnerState = () => ({ running, paused, score: points, meters: Math.floor(meters), lives, level, combo: maxCombo, items: itemsGot, obstacles: obstacles.length, itemsOnScreen: items.length, api: API, difficulty });
+window.__runnerState = () => ({ running, paused, score: points, meters: Math.floor(meters), lives, level, combo: maxCombo, items: itemsGot, obstacles: obstacles.length, itemsOnScreen: items.length, shield: +shield.toFixed(2), api: API, difficulty });
 updateBest();
 
 /* restaurar sonido guardado (si el jugador lo apagó, sigue apagado) */

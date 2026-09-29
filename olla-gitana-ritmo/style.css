@@ -66,6 +66,14 @@ html, body {
 }
 .diff:active { transform: scale(.96); }
 .diff.active { background: linear-gradient(180deg,#60a5fa,#1d4ed8); border-color: #fff; box-shadow: 0 4px 0 #1e3a8a; transform: translateY(-1px); }
+.zenToggle { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 4px;
+  font-size: 13.5px; font-weight: 800; color: #d1fae5; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.zenToggle input { width: 20px; height: 20px; accent-color: #10b981; cursor: pointer; }
+.zenToggle .zenHint { font-weight: 600; font-size: 11px; color: rgba(255,255,255,.6); }
+.zenBadge { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  background: rgba(16,185,129,.9); border: 2px solid #fff; border-radius: 999px; padding: 3px 12px;
+  font-size: 11px; font-weight: 900; letter-spacing: .06em; color: #fff; z-index: 12; }
+.zenBadge.hidden { display: none; }
 .foot { color: rgba(255,255,255,.55); font-size: 11.5px; margin-top: 14px; }
 
 /* Entrada de las pantallas y de los resultados (transiciones suaves) */

@@ -106,8 +106,13 @@ html, body {
 .card.back .fig .num { font-size: calc(var(--cw) * .5); }
 
 /* ---------- Acciones ---------- */
-#actions { display: flex; gap: 10px; margin-top: 8px; }
-#actions .btn { flex: 1; margin: 0; padding: 15px 8px; font-size: 19px; }
+#actions { display: flex; gap: 8px; margin-top: 8px; }
+#actions .btn { flex: 1; margin: 0; padding: 15px 6px; font-size: 17px; }
+.btn-double { background: linear-gradient(180deg, #f472b6, #be185d); box-shadow: 0 6px 0 #831843; font-size: 15px !important; }
+.btn-double:active { box-shadow: 0 2px 0 #831843; }
+.btn-double.active { background: linear-gradient(180deg, #fde047, #eab308); color: #1c1917; box-shadow: 0 6px 0 #a16207; animation: doubleGlow .9s ease-in-out infinite alternate; }
+@keyframes doubleGlow { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+.btn-double:disabled { opacity: .45; }
 .btn-call { background: linear-gradient(180deg, #fbbf24, #d97706); box-shadow: 0 6px 0 #92400e; }
 .btn-call:active { box-shadow: 0 2px 0 #92400e; }
 

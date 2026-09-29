@@ -27,6 +27,11 @@ const DIFF = {
 
 const KEYMAP = { d: 0, f: 1, j: 2, k: 3, arrowleft: 0, arrowdown: 1, arrowup: 2, arrowright: 3 };
 
+/* Velocidad de caída de las notas (multiplica el scroll de la dificultad) */
+const SPEED_MULT = { slow: 0.72, normal: 1.0, fast: 1.35 };
+let noteSpeed = 'normal';
+let zenMode = false;             // sin trampas ni vidas: modo práctica
+
 const STORAGE_KEY = 'olla_gitana_ritmo_scores_v1';
 
 /* ---------------- Estado ---------------- */
@@ -110,11 +115,12 @@ function popup(x, y, text, color = '#fff', size = 26) {
 /* ---------------- Preferencias del jugador (nombre, sonido) ---------------- */
 const PREFS_KEY = 'olla_prefs_v1';
 function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (e) { return {}; } }
-function savePref(name, sound) {
+function savePref(name, sound, extra) {
   try {
     const p = loadPrefs();
     if (name !== undefined) p.name = name;
     if (sound !== undefined) p.sound = sound;
+    if (extra) Object.assign(p, extra);          // p.ej. {speed, zen} del ritmo
     localStorage.setItem(PREFS_KEY, JSON.stringify(p));
   } catch (e) {}
 }
@@ -164,14 +170,16 @@ function ensureMusic() {
   if (audio.paused) audio.play().catch(() => toast('Pulsa ▶ otra vez para activar la música', 2200));
 }
 
+/* Velocidad efectiva de las notas: dificultad x ajuste del jugador */
+function scrollEff(cfg) { return cfg.scroll * (SPEED_MULT[noteSpeed] || 1); }
+
 /* ---------------- Beatmap ---------------- */
 function prepareNotes(diff) {
   const cfg = DIFF[diff];
-  const rng = mulberry32(20261114);            // determinista por partida? -> usar semilla aleatoria
   const seed = (Math.random() * 1e9) | 0;
   const r2 = mulberry32(seed);
   notes = beatmap.notes.map((n, idx) => {
-    const isTrap = r2() < cfg.trapChance;
+    const isTrap = !zenMode && r2() < cfg.trapChance;      // en ZEN no hay trampas
     const isZarangollo = !isTrap && idx > 0 && idx % 47 === 0;
     return {
       t: n.t, lane: n.lane, s: n.s,
@@ -199,7 +207,7 @@ function startGame(diff) {
   resize();
   prepareNotes(diff);
   score = 0; combo = 0; maxCombo = 0; mult = 1; perfect = 0; good = 0; miss = 0; hitsCount = 0; judged = 0;
-  lives = cfg.lives;
+  lives = zenMode ? 99 : cfg.lives;
   popups = []; shake = 0; laneFlash = [0, 0, 0, 0]; particles = []; judgePulse = 0;
   bgIndex = -1; lastBgChange = -1;
   running = true; paused = false; finished = false;
@@ -211,6 +219,7 @@ function startGame(diff) {
   countdownBeeps = [false, false, false];
   updateHUD();
   lastFrame = startedAt;
+  syncZenBadge();
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
 }
@@ -239,6 +248,7 @@ function endGame(timedOut) {
       if (navigator.vibrate) { try { navigator.vibrate([25, 40, 25]); } catch (e) {} }
     }
   } catch (e) {}
+  syncZenBadge();
   el('nameRow').classList.remove('hidden');
   try { const pr = ollaPrefs(); if (pr.name) el('playerName').value = pr.name; } catch (e) {}
   show(el('endScreen'));
@@ -262,7 +272,7 @@ function update(dt) {
   const missLine = judgeY - noteH * 0.55;
   for (const n of notes) {
     if (n.state !== 'idle') continue;
-    const y = judgeY - (n.t - songTime) * cfg.scroll * H;
+    const y = judgeY - (n.t - songTime) * scrollEff(cfg) * H;
     if (n.t < songTime - cfg.window * 1.6) {
       n.state = 'missed'; n.judgedAt = songTime;
       miss++; judged++;
@@ -310,7 +320,7 @@ function pressLane(i, x, y) {
     best.state = 'hit'; best.hitAt = songTime;
     judged++; hitsCount++;
     if (best.kind === 'trap') {
-      lives--; shake = 1; combo = 0; mult = 1;
+      if (!zenMode) lives--; shake = 1; combo = 0; mult = 1;
       playSfx('hit');
       buzz(38);
       spark(x || laneCenter(i), y || judgeY - 30, '#f87171', 16);
@@ -411,7 +421,8 @@ function writeLocal(rows) {
 }
 
 async function fetchTop(diff) {
-  const res = await fetch(`${API}/top?game=${GAME_ID}&diff=${diff}&limit=50`, { cache: 'no-store' });
+  const d = zenMode ? diff + '_zen' : diff;      // el ranking de ZEN es aparte
+  const res = await fetch(`${API}/top?game=${GAME_ID}&diff=${d}&limit=50`, { cache: 'no-store' });
   if (!res.ok) throw new Error('api ' + res.status);
   const data = await res.json();
   return (data.scores || []).map(s => ({ name: s.name, score: s.score, combo: s.combo || 0, ts: s.ts || 0 }));
@@ -427,7 +438,8 @@ async function apiSave(entry) {
 
 async function saveScore(name) {
   const entry = {
-    game: GAME_ID, diff: difficulty, name: (name || 'Zagal anónimo').slice(0, 14),
+    game: GAME_ID, diff: difficulty + (zenMode ? '_zen' : ''),
+    name: (name || 'Zagal anónimo').slice(0, 14),
     score, combo: maxCombo, acc: judged ? Math.round(hitsCount / judged * 100) : 0
   };
   // respaldo local primero, para que nunca se pierda
@@ -490,6 +502,23 @@ el('diffRow').addEventListener('click', e => {
   [...el('diffRow').children].forEach(c => c.classList.toggle('active', c === b));
 });
 el('btnPlay').addEventListener('click', () => startGame(difficulty));
+el('speedRow').addEventListener('click', e => {
+  const b = e.target.closest('.diff'); if (!b) return;
+  noteSpeed = b.dataset.speed;
+  [...el('speedRow').children].forEach(c => c.classList.toggle('active', c === b));
+});
+el('zenCheck').addEventListener('change', () => {
+  zenMode = el('zenCheck').checked;
+  savePref(undefined, undefined, {speed: noteSpeed, zen: zenMode});
+  el('zenLabel').style.opacity = zenMode ? '1' : '.9';
+});
+/* etiqueta ZEN durante la partida */
+(function addZenBadge(){
+  const b = document.createElement('div');
+  b.id = 'zenBadge'; b.className = 'zenBadge hidden'; b.textContent = '🧘 MODO ZEN';
+  document.body.appendChild(b);
+})();
+function syncZenBadge() { const b = el('zenBadge'); if (b) b.classList.toggle('hidden', !zenMode || !running); }
 
 /* ---------------- Fondo ---------------- */
 function loadBg(src) {
@@ -529,7 +558,7 @@ function draw(dt) {
   const cfg = DIFF[difficulty];
   for (const n of notes) {
     if (n.state === 'hit') continue;
-    const y = judgeY - (n.t - songTime) * cfg.scroll * H;
+    const y = judgeY - (n.t - songTime) * scrollEff(cfg) * H;
     if (y < -noteH * 2 || y > H + noteH) continue;
     const missed = n.state === 'missed';
     const x = laneCenter(n.lane);
@@ -665,6 +694,18 @@ function updateBest() {
 updateBest();
 
 /* restaurar sonido guardado (si el jugador lo apagó, sigue apagado) */
+(function restoreGamePrefs(){
+  try {
+    const p = ollaPrefs();
+    if (p.speed && SPEED_MULT[p.speed]) {
+      noteSpeed = p.speed;
+      const row = el('speedRow');
+      if (row) [...row.children].forEach(c => c.classList.toggle('active', c.dataset.speed === noteSpeed));
+    }
+    if (p.zen) { zenMode = true; const c = el('zenCheck'); if (c) c.checked = true; }
+  } catch (e) {}
+})();
+
 (function restoreSound(){
   try {
     const p = ollaPrefs();
