@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Olla Gitana: El Duelo 🔫</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <button id="btnMenu" aria-label="Menú">⬅️</button>
+    <div class="chip lives"><span>❤️</span><b id="hpMe">3</b></div>
+    <div class="chip name"><b id="nameMe">Tú</b></div>
+  </div>
+  <div class="hud-center">
+    <div id="roomTag" class="chiplbl">SALA <b id="roomCode">----</b></div>
+  </div>
+  <div class="hud-right">
+    <div class="chip name"><b id="nameRival">Rival</b></div>
+    <div class="chip lives rival"><span>❤️</span><b id="hpRival">3</b></div>
+    <button id="btnSound" aria-label="Sonido">🔊</button>
+  </div>
+</div>
+
+<!-- Pantalla de inicio -->
+<div id="startScreen" class="screen">
+  <img src="../olla-gitana/victory.jpg" alt="" class="bg-blur">
+  <div class="scrim"></div>
+  <div class="pane">
+    <h1 class="title">OLLA GITANA</h1>
+    <h2 class="subtitle">EL DUELO 🔫🥘</h2>
+    <p class="tag">Combate de disparos <b>1 contra 1</b>: muévete, salta y dispara a la olla rival. El primero que le quite las 3 vidas gana.</p>
+
+    <div id="nameBox">
+      <input id="inputName" maxlength="14" placeholder="Tu mote">
+    </div>
+
+    <button id="btnCreate" class="btn btn-play">🏠 Crear sala</button>
+    <div class="orRow"><span>o</span></div>
+    <div class="joinRow">
+      <input id="inputCode" maxlength="6" placeholder="CÓDIGO" autocapitalize="characters">
+      <button id="btnJoin" class="btn btn-call small">🔑 Entrar</button>
+    </div>
+
+    <button id="btnHow" class="btn btn-ghost">ℹ️ Cómo se juega</button>
+    <p class="foot" id="bestScore"></p>
+    <p class="foot">2 jugadores · cada uno en su móvil · Hecho en Murcia</p>
+  </div>
+</div>
+
+<!-- Sala de espera -->
+<div id="lobbyScreen" class="screen hidden">
+  <div class="scrim solo"></div>
+  <div class="pane">
+    <h2 class="subtitle">SALA DE ESPERA</h2>
+    <div class="codeBox">
+      <span class="codeLbl">Comparte este código:</span>
+      <span id="bigCode" class="bigCode">----</span>
+      <button id="btnCopy" class="btn btn-ghost small">📋 Copiar</button>
+    </div>
+    <div class="vsBox">
+      <div id="slot0" class="playerSlot"><span class="ico">🥘</span><b class="nm">Esperando…</b></div>
+      <div class="vsTag">VS</div>
+      <div id="slot1" class="playerSlot"><span class="ico">🥘</span><b class="nm">Esperando…</b></div>
+    </div>
+    <p id="lobbyMsg" class="lobbyMsg">Manda el código a quien quieras jugar…</p>
+    <button id="btnReady" class="btn btn-play">✅ ¡ESTOY LISTO!</button>
+    <button id="btnLeave" class="btn btn-ghost">⬅️ Salir</button>
+  </div>
+</div>
+
+<!-- Resultado -->
+<div id="endScreen" class="modal hidden">
+  <div class="modalBox center">
+    <h3 id="endTitle">¡FIN DEL DUELO!</h3>
+    <p id="endPhrase" class="phrase">¡Menudo pijo!</p>
+    <div class="resultGrid">
+      <div><span class="k">Tú</span><b id="endMe">0</b></div>
+      <div><span class="k">Rival</span><b id="endRival">0</b></div>
+    </div>
+    <button id="btnAgain" class="btn btn-play">↻ Revancha</button>
+    <button id="btnEndMenu" class="btn btn-ghost">⬅️ Menú</button>
+  </div>
+</div>
+
+<!-- Instrucciones -->
+<div id="howModal" class="modal hidden">
+  <div class="modalBox">
+    <button id="btnCloseHow" class="x">✕</button>
+    <h3>CÓMO SE JUEGA</h3>
+    <ul>
+      <li><b>1v1 en directo</b>: crea una sala y pásale el código a tu rival (o entra con el suyo).</li>
+      <li><b>Moverse</b>: botones ◀ ▶ en pantalla · <b>Saltar</b>: ⬆️ o toque en la zona de arriba.</li>
+      <li><b>Disparar</b>: botón 🔴 (o la barra espaciadora). Cada disparo tiene su recarga.</li>
+      <li>Cada jugador tiene <b>3 vidas</b>. Gana quien deje a cero al rival.</li>
+      <li>Los dos tenéis que pulsar <b>¡ESTOY LISTO!</b> para empezar.</li>
+      <li>Hay un <b>chat</b> para piques rápidos mientras jugáis 😄</li>
+    </ul>
+    <button id="btnCloseHow2" class="btn btn-play">¡ENTENDIDO!</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Controles táctiles -->
+<div id="controls" class="hidden">
+  <div class="ctl-left">
+    <button id="btnLeft" class="ctl">◀</button>
+    <button id="btnRight" class="ctl">▶</button>
+  </div>
+  <div class="ctl-right">
+    <button id="btnJump" class="ctl ctl-jump">⬆️</button>
+    <button id="btnFire" class="ctl ctl-fire">🔴</button>
+  </div>
+</div>
+
+<!-- Chat -->
+<div id="chatBox" class="hidden">
+  <div id="chatLog"></div>
+  <div class="chatRow">
+    <input id="chatInput" maxlength="80" placeholder="Di algo…">
+    <button id="btnChat" class="btn small">➤</button>
+  </div>
+</div>
+
+<script src="../logros.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
