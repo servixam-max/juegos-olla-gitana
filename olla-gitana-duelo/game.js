@@ -207,7 +207,7 @@ function dibujar() {
   const e = estado;
   // ---- arena cenital RECTANGULAR: usa toda la pantalla disponible ----
   const MW = (e && e.W) || 800, MH = (e && e.H) || 1500;
-  const arriba = 58, abajo = Math.min(180, H * 0.22);      // hueco del marcador y controles
+  const arriba = 104, abajo = Math.min(186, H * 0.23);     // hueco del marcador y controles
   const dispW = W - 8, dispH = H - arriba - abajo;
   const esc = Math.min(dispW / MW, dispH / MH);
   const ox = (W - MW * esc) / 2, oy = arriba + (dispH - MH * esc) / 2;
@@ -304,7 +304,7 @@ function dibujar() {
 
   // marcador: nombre + corazones de cada uno (el servidor manda 6 vidas)
   if (e && e.p) {
-    const boxW = Math.min(W * .92, 420), bx = (W - boxW) / 2, by = 6;
+    const boxW = Math.min(W * .92, 420), bx = (W - boxW) / 2, by = 50;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 46, 23); else ctx.rect(bx, by, boxW, 46);

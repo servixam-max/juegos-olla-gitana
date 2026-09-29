@@ -178,17 +178,49 @@ function terminar(res) {
   finMostrado = true; jugando = false;
   hide(el('controls'));
   const sc = res.score || [0, 0];
-  const empate = sc[0] === sc[1];
-  const gane = !empate && res.ganador === mySlot;
-  el('endTitle').textContent = empate ? '¡EMPATE!' : (gane ? '¡HAS GANAO! 🏆' : '¡TE HAN GANAO!');
-  try { el('endPhrase').dataset.nivel = (estado && estado.nivel) || 1; } catch (e) {}
+  const mio = sc[mySlot] ?? sc[0] ?? 0;
   const niv = (estado && estado.nivel) || 1;
-  el('endPhrase').textContent = (empate ? '¡Menudo empate, zagal!' : (gane ? PHRASES_WIN[(Math.random() * PHRASES_WIN.length) | 0] : PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0])) + ` · nivel ${niv}`;
-  el('endMe').textContent = sc[mySlot] ?? 0;
+  // en solitario: no hay "empate" ni rival -> puntuación, nivel y récord
+  const modo1 = modoSolo || !rivalNombre;
+  if (modo1) {
+    let rec = 0;
+    try { rec = +(localStorage.getItem('olla_burbujas_rec') || 0); } catch (e) {}
+    const nuevoRecord = mio > rec;
+    if (nuevoRecord) { try { localStorage.setItem('olla_burbujas_rec', String(mio)); } catch (e) {} rec = mio; }
+    el('endTitle').textContent = nuevoRecord ? '¡RÉCORD! 🏆' : '¡SE ACABÓ!';
+    el('endPhrase').textContent = `Llegaste al nivel ${niv} · ${(PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0])}`;
+    el('endMe').textContent = mio;
+    const elR = el('endRival'); if (elR) elR.textContent = rec;
+    if (nuevoRecord) { beep(1046, .12, .1); setTimeout(() => beep(1318, .16, .09), 110); }
+    else sfxHit();
+    guardarPuntuacion(mio);   // ranking (1 jugador)
+    show(el('endScreen'));
+    return;
+  }
+  el('endTitle').textContent = '¡SE ACABARON!';
+  try { el('endPhrase').dataset.nivel = niv; } catch (e) {}
+  el('endPhrase').textContent = `Llegaste al nivel ${niv}`;
+  el('endMe').textContent = mio;
   el('endRival').textContent = sc[1 - mySlot] ?? 0;
   show(el('endScreen'));
-  if (gane) { beep(1046, .12, .1); setTimeout(() => beep(1318, .16, .09), 110); try { logros.check('burbujas'); } catch (e) {} }
-  else if (!empate) sfxHit();
+  sfxHit();
+}
+
+const API = (function () {
+  const p = location.pathname;                    // '/champi/olla-gitana-burbujas/…'
+  const i = p.indexOf('/olla-gitana-burbujas');
+  const base = i >= 0 ? p.slice(0, i) : '/';
+  return base.replace(/\/$/, '') + '/api';
+})();
+
+// guarda la puntuación en el ranking (1 jugador)
+function guardarPuntuacion(puntos) {
+  try {
+    fetch(`${API}/score`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game: 'burbujas', diff: 'normal', name: myName || 'Zagal', score: puntos })
+    }).then(r => r.ok ? toast('¡Puntuación guardada! 🏆') : null).catch(() => {});
+  } catch (e) {}
 }
 
 /* ---------------- Dibujo ---------------- */
@@ -363,7 +395,7 @@ function dibujar() {
 
   // ---------- marcador flotante ----------
   if (e && e.score) {
-    const boxW = Math.min(W * .8, 360), bx = (W - boxW) / 2, by = 10;
+    const boxW = Math.min(W * .8, 360), bx = (W - boxW) / 2, by = 52;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 66, 22); else ctx.rect(bx, by, boxW, 66);
