@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap');
+
+/* Reset & Basics */
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #87CEEB; /* Fallback Sky Blue */
+    background-image: url('https://images.unsplash.com/photo-1548625361-987719602035?auto=format&fit=crop&w=800&q=60'), linear-gradient(to bottom, #87CEEB, #E0F6FF);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    touch-action: none; /* Crucial for mobile game */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+canvas {
+    display: block;
+    image-rendering: pixelated; /* Retro feel if needed, otherwise crisp */
+}
+
+/* Custom Scrollbar for Leaderboard */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #1f2937; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #4b5563; 
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; 
+}
+
+/* Animations */
+@keyframes shake {
+    0% { transform: translate(1px, 1px) rotate(0deg); background-color: #ef4444; }
+    10% { transform: translate(-1px, -2px) rotate(-1deg); background-color: #f87171; }
+    20% { transform: translate(-3px, 0px) rotate(1deg); }
+    30% { transform: translate(3px, 2px) rotate(0deg); }
+    40% { transform: translate(1px, -1px) rotate(1deg); }
+    50% { transform: translate(-1px, 2px) rotate(-1deg); background-color: #fca5a5; }
+    60% { transform: translate(-3px, 1px) rotate(0deg); }
+    70% { transform: translate(3px, 1px) rotate(-1deg); }
+    80% { transform: translate(-1px, -1px) rotate(1deg); }
+    90% { transform: translate(1px, 2px) rotate(0deg); }
+    100% { transform: translate(1px, -2px) rotate(-1deg); background-color: #fef3c7; }
+}
+
+.shake-screen {
+    animation: shake 0.5s;
+    animation-iteration-count: 1;
+}
+
+/* Level Up Pop */
+@keyframes pop-in {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 1; }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+    animation: pop-in 0.5s forwards;
+}
+
+@keyframes fade-out {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+.animate-fade-out {
+    animation: fade-out 0.5s forwards;
+    animation-delay: 1.5s; /* Show for 1.5s then fade */
+}
+
+/* Input Styles */
+input::placeholder {
+    color: #6b7280;
+    opacity: 1;
+}
