@@ -395,6 +395,11 @@ const scoreDisplay = document.getElementById('scoreDisplay');
 const livesDisplay = document.getElementById('livesDisplay');
 const levelDisplay = document.getElementById('levelDisplay');
 const musicToggle = document.getElementById('musicToggle');
+// respetar el sonido que el jugador ya eligió en otros juegos
+try {
+    const pr0 = ollaPrefsArcade();
+    if (pr0.sound === false) { AudioEngine.isMusicEnabled = false; setTimeout(() => AudioEngine.updateUI && AudioEngine.updateUI(false), 60); }
+} catch (e) {}
 const startMusicToggle = document.getElementById('startMusicToggle');
 const startScreen = document.getElementById('startScreen');
 const gameOverScreen = document.getElementById('gameOverScreen');
@@ -607,7 +612,8 @@ function startGame(difficulty) {
         lemonSpawnedForLevel: false,
         timeFreeze: 0, // Timer for slow motion
         originalSpeed: 0, // Store speed before slow motion
-        isDragging: false // Reset drag state
+        isDragging: false, // Reset drag state
+        countdown: 0
     };
 
     startScreen.classList.add('hidden');
@@ -618,6 +624,9 @@ function startGame(difficulty) {
     
     setBackground('game');
     updateHUD();
+    // Cuenta atrás: el juego empezaba de golpe y caía fruta enseguida
+    state.countdown = 3.0;
+    state.items = [];
     requestAnimationFrame(gameLoop);
 }
 
@@ -634,17 +643,49 @@ function togglePause() {
 function gameLoop() {
     if (!state.isRunning || state.isPaused) return;
 
+    if (state.countdown > 0) {
+        // cuenta atrás 3·2·1 antes de que caiga nada
+        const before = Math.ceil(state.countdown);
+        state.countdown -= 1 / 60;
+        const after = Math.ceil(state.countdown);
+        if (after !== before && after > 0) AudioEngine.playTone('good');
+        if (after === 0) AudioEngine.playTone('heart');
+        draw();
+        drawCountdown(Math.max(1, after));
+        state.frames++;
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
     if (!state.levelUpPause) {
         update();
     }
-    
+
     // Even if paused by level up, we might want to draw (or just freeze)
-    // But since we want to "PAUSE the spawning/movement", we skip update() but call draw() 
+    // But since we want to "PAUSE the spawning/movement", we skip update() but call draw()
     // to keep rendering frame.
-    draw(); 
+    draw();
     
     state.frames++;
     requestAnimationFrame(gameLoop);
+}
+
+function drawCountdown(n) {
+    const ctx2 = canvas.getContext('2d');
+    const t = 1 - ((3 - Math.max(1, n)) % 1);          // 0..1 para el pulso
+    ctx2.save();
+    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+    ctx2.globalAlpha = 0.9;
+    ctx2.font = `900 ${Math.round(CONFIG.GAME_HEIGHT * 0.16 * (1 + t * 0.15))}px system-ui`;
+    ctx2.lineWidth = 8; ctx2.strokeStyle = 'rgba(0,0,0,.6)';
+    ctx2.strokeText(String(n), CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT * 0.44);
+    ctx2.fillStyle = '#facc15';
+    ctx2.fillText(String(n), CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT * 0.44);
+    ctx2.font = `900 ${Math.round(CONFIG.GAME_HEIGHT * 0.028)}px system-ui`;
+    ctx2.fillStyle = 'rgba(255,255,255,.9)';
+    ctx2.strokeText('¡PREPARAO!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT * 0.44 + CONFIG.GAME_HEIGHT * 0.11);
+    ctx2.fillText('¡PREPARAO!', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT * 0.44 + CONFIG.GAME_HEIGHT * 0.11);
+    ctx2.restore();
 }
 
 function update() {
@@ -1118,13 +1159,37 @@ function updateHUD() {
     scoreDisplay.innerText = state.score;
     livesDisplay.innerText = state.lives;
     levelDisplay.innerText = state.level;
+    // combo visible (antes no se veía en ningún sitio)
+    const chip = document.getElementById('comboChip');
+    const disp = document.getElementById('comboDisplay');
+    if (chip && disp) {
+        const c = state.combo || 0;
+        const mult = 1 + c * 0.2;
+        if (c > 1) {
+            chip.classList.remove('opacity-0');
+            disp.innerText = `x${mult.toFixed(1)}`;
+            chip.className = chip.className.replace(/bg-\S+/, c >= 10 ? 'bg-red-600/95' : c >= 5 ? 'bg-purple-600/95' : 'bg-purple-600/90');
+        } else {
+            chip.classList.add('opacity-0');
+        }
+    }
 }
 
 
 // Preferencias del jugador (nombre) — compartidas con los otros juegos del sitio
 const PREFS_KEY_ARCADIA = 'olla_prefs_v1';
 function ollaPrefsArcade() { try { return JSON.parse(localStorage.getItem(PREFS_KEY_ARCADIA) || '{}'); } catch (e) { return {}; } }
-function savePrefArcade(name) { try { const p = ollaPrefsArcade(); if (name) p.name = name; localStorage.setItem(PREFS_KEY_ARCADIA, JSON.stringify(p)); } catch (e) {} }
+function savePrefArcade(name, sound) { try { const p = ollaPrefsArcade(); if (name) p.name = name; if (sound !== undefined) p.sound = sound; localStorage.setItem(PREFS_KEY_ARCADIA, JSON.stringify(p)); } catch (e) {} }
+
+function updateArcadeBest() {
+    const node = document.getElementById('arcadeBest');
+    if (!node) return;
+    try {
+        const rows = JSON.parse(localStorage.getItem(MOCK_DB_KEY) || '[]');
+        const best = rows.reduce((m, r) => Math.max(m, r.score || 0), 0);
+        node.textContent = best ? `🏆 Tu récord: ${best} puntos` : '';
+    } catch (e) {}
+}
 
 function gameOver() {
     state.isRunning = false;
@@ -1135,6 +1200,7 @@ function gameOver() {
     gameOverScreen.querySelector('h1').innerText = ASSETS.TEXTS.GAME_OVER[Math.floor(Math.random() * ASSETS.TEXTS.GAME_OVER.length)];
     finalScoreDisplay.innerText = state.score;
     
+    updateArcadeBest();
     submitScoreBtn.disabled = false;
     submitScoreBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     document.getElementById('submitMsg').innerText = "";
@@ -1245,6 +1311,9 @@ document.getElementById('closeInstructionsBtnBottom').addEventListener('click', 
 
 document.getElementById('restartBtn').addEventListener('click', () => startGame(state.difficulty));
 document.getElementById('resumeBtn').addEventListener('click', togglePause);
+// botón de pausa explícito (antes solo se pausaba tocando el HUD: poco claro)
+const pauseBtnEl = document.getElementById('pauseBtn');
+if (pauseBtnEl) pauseBtnEl.addEventListener('click', (e) => { e.stopPropagation(); togglePause(); });
 document.getElementById('hud').addEventListener('click', (e) => {
     if (e.target !== musicToggle) togglePause();
 });
@@ -1301,6 +1370,7 @@ function updateTabs(activeDiff) {
 function handleMusicToggle(e) {
     e.stopPropagation();
     AudioEngine.toggleMusic();
+    try { savePrefArcade(undefined, AudioEngine.isMusicEnabled); } catch (err) {}
 }
 musicToggle.addEventListener('click', handleMusicToggle);
 startMusicToggle.addEventListener('click', handleMusicToggle);
@@ -1336,6 +1406,7 @@ document.getElementById('restartBtnVictory').addEventListener('click', () => {
 });
 
 backToMenuBtn.addEventListener('click', () => {
+    updateArcadeBest();
     state.isRunning = false;
     hud.classList.add('hidden');
     pauseScreen.classList.add('hidden');
