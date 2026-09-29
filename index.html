@@ -84,11 +84,17 @@
     box-shadow:0 5px 0 #14532d;transition:box-shadow .1s ease,transform .1s ease}
   .card:active .play{box-shadow:0 2px 0 #14532d;transform:translateY(3px)}
   .foot{text-align:center;color:rgba(255,255,255,.42);font-size:11.5px;margin-top:24px;line-height:1.7}
-  #installBtn{display:none;margin:18px auto 0;align-items:center;justify-content:center;gap:8px;
+  .actionsRow{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:18px}
+  #installBtn{display:none;align-items:center;justify-content:center;gap:8px;
     background:linear-gradient(180deg,#a78bfa,#6d28d9);border:3px solid #fff;border-radius:999px;
     padding:13px 22px;font-weight:900;font-size:15px;color:#fff;box-shadow:0 5px 0 #4c1d95;cursor:pointer;
     transition:box-shadow .1s ease,transform .1s ease}
   #installBtn:active{box-shadow:0 2px 0 #4c1d95;transform:translateY(3px)}
+  #shareBtn{display:flex;align-items:center;justify-content:center;gap:8px;
+    background:linear-gradient(180deg,#4ade80,#16a34a);border:3px solid #fff;border-radius:999px;
+    padding:13px 22px;font-weight:900;font-size:15px;color:#fff;box-shadow:0 5px 0 #166534;cursor:pointer;
+    transition:box-shadow .1s ease,transform .1s ease}
+  #shareBtn:active{box-shadow:0 2px 0 #166534;transform:translateY(3px)}
   @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -163,13 +169,23 @@
   </a>
 
   <p class="foot">Hecho en Murcia · La banda Olla Gitana</p>
-  <button id="installBtn">📲 Instalar en el móvil</button>
+  <div class="actionsRow">
+    <button id="shareBtn">💬 Compartir por WhatsApp</button>
+    <button id="installBtn">📲 Instalar en el móvil</button>
+  </div>
 </div>
 
 <script>
 // ---------- PWA: instalable en el móvil ----------
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      // que el módulo de logros quede cacheado (para que cargue sin conexión)
+      navigator.serviceWorker.ready.then(reg => {
+        if (reg.active) reg.active.postMessage('precache-logros');
+      });
+    }).catch(() => {});
+  });
 }
 let deferredPrompt = null;
 const ib = document.getElementById('installBtn');
@@ -191,6 +207,35 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalon
 }
 // Si ya está instalada, no molestar
 if (window.matchMedia('(display-mode: standalone)').matches) ib.style.display = 'none';
+
+// ---------- Compartir por WhatsApp ----------
+const shareBtn = document.getElementById('shareBtn');
+const SHARE_TEXTO = '¡Mira los juegos de la banda Olla Gitana! 🥘🎸🎴\n\n' +
+  '· Siete y Media (baraja española) 🎴\n' +
+  '· La Huerta Runner 🏃\n' +
+  '· El Ritmo, con nuestra canción 🎵\n' +
+  '· El Juego clásico 🥘\n\n' +
+  'Se juega desde el móvil, sin instalar nada y con ranking. ¡A ver quién gana más! 🏆';
+
+function enlaceJuegos() {
+  // enlace corto y bonito: siempre /champi/ (aunque se abra desde /juegos-olla/)
+  const p = location.pathname.replace(/index\.html$/, '');
+  if (p.includes('/juegos-olla')) return location.origin + '/champi/';
+  return location.origin + p;
+}
+
+function compartirJuegos() {
+  const url = enlaceJuegos();
+  // 1) Si el móvil soporta el share nativo, se usa (permite elegir WhatsApp y a quién)
+  if (navigator.share) {
+    navigator.share({ title: 'Olla Gitana — Los Juegos', text: SHARE_TEXTO, url })
+      .catch(() => {});   // si cancela, no pasa nada
+    return;
+  }
+  // 2) Respaldo: WhatsApp directo (deja elegir el contacto en la app)
+  window.open('https://wa.me/?text=' + encodeURIComponent(SHARE_TEXTO + '\n\n' + url), '_blank');
+}
+shareBtn.addEventListener('click', compartirJuegos);
 
 // ---------- Mejores puntuaciones de cada juego (se leen del ranking) ----------
 (async () => {

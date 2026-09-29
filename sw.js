@@ -59,3 +59,10 @@ self.addEventListener('fetch', e => {
     }
   })());
 });
+
+// Precarga al instalar: el módulo de logros y el menú, para que funcionen sin conexión
+self.addEventListener('message', e => {
+  if (e.data === 'precache-logros') {
+    caches.open(CACHE).then(c => c.addAll(['logros.js', 'manifest.webmanifest']).catch(() => {}));
+  }
+});
