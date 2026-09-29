@@ -316,6 +316,15 @@ function gameOver() {
   el('endHands').textContent = handsWon;
   el('endStreak').textContent = maxStreak;
   el('endLevel').textContent = level;
+  // ¿récord nuevo?
+  try {
+    const best = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0);
+    if (points > best && points > 0) {
+      const t = el('endTitle');
+      t.textContent = '¡RÉCORD NUEVO! 🏆 ' + t.textContent.replace('¡RÉCORD NUEVO! 🏆 ', '');
+      beep(1318, .12, .1); setTimeout(() => beep(1760, .16, .08), 110);
+    }
+  } catch (e) {}
   el('nameRow').classList.remove('hidden');
   show(el('endScreen'));
 }

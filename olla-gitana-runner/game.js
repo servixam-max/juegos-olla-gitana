@@ -91,6 +91,20 @@ function playerRect() {
   return { x: player.x - player.w * 0.42, y: GROUND_Y - h + (player.onGround ? 0 : player.y + player.h - GROUND_Y), w: player.w * 0.84, h };
 }
 
+
+/* ---------------- Preferencias del jugador (nombre, sonido) ---------------- */
+const PREFS_KEY = 'olla_prefs_v1';
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (e) { return {}; } }
+function savePref(name, sound) {
+  try {
+    const p = loadPrefs();
+    if (name !== undefined) p.name = name;
+    if (sound !== undefined) p.sound = sound;
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch (e) {}
+}
+function ollaPrefs() { return loadPrefs(); }
+
 /* ---------------- Audio ---------------- */
 function initMusic() {
   if (audio.music) return;
@@ -177,7 +191,17 @@ function gameOver() {
   el('endMeters').textContent = Math.floor(meters);
   el('endItems').textContent = itemsGot;
   el('endLevel').textContent = level;
+  // ¿récord nuevo?
+  try {
+    const best = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0);
+    if (points > best && points > 0) {
+      const t = el('endTitle');
+      t.textContent = '¡RÉCORD NUEVO! 🏆 ' + t.textContent.replace('¡RÉCORD NUEVO! 🏆 ', '');
+      buzz(30);
+    }
+  } catch (e) {}
   el('nameRow').classList.remove('hidden');
+  try { const pr = ollaPrefs(); if (pr.name) el('playerName').value = pr.name; } catch (e) {}
   show(el('endScreen'));
 }
 
@@ -564,6 +588,7 @@ function backToMenu() {
 el('btnSound').addEventListener('click', toggleSound);
 function toggleSound() {
   soundOn = !soundOn;
+  savePref(undefined, soundOn);
   el('btnSound').textContent = soundOn ? '🔊' : '🔇';
   if (audio.music) audio.music.muted = !soundOn;
 }
@@ -581,6 +606,7 @@ el('rankTabs').addEventListener('click', e => {
 });
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
+  savePref(el('playerName').value.trim(), undefined);
   el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
@@ -600,3 +626,15 @@ resetPlayer();
 draw();
 window.__runnerState = () => ({ running, paused, score: points, meters: Math.floor(meters), lives, level, combo: maxCombo, items: itemsGot, obstacles: obstacles.length, itemsOnScreen: items.length, api: API, difficulty });
 updateBest();
+
+/* restaurar sonido guardado (si el jugador lo apagó, sigue apagado) */
+(function restoreSound(){
+  try {
+    const p = ollaPrefs();
+    if (p.sound === false) {
+      soundOn = false;
+      const b = el('btnSound'); if (b) b.textContent = '🔇';
+    }
+  } catch (e) {}
+})();
+

@@ -891,6 +891,7 @@ function victory() {
     }
     
     finalScoreVictoryDisplay.innerText = state.score;
+    try { const pr = ollaPrefsArcade(); if (pr.name && playerNameInputVictory) playerNameInputVictory.value = pr.name; } catch (e) {}
     
     submitScoreBtnVictory.disabled = false;
     submitScoreBtnVictory.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -1119,6 +1120,12 @@ function updateHUD() {
     levelDisplay.innerText = state.level;
 }
 
+
+// Preferencias del jugador (nombre) — compartidas con los otros juegos del sitio
+const PREFS_KEY_ARCADIA = 'olla_prefs_v1';
+function ollaPrefsArcade() { try { return JSON.parse(localStorage.getItem(PREFS_KEY_ARCADIA) || '{}'); } catch (e) { return {}; } }
+function savePrefArcade(name) { try { const p = ollaPrefsArcade(); if (name) p.name = name; localStorage.setItem(PREFS_KEY_ARCADIA, JSON.stringify(p)); } catch (e) {} }
+
 function gameOver() {
     state.isRunning = false;
     hud.classList.add('hidden');
@@ -1131,6 +1138,7 @@ function gameOver() {
     submitScoreBtn.disabled = false;
     submitScoreBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     document.getElementById('submitMsg').innerText = "";
+    try { const pr = ollaPrefsArcade(); if (pr.name && playerNameInput) playerNameInput.value = pr.name; } catch (e) {}
     
     // Load top 5 for current difficulty
     loadLeaderboard(state.difficulty, leaderboardBody, 5);
@@ -1300,6 +1308,7 @@ startMusicToggle.addEventListener('click', handleMusicToggle);
 submitScoreBtn.addEventListener('click', () => {
     const val = playerNameInput.value.trim(); // Allow mixed case and special chars
     if (val) {
+        savePrefArcade(val);
         saveScore(val, state.score).then(() => {
             loadLeaderboard(state.difficulty, leaderboardBody, 5);
             document.getElementById('submitMsg').innerText = "¡Guardado!";
@@ -1312,6 +1321,7 @@ submitScoreBtn.addEventListener('click', () => {
 submitScoreBtnVictory.addEventListener('click', () => {
     const val = playerNameInputVictory.value.trim();
     if (val) {
+        savePrefArcade(val);
         saveScore(val, state.score).then(() => {
             document.getElementById('submitMsgVictory').innerText = "¡Guardado!";
             submitScoreBtnVictory.disabled = true;

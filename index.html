@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Olla Gitana — Juegos 🥘</title>
 <meta name="theme-color" content="#0b0705">
+<meta name="description" content="Cuatro juegos huertanos de la banda Olla Gitana: cartas, runner, ritmo y el arcade clásico.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Olla Gitana">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta property="og:title" content="Olla Gitana — Los Juegos">
+<meta property="og:description" content="Cuatro juegos huertanos con la música y las fotos de la banda.">
+<meta property="og:image" content="icons/icon-512.png">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;min-height:100%;background:#0b0705;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -66,6 +76,11 @@
     box-shadow:0 5px 0 #14532d;transition:box-shadow .1s ease,transform .1s ease}
   .card:active .play{box-shadow:0 2px 0 #14532d;transform:translateY(3px)}
   .foot{text-align:center;color:rgba(255,255,255,.42);font-size:11.5px;margin-top:24px;line-height:1.7}
+  #installBtn{display:none;margin:18px auto 0;align-items:center;justify-content:center;gap:8px;
+    background:linear-gradient(180deg,#a78bfa,#6d28d9);border:3px solid #fff;border-radius:999px;
+    padding:13px 22px;font-weight:900;font-size:15px;color:#fff;box-shadow:0 5px 0 #4c1d95;cursor:pointer;
+    transition:box-shadow .1s ease,transform .1s ease}
+  #installBtn:active{box-shadow:0 2px 0 #4c1d95;transform:translateY(3px)}
   @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -136,6 +151,34 @@
   </a>
 
   <p class="foot">Hecho en Murcia · La banda Olla Gitana</p>
+  <button id="installBtn">📲 Instalar en el móvil</button>
 </div>
+
+<script>
+// ---------- PWA: instalable en el móvil ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+let deferredPrompt = null;
+const ib = document.getElementById('installBtn');
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e; ib.style.display = 'flex';
+});
+ib.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null; ib.style.display = 'none';
+});
+// iOS no dispara beforeinstallprompt: mostrar la pista solo en iPhone/iPad y en Safari
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone) {
+  ib.style.display = 'flex';
+  ib.addEventListener('click', () => {
+    alert('Para instalar en iPhone/iPad:\n\n1) Toca el botón Compartir ⬆️ de Safari\n2) Elige «Añadir a pantalla de inicio»');
+  });
+}
+// Si ya está instalada, no molestar
+if (window.matchMedia('(display-mode: standalone)').matches) ib.style.display = 'none';
+</script>
 </body>
 </html>

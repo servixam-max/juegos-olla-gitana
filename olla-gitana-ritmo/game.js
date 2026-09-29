@@ -46,6 +46,7 @@ let laneRipple = [0, 0, 0, 0];
 let popups = [];            // textos flotantes {x,y,text,life,color,size}
 let particles = [];         // chispas al acertar {x,y,vx,vy,life,color,r}
 let judgePulse = 0;         // pulso de la línea de juicio al golpear
+let countdownBeeps = [false, false, false];   // pitidos 3-2-1 del arranque
 let shake = 0;
 let soundOn = true;
 let bgImg = null, bgLoaded = -1;
@@ -104,6 +105,20 @@ function toast(msg, ms = 1600) {
 function popup(x, y, text, color = '#fff', size = 26) {
   popups.push({ x, y, text, color, size, life: 1 });
 }
+
+
+/* ---------------- Preferencias del jugador (nombre, sonido) ---------------- */
+const PREFS_KEY = 'olla_prefs_v1';
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (e) { return {}; } }
+function savePref(name, sound) {
+  try {
+    const p = loadPrefs();
+    if (name !== undefined) p.name = name;
+    if (sound !== undefined) p.sound = sound;
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch (e) {}
+}
+function ollaPrefs() { return loadPrefs(); }
 
 /* ---------------- Audio ---------------- */
 function initAudio() {
@@ -193,6 +208,7 @@ function startGame(diff) {
   ensureMusic();
   try { audio.currentTime = 0; } catch (e) {}
   startedAt = performance.now();
+  countdownBeeps = [false, false, false];
   updateHUD();
   lastFrame = startedAt;
   cancelAnimationFrame(rafId);
@@ -213,7 +229,18 @@ function endGame(timedOut) {
   el('endCombo').textContent = 'x' + maxCombo;
   el('endAcc').textContent = acc + '%';
   el('endPerfect').textContent = perfect;
+  // ¿récord nuevo? (antes de guardar, comparamos con el mejor local)
+  try {
+    const best = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0);
+    if (score > best && score > 0) {
+      const t = el('endTitle');
+      t.textContent = '¡RÉCORD NUEVO! 🏆 ' + t.textContent.replace('¡RÉCORD NUEVO! 🏆 ', '');
+      beep(1318, .12, .1); setTimeout(() => beep(1760, .16, .08), 110);
+      if (navigator.vibrate) { try { navigator.vibrate([25, 40, 25]); } catch (e) {} }
+    }
+  } catch (e) {}
   el('nameRow').classList.remove('hidden');
+  try { const pr = ollaPrefs(); if (pr.name) el('playerName').value = pr.name; } catch (e) {}
   show(el('endScreen'));
   try { audio.pause(); } catch (e) {}
 }
@@ -253,6 +280,11 @@ function update(dt) {
   }
   shake = Math.max(0, shake - dt * 3);
   judgePulse = Math.max(0, judgePulse - dt * 5);
+  // pitido 3-2-1 del arranque (la primera nota llega a 1,6 s)
+  if (songTime < 1.55) {
+    const idx = songTime < 0.5 ? 0 : songTime < 1.0 ? 1 : 2;
+    if (!countdownBeeps[idx]) { countdownBeeps[idx] = true; beep(idx === 2 ? 1046 : 660, 0.07, 0.06); }
+  }
   popups.forEach(p => { p.life -= dt * 1.25; p.y -= dt * 42; });
   popups = popups.filter(p => p.life > 0);
   for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 620 * dt; p.life -= dt * 1.6; }
@@ -356,6 +388,7 @@ function backToMenu() {
 el('btnSound').addEventListener('click', toggleSound);
 function toggleSound() {
   soundOn = !soundOn;
+  savePref(undefined, soundOn);
   el('btnSound').textContent = soundOn ? '🔊' : '🔇';
   if (audio) audio.muted = !soundOn;
   toast(soundOn ? 'Sonido ON' : 'Sonido OFF', 1000);
@@ -432,6 +465,7 @@ el('btnRanking').addEventListener('click', () => { rankDiff = difficulty; [...el
 el('btnCloseRank').addEventListener('click', () => hide(el('rankScreen')));
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
+  savePref(el('playerName').value.trim(), undefined);
   el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
@@ -500,6 +534,27 @@ function draw(dt) {
     const missed = n.state === 'missed';
     const x = laneCenter(n.lane);
     drawNote(x, y, n, missed);
+  }
+
+  // cuenta atrás en los primeros 1,5 s (la primera nota llega a 1,6 s):
+  // da tiempo a prepararse y hace que el arranque no sea de golpe.
+  if (running && !paused && songTime < 1.55) {
+    const n = songTime < 0.5 ? 3 : songTime < 1.0 ? 2 : 1;
+    const frac = (songTime % 0.5) / 0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.85 - frac * 0.55;
+    ctx.font = `900 ${Math.round(H * 0.19 * (1 + frac * 0.18))}px system-ui`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,.65)';
+    ctx.strokeText(String(n), W / 2, H * 0.42);
+    ctx.fillStyle = '#fde047';
+    ctx.fillText(String(n), W / 2, H * 0.42);
+    ctx.globalAlpha = 1;
+    ctx.font = `900 ${Math.round(H * 0.032)}px system-ui`;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.strokeText('¡PREPARADO!', W / 2, H * 0.42 + H * 0.13);
+    ctx.fillText('¡PREPARADO!', W / 2, H * 0.42 + H * 0.13);
+    ctx.restore();
   }
 
   // línea de juicio + pads
@@ -608,3 +663,15 @@ function updateBest() {
   } catch (e) {}
 }
 updateBest();
+
+/* restaurar sonido guardado (si el jugador lo apagó, sigue apagado) */
+(function restoreSound(){
+  try {
+    const p = ollaPrefs();
+    if (p.sound === false) {
+      soundOn = false;
+      const b = el('btnSound'); if (b) b.textContent = '🔇';
+    }
+  } catch (e) {}
+})();
+
