@@ -13,16 +13,11 @@
 <div id="hud" class="hidden">
   <div class="hud-left">
     <button id="btnMenu" aria-label="Menú">⬅️</button>
-    <div class="chip score me"><span>🥘</span><b id="scoreMe">0</b></div>
-    <div class="chip name"><b id="nameMe">Tú</b></div>
-  </div>
-  <div class="hud-center">
-    <div id="roomTag" class="chiplbl">SALA <b id="roomCode">----</b></div>
+    <button id="btnSound" aria-label="Sonido">🔊</button>
   </div>
   <div class="hud-right">
+    <div class="chip name"><b id="nameMe">Tú</b></div>
     <div class="chip name"><b id="nameRival">Rival</b></div>
-    <div class="chip score rival"><span>🍳</span><b id="scoreRival">0</b></div>
-    <button id="btnSound" aria-label="Sonido">🔊</button>
   </div>
 </div>
 
@@ -38,12 +33,6 @@
     <div id="nameBox"><input id="inputName" maxlength="14" placeholder="Tu mote"></div>
 
     <button id="btnBot" class="btn btn-play">🤖 Jugar contra la máquina</button>
-    <button id="btnCreate" class="btn btn-call">🏠 Crear sala (2 jugadores)</button>
-    <div class="orRow"><span>o entra en una sala</span></div>
-    <div class="joinRow">
-      <input id="inputCode" maxlength="6" placeholder="CÓDIGO" autocapitalize="characters">
-      <button id="btnJoin" class="btn btn-ghost small">🔑 Entrar</button>
-    </div>
     <button id="btnSolo" class="btn btn-ghost">👤 Jugar solo (sin rival)</button>
 
     <div class="fondoBox">
@@ -102,9 +91,9 @@
       <li>Las burbujas <b>caen y rebotan</b> en el suelo y en los <b>ladrillos</b> 🧱.</li>
       <li>Al reventar una grande se <b>parte en dos</b> más pequeñas.</li>
       <li>Puntos: grande <b>30</b>, mediana <b>50</b>, pequeña <b>70</b>.</li>
-      <li><b>No se pierden vidas</b>: juega tranquilo a reventar burbujas.</li>
-      <li>Cada nivel trae <b>más burbujas, más rápidas y más ladrillos</b> (hasta 12).</li>
-      <li>Modos: <b>contra la máquina</b> 🤖, <b>solo</b> 👤 o <b>con un amigo</b> 🏠 (sala con código).</li>
+      <li>Si una burbuja te toca, <b>pierdes una vida</b> (tienes 3).</li>
+      <li>Cada nivel cambia los <b>bloques</b>, y trae <b>más burbujas y más rápidas</b> (hasta 12).</li>
+      <li>Modos: <b>contra la máquina</b> 🤖 o <b>solo</b> 👤 (para practicar).</li>
       <li>Puedes <b>cambiar el escenario</b> (las fotos de Murcia) antes de jugar.</li>
     </ul>
     <button id="btnCloseHow2" class="btn btn-play">¡ENTENDIDO!</button>

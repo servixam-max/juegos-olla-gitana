@@ -99,7 +99,7 @@ function conectar(room, name, conBot) {
       pintarLobby(m.players);
       hide(el('startScreen')); show(el('lobbyScreen'));
       guardarNombre(myName);
-      el('btnCopy').style.display = conBot ? 'none' : '';
+      if (el('btnCopy')) el('btnCopy').style.display = 'none';
     } else if (m.t === 'joined') {
       pintarLobby(m.players);
       // contra la máquina: arranca solo (el bot ya está listo)
@@ -142,8 +142,8 @@ function pintarLobby(players) {
   pinta(el('slot0'), porSlot(0), porSlot(0) && porSlot(0).slot === mySlot);
   pinta(el('slot1'), porSlot(1), porSlot(1) && porSlot(1).slot === mySlot);
   rivalNombre = (players.find(p => p.slot !== mySlot) || {}).name || '';
-  el('nameMe').textContent = myName || 'Tú';
-  el('nameRival').textContent = rivalNombre || 'Rival';
+  const nm = el('nameMe'); if (nm) nm.textContent = myName || 'Tú';
+  const nr = el('nameRival'); if (nr) nr.textContent = rivalNombre || 'Rival';
   const hay2 = players.length >= 2;
   const esBot = players.some(p => p.bot);
   el('lobbyMsg').textContent = esBot ? 'Jugando contra la máquina 🤖 ¡dale a empezar!'
@@ -157,6 +157,7 @@ function empezar() {
   hide(el('lobbyScreen')); hide(el('startScreen')); hide(el('endScreen'));
   show(el('hud')); show(el('controls'));
   toast('¡A reventar burbujas! 🫧');
+  setTimeout(() => { try { ws.send(JSON.stringify({ t: 'move', x: miX })); } catch (e) {} }, 200);
   beep(880, .1, .1);
 }
 
@@ -197,7 +198,7 @@ let lastFrame = performance.now();
 
 function loop(now) {
   const dt = clamp((now - lastFrame) / 1000, 0, 0.05); lastFrame = now;
-  if (jugando) miX = clamp(miX + input.dir * 460 * dt, 26, GW - 26);
+  if (jugando) { miX = clamp(miX + input.dir * 460 * dt, 26, GW - 26); avisarPosicion(now); }
   for (const p of particulas) p.t += dt;
   particulas = particulas.filter(p => p.t < 0.5);
   dibujar();
@@ -208,6 +209,14 @@ function disparar() {
   if (!jugando || !ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify({ t: 'shoot', x: miX }));
   beep(520, .07, .08, 'sawtooth');
+}
+// avisar al servidor de dónde estamos (para el daño de las burbujas)
+let ultimoMove = 0;
+function avisarPosicion(now) {
+  if (!jugando || !ws || ws.readyState !== 1) return;
+  if (now - ultimoMove < 120) return;
+  ultimoMove = now;
+  ws.send(JSON.stringify({ t: 'move', x: miX }));
 }
 
 function dibujar() {
@@ -351,10 +360,13 @@ function dibujar() {
     ctx.fillText('VS', bx + boxW * .5, by + 20);
     ctx.fillStyle = '#fde68a'; ctx.font = '900 24px system-ui';
     ctx.fillText(`${e.score[1 - mySlot] ?? 0}`, bx + boxW * .74, by + 20);
-    ctx.font = '800 12px system-ui'; ctx.fillStyle = '#fde68a';
+    ctx.font = '800 13px system-ui'; ctx.fillStyle = '#fde68a';
     ctx.fillText(`NIVEL ${e.nivel || 1}`, bx + boxW * .5, by + 41);
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '700 11px system-ui';
-    ctx.fillText('🫧'.repeat(Math.min(8, (e.b || []).length)), bx + boxW * .5, by + 55);
+    ctx.font = '900 13px system-ui'; ctx.fillStyle = '#fff';
+    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(3, (e.vidas || [0, 0])[mySlot] ?? 0))), bx + boxW * .26, by + 55);
+    ctx.textAlign = 'right';
+    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(3, (e.vidas || [0, 0])[1 - mySlot] ?? 0))), bx + boxW * .74, by + 55);
+    ctx.textAlign = 'center';
   }
 }
 
@@ -407,10 +419,6 @@ function toast(msg, ms = 1700) {
 const nombreGuardado = leerNombre();
 if (nombreGuardado) el('inputName').value = nombreGuardado;
 
-el('btnCreate').addEventListener('click', () => {
-  myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar('', myName, false);
-});
 el('btnBot').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
   conectar('', myName, true);
@@ -418,12 +426,6 @@ el('btnBot').addEventListener('click', () => {
 el('btnSolo').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
   conectar('SOLO', myName, false);      // sala privada de práctica (sin rival)
-});
-el('btnJoin').addEventListener('click', () => {
-  const code = (el('inputCode').value.trim() || '').toUpperCase();
-  if (!code) { toast('Escribe el código'); return; }
-  myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conectar(code, myName, false);
 });
 el('btnStart').addEventListener('click', () => {
   if (!ws || ws.readyState !== 1) return;
@@ -434,7 +436,7 @@ el('btnLeave').addEventListener('click', salir);
 el('btnMenu').addEventListener('click', salir);
 el('btnAgain').addEventListener('click', () => { hide(el('endScreen')); salir(); });
 el('btnEndMenu').addEventListener('click', salir);
-el('btnCopy').addEventListener('click', async () => {
+el('btnCopy') && el('btnCopy').addEventListener('click', async () => {
   const txt = `¡Vaya reto de burbujas en los juegos de Olla Gitana! 🫧🥘\nEntra con el código: ${roomCode}\n${location.origin}/champi/olla-gitana-burbujas/`;
   try { await navigator.clipboard.writeText(txt); toast('¡Copiado! Mándalo por WhatsApp'); }
   catch (e) { if (navigator.share) navigator.share({ text: txt }).catch(() => {}); else toast('Código: ' + roomCode, 2600); }

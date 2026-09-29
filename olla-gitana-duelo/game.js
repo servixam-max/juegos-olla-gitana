@@ -126,8 +126,8 @@ function pintarLobby(players) {
     ? 'Manda el código a quien quieras jugar…'
     : (listos ? '¡Empieza el duelo!' : 'Cuando los dos estéis listos, empieza.');
   rivalNombre = (players.find(p => p.slot !== mySlot) || {}).name || '';
-  el('nameMe').textContent = myName || 'Tú';
-  el('nameRival').textContent = rivalNombre || 'Rival';
+  const nm = el('nameMe'); if (nm) nm.textContent = myName || 'Tú';
+  const nr = el('nameRival'); if (nr) nr.textContent = rivalNombre || 'Rival';
 }
 
 /* ---------------- Partida ---------------- */
@@ -306,17 +306,32 @@ function dibujar() {
   }
   ctx.restore();
 
-  // marcador arriba (puntos de vida de cada uno)
+  // marcador: nombre + corazones de cada uno (el servidor manda 6 vidas)
   if (e && e.p) {
-    const boxW = Math.min(W * .8, 380), bx = (W - boxW) / 2, by = 6;
-    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    const boxW = Math.min(W * .92, 420), bx = (W - boxW) / 2, by = 6;
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 34, 17); else ctx.rect(bx, by, boxW, 34);
+    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 46, 23); else ctx.rect(bx, by, boxW, 46);
     ctx.fill();
-    ctx.font = '900 15px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#86efac'; ctx.fillText(`${myName || 'Tú'} ${e.p[mySlot] ? e.p[mySlot].hp : 0}`, bx + boxW * .26, by + 17);
-    ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fillText('VS', bx + boxW * .5, by + 17);
-    ctx.fillStyle = '#fde68a'; ctx.fillText(`${e.p[1 - mySlot] ? e.p[1 - mySlot].hp : 0} ${rivalNombre || 'Rival'}`, bx + boxW * .74, by + 17);
+    ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 2; ctx.stroke();
+    const yo = e.p[mySlot] || { hp: 0 }, el2 = e.p[1 - mySlot] || { hp: 0 };
+    ctx.textBaseline = 'middle';
+    // mi lado
+    ctx.textAlign = 'left';
+    ctx.font = '900 15px system-ui'; ctx.fillStyle = '#86efac';
+    ctx.fillText((myName || 'Tú').slice(0, 10), bx + 14, by + 16);      // nombre
+    ctx.font = '900 14px system-ui';
+    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(6, yo.hp))), bx + 14, by + 33);  // corazones
+    // su lado
+    ctx.textAlign = 'right';
+    ctx.font = '900 15px system-ui'; ctx.fillStyle = '#fde68a';
+    ctx.fillText((rivalNombre || 'Rival').slice(0, 10), bx + boxW - 14, by + 16);
+    ctx.font = '900 14px system-ui';
+    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(6, el2.hp))), bx + boxW - 14, by + 33);
+    // centro: marcador
+    ctx.textAlign = 'center';
+    ctx.font = '900 20px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillText(`${yo.hp} - ${el2.hp}`, bx + boxW / 2, by + 24);
   }
   // joystick visual
   if (joyActivo) {
@@ -356,7 +371,7 @@ cv.addEventListener('pointerdown', ev => {
     joyId = ev.pointerId; joyActivo = true; joyCx = x; joyCy = y;
     input.mx = 0; input.my = 0;
     actualizarJoystick(ev);
-    cv.setPointerCapture && cv.setPointerCapture(ev.pointerId);
+    try { cv.setPointerCapture && cv.setPointerCapture(ev.pointerId); } catch (e) {}
   }
 }, { passive: false });
 cv.addEventListener('pointermove', ev => {
@@ -370,6 +385,10 @@ function soltarJoystick(ev) {
 }
 cv.addEventListener('pointerup', soltarJoystick);
 cv.addEventListener('pointercancel', soltarJoystick);
+
+// El canvas debe capturar los toques del joystick aunque haya controles encima
+cv.style.touchAction = 'none';
+cv.style.zIndex = '5';
 
 // botón de disparo
 function bindFire(id, val) {
