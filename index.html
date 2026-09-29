@@ -70,6 +70,14 @@
   .meta{margin-top:11px;display:flex;gap:6px;flex-wrap:wrap}
   .pill{font-size:11px;font-weight:700;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.24);
     border-radius:999px;padding:4px 10px;color:rgba(255,255,255,.88)}
+  .topScores{margin-top:10px;display:none;flex-direction:column;gap:3px;
+    background:rgba(0,0,0,.28);border:1px solid rgba(250,204,21,.22);border-radius:12px;padding:8px 10px}
+  .topScores.show{display:flex}
+  .topScores .ttl{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#fde68a;margin-bottom:2px}
+  .topScores .row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:rgba(255,255,255,.86)}
+  .topScores .row b{color:#fde68a;font-weight:900}
+  .topScores .row.first{color:#fff;font-weight:900}
+  .topScores .row.first b{color:#fbbf24}
   .play{margin-top:13px;display:flex;align-items:center;justify-content:center;gap:8px;
     background:linear-gradient(180deg,#34d399,#15803d);border:3px solid #fff;border-radius:999px;
     padding:12px;font-weight:900;font-size:16px;letter-spacing:.03em;
@@ -98,7 +106,7 @@
 
 <div class="wrap">
 
-  <a class="card" href="olla-gitana-cartas/">
+  <a class="card" href="olla-gitana-cartas/" data-game="cartas">
     <div class="thumb">
       <img src="olla-gitana/bg_3.jpg" alt="">
       <span class="tag new">NUEVO</span>
@@ -107,11 +115,12 @@
     <div class="body">
       <p>El clásico de la <b>baraja española</b>: acércate a <b>7½</b> sin pasarte y gánale la mano a la banca. Sota, caballo y rey valen ½.</p>
       <div class="meta"><span class="pill">🎴 Cartas españolas</span><span class="pill">🃏 Pedir / Plantarse</span><span class="pill">🏆 Ranking</span><span class="pill">📱 1 toque</span></div>
+      <div class="topScores"></div>
       <div class="play">▶ JUGAR</div>
     </div>
   </a>
 
-  <a class="card" href="olla-gitana-runner/">
+  <a class="card" href="olla-gitana-runner/" data-game="runner">
     <div class="thumb">
       <img src="olla-gitana-runner/assets/bg_12.jpg" alt="">
       <span class="tag">🏃 RUNNER</span>
@@ -120,11 +129,12 @@
     <div class="body">
       <p>La olla cruza Murcia a toda mecha: <b>salta</b> obstáculos, recoge ingredientes y cambia de escenario cada 500 puntos. Doble salto incluido y la velocidad sube por niveles.</p>
       <div class="meta"><span class="pill">🏃 Endless runner</span><span class="pill">🥕 Ingredientes</span><span class="pill">⚡ Sube de nivel</span><span class="pill">🏆 Ranking</span></div>
+      <div class="topScores"></div>
       <div class="play">▶ JUGAR</div>
     </div>
   </a>
 
-  <a class="card" href="olla-gitana-ritmo/">
+  <a class="card" href="olla-gitana-ritmo/" data-game="ritmo">
     <div class="thumb">
       <img src="olla-gitana-ritmo/assets/victory.jpg" alt="">
       <span class="tag">🎸 MÚSICA</span>
@@ -133,11 +143,12 @@
     <div class="body">
       <p>Toca los 4 carriles al ritmo de <b>«Los Olla Gitana»</b>. Combos, multiplicadores y trampas. La canción entera, nota a nota.</p>
       <div class="meta"><span class="pill">🎵 Con vuestra canción</span><span class="pill">🥁 99 BPM</span><span class="pill">🏆 Ranking</span><span class="pill">📱 Táctil + teclado</span></div>
+      <div class="topScores"></div>
       <div class="play">▶ JUGAR</div>
     </div>
   </a>
 
-  <a class="card" href="olla-gitana/">
+  <a class="card" href="olla-gitana/" data-game="arcade">
     <div class="thumb">
       <img src="olla-gitana/background.jpg" alt="">
       <span class="tag classic">CLÁSICO</span>
@@ -146,6 +157,7 @@
     <div class="body">
       <p>El arcade original (Versión Canalla 1.3): atrapa ingredientes con la olla, esquiva pastillas, jeringuillas y cigarros. Power-ups y 15 escenarios de Murcia.</p>
       <div class="meta"><span class="pill">🥘 Zarangollo +50</span><span class="pill">❤️ 3 vidas</span><span class="pill">🥘 15 escenarios</span><span class="pill">🏆 Ranking</span></div>
+      <div class="topScores"></div>
       <div class="play">▶ JUGAR</div>
     </div>
   </a>
@@ -179,6 +191,26 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalon
 }
 // Si ya está instalada, no molestar
 if (window.matchMedia('(display-mode: standalone)').matches) ib.style.display = 'none';
+
+// ---------- Mejores puntuaciones de cada juego (se leen del ranking) ----------
+(async () => {
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  for (const card of document.querySelectorAll('.card[data-game]')) {
+    const game = card.dataset.game;
+    const box = card.querySelector('.topScores');
+    try {
+      const res = await fetch(`api/top?game=${encodeURIComponent(game)}&limit=3`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('api');
+      const data = await res.json();
+      const rows = (data.scores || []).slice(0, 3);
+      if (!rows.length) continue;
+      box.innerHTML = '<span class="ttl">🏆 Mejores</span>' + rows.map((s, i) =>
+        `<span class="row ${i === 0 ? 'first' : ''}"><span>${i + 1}. ${esc(s.name)}</span><b>${s.score}</b></span>`
+      ).join('');
+      box.classList.add('show');
+    } catch (e) { /* sin conexión: no mostramos nada */ }
+  }
+})();
 </script>
 </body>
 </html>
