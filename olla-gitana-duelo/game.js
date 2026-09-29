@@ -12,7 +12,7 @@ const GAME = 'duel';
 const WS_BASE = (function () {
   // ws(s)://host + /champi/ws  (o /juegos-olla/ws)
   const p = location.pathname;
-  let base = '/champi';
+  let base = '/ollagitana';
   if (p.includes('/juegos-olla')) base = '/juegos-olla';
   else if (p.includes('/champi')) base = '/champi';
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -608,7 +608,7 @@ el('btnMenu').addEventListener('click', () => { salir(); });
 el('btnAgain').addEventListener('click', () => { hide(el('endScreen')); show(el('lobbyScreen')); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'ready', v: false })); });
 el('btnEndMenu').addEventListener('click', () => { salir(); });
 el('btnCopy').addEventListener('click', async () => {
-  const txt = `¡Te reto a un duelo en los juegos de Olla Gitana! 🥘🔫\nEntra con el código: ${roomCode}\n${location.origin}/champi/olla-gitana-duelo/`;
+  const txt = `¡Te reto a un duelo en los juegos de Olla Gitana! 🥘🔫\nEntra con el código: ${roomCode}\n${location.origin}/ollagitana/olla-gitana-duelo/`;
   try {
     await navigator.clipboard.writeText(txt);
     toast('¡Copiado! Mándalo por WhatsApp');

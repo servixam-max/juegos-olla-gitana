@@ -6,7 +6,7 @@
 (function () {
   const WS_BASE = (function () {
     const p = location.pathname;
-    let base = '/champi';
+    let base = '/ollagitana';
     if (p.includes('/juegos-olla')) base = '/juegos-olla';
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${location.host}${base}/ws`;
@@ -105,7 +105,7 @@
       conectar(c);
     });
     el('btnCopyOnline').addEventListener('click', async () => {
-      const txt = `¿Echamos una partida de Siete y Media? 🎴\nEntra con el código: ${roomCode}\n${location.origin}/champi/olla-gitana-cartas/`;
+      const txt = `¿Echamos una partida de Siete y Media? 🎴\nEntra con el código: ${roomCode}\n${location.origin}/ollagitana/olla-gitana-cartas/`;
       try { await navigator.clipboard.writeText(txt); alert('¡Copiado! Mándalo por WhatsApp o donde quieras'); }
       catch (e) { if (navigator.share) navigator.share({ text: txt }).catch(() => {}); }
     });

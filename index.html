@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Olla Gitana — Juegos 🥘</title>
 <meta name="theme-color" content="#0b0705">
-<meta name="description" content="Cuatro juegos huertanos de la banda Olla Gitana: cartas, runner, ritmo y el arcade clásico.">
+<meta name="description" content="Seis juegos huertanos de la banda Olla Gitana: arcade, ritmo, runner, cartas, burbujas y duelo 1v1.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Olla Gitana">
@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
 <meta property="og:title" content="Olla Gitana — Los Juegos">
-<meta property="og:description" content="Cuatro juegos huertanos con la música y las fotos de la banda.">
+<meta property="og:description" content="Seis juegos huertanos con la música y las fotos de la banda.">
 <meta property="og:image" content="icons/icon-512.png">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -105,7 +105,7 @@
   <div class="heroIn">
     <h1>OLLA GITANA</h1>
     <h2>Los juegos de la banda 🥘🎸🎴</h2>
-    <p class="sub">Cuatro juegos huertanos con la música y las fotos del grupo. Elige el tuyo y a echar la tarde.</p>
+    <p class="sub">Seis juegos huertanos con la música y las fotos del grupo. Elige el tuyo y a echar la tarde.</p>
     <span class="badge">🎵 Con «Los Olla Gitana»</span>
   </div>
 </header>
@@ -120,7 +120,7 @@
     </div>
     <div class="body">
       <p>Combate de disparos <b>1 contra 1 en directo</b>: crea una sala, pásale el código a tu rival y a quitarse las vidas. Salta, muévete y dispara.</p>
-      <div class="meta"><span class="pill">🔫 1v1 en vivo</span><span class="pill">🏠 Sala con código</span><span class="pill">💬 Chat</span><span class="pill">📱 Táctil</span></div>
+      <div class="meta"><span class="pill">🔫 1v1 en vivo</span><span class="pill">🏠 Sala con código</span><span class="pill">🏆 Al mejor de 5</span><span class="pill">📱 Táctil</span></div>
       <div class="topScores"></div>
       <div class="play">▶ JUGAR</div>
     </div>
@@ -133,8 +133,8 @@
       <div class="thumbTitle"><h3>Las Burbujas <span class="emoji">🫧</span></h3></div>
     </div>
     <div class="body">
-      <p>Como el <b>Super Pang</b> de los recreativos: revienta burbujas con el arpón, se parten en dos y las pequeñas valen más. <b>Juega solo o contra otro</b>.</p>
-      <div class="meta"><span class="pill">🫧 Arpón clásico</span><span class="pill">👥 1-2 jugadores</span><span class="pill">🏠 Sala con código</span><span class="pill">📱 Táctil</span></div>
+      <p>Como el <b>Super Pang</b> de los recreativos: revienta burbujas con el arpón, se parten en dos y las pequeñas valen más. <b>20 niveles, power-ups y pompas gigantes</b>.</p>
+      <div class="meta"><span class="pill">🫧 Arpón clásico</span><span class="pill">⚡ Power-ups</span><span class="pill">🎯 20 niveles</span><span class="pill">📱 Táctil</span></div>
       <div class="topScores"></div>
       <div class="play">▶ JUGAR</div>
     </div>
@@ -239,16 +239,19 @@ if (window.matchMedia('(display-mode: standalone)').matches) ib.style.display = 
 // ---------- Compartir por WhatsApp ----------
 const shareBtn = document.getElementById('shareBtn');
 const SHARE_TEXTO = '¡Mira los juegos de la banda Olla Gitana! 🥘🎸🎴\n\n' +
-  '· Siete y Media (baraja española) 🎴\n' +
-  '· La Huerta Runner 🏃\n' +
+  '· El Juego clásico 🥘\n' +
   '· El Ritmo, con nuestra canción 🎵\n' +
-  '· El Juego clásico 🥘\n\n' +
-  'Se juega desde el móvil, sin instalar nada y con ranking. ¡A ver quién gana más! 🏆';
+  '· La Huerta Runner 🏃\n' +
+  '· Siete y Media (baraja española) 🎴\n' +
+  '· Las Burbujas (Super Pang) 🫧\n' +
+  '· El Duelo 1v1 🥊\n\n' +
+  'Se juega desde el móvil, sin instalar nada y con ranking. ' +
+  '¡A ver quién gana más! 🏆';
 
 function enlaceJuegos() {
-  // enlace corto y bonito: siempre /champi/ (aunque se abra desde /juegos-olla/)
+  // enlace corto y bonito: siempre /ollagitana/ (aunque se abra desde /juegos-olla/ o /champi/)
   const p = location.pathname.replace(/index\.html$/, '');
-  if (p.includes('/juegos-olla')) return location.origin + '/champi/';
+  if (p.includes('/juegos-olla') || p.includes('/champi')) return location.origin + '/ollagitana/';
   return location.origin + p;
 }
 

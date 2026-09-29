@@ -14,8 +14,9 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const GAME = 'pang';
 const WS_BASE = (function () {
   const p = location.pathname;
-  let base = '/champi';
+  let base = '/ollagitana';
   if (p.includes('/juegos-olla')) base = '/juegos-olla';
+  else if (p.includes('/champi')) base = '/champi';
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${location.host}${base}/ws`;
 })();
@@ -216,10 +217,14 @@ function terminar(res) {
 }
 
 const API = (function () {
-  const p = location.pathname;                    // '/champi/olla-gitana-burbujas/…'
-  const i = p.indexOf('/olla-gitana-burbujas');
-  const base = i >= 0 ? p.slice(0, i) : '/';
-  return base.replace(/\/$/, '') + '/api';
+  const p = location.pathname;                    // '/ollagitana/olla-gitana-burbujas/…'
+  let i = p.indexOf('/olla-gitana-burbujas');
+  if (i >= 0) return p.slice(0, i).replace(/\/$/, '') + '/api';
+  i = p.indexOf('/ollagitana');
+  if (i >= 0) return p.slice(0, i).replace(/\/$/, '') + '/api';
+  i = p.indexOf('/champi');
+  if (i >= 0) return p.slice(0, i).replace(/\/$/, '') + '/api';
+  return '/api';
 })();
 
 // guarda la puntuación en el ranking (1 jugador)
@@ -593,7 +598,7 @@ el('btnMenu').addEventListener('click', salir);
 el('btnAgain').addEventListener('click', () => { hide(el('endScreen')); salir(); });
 el('btnEndMenu').addEventListener('click', salir);
 el('btnCopy') && el('btnCopy').addEventListener('click', async () => {
-  const txt = `¡Vaya reto de burbujas en los juegos de Olla Gitana! 🫧🥘\nEntra con el código: ${roomCode}\n${location.origin}/champi/olla-gitana-burbujas/`;
+  const txt = `¡Vaya reto de burbujas en los juegos de Olla Gitana! 🫧🥘\nEntra con el código: ${roomCode}\n${location.origin}/ollagitana/olla-gitana-burbujas/`;
   try { await navigator.clipboard.writeText(txt); toast('¡Copiado! Mándalo por WhatsApp'); }
   catch (e) { if (navigator.share) navigator.share({ text: txt }).catch(() => {}); else toast('Código: ' + roomCode, 2600); }
 });

@@ -63,10 +63,12 @@
 
 <script>
 const API = (() => {
-  const p = location.pathname;                 // '/juegos-olla/admin/…' o '/champi/admin/…'
-  let i = p.indexOf('/juegos-olla');
+  const p = location.pathname;                 // '/ollagitana/admin/…' (o alias viejos)
+  let i = p.indexOf('/ollagitana');
+  if (i >= 0) return p.slice(0, i + '/ollagitana'.length) + '/api';
+  i = p.indexOf('/juegos-olla');
   if (i >= 0) return p.slice(0, i + '/juegos-olla'.length) + '/api';
-  i = p.indexOf('/champi');
+  i = p.indexOf('/champi');   // alias viejo
   if (i >= 0) return p.slice(0, i + '/champi'.length) + '/api';
   return '/api';
 })();

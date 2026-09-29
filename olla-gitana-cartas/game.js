@@ -371,10 +371,12 @@ function backToMenu() {
 
 /* ---------------- Ranking (servidor + respaldo local) ---------------- */
 const API = (function () {
-  const p = location.pathname;                        // '/juegos-olla/olla-gitana-cartas/…' o '/champi/…'
+  const p = location.pathname;                        // '/ollagitana/olla-gitana-cartas/…' o alias viejos
   let i = p.indexOf('/olla-gitana-cartas');
   if (i >= 0) return p.slice(0, i).replace(/\/$/, '') + '/api';
-  i = p.indexOf('/champi');
+  i = p.indexOf('/ollagitana');
+  if (i >= 0) return p.slice(0, i).replace(/\/$/, '') + '/api';
+  i = p.indexOf('/champi');   // alias viejo: sigue soportado
   if (i >= 0) return p.slice(0, i).replace(/\/$/, '') + '/api';
   return '/api';
 })();

@@ -1,7 +1,7 @@
 {
   "name": "Olla Gitana — Los Juegos",
   "short_name": "Olla Gitana",
-  "description": "Cuatro juegos huertanos de la banda Olla Gitana: cartas, runner, ritmo y el arcade clásico.",
+  "description": "Seis juegos huertanos de la banda Olla Gitana: arcade, ritmo, runner, cartas, burbujas y duelo 1v1.",
   "lang": "es",
   "start_url": ".",
   "scope": ".",
@@ -9,10 +9,28 @@
   "orientation": "portrait",
   "background_color": "#0b0705",
   "theme_color": "#0b0705",
-  "categories": ["games", "entertainment"],
+  "categories": [
+    "games",
+    "entertainment"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
