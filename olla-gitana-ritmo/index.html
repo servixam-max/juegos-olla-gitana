@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Olla Gitana: El Ritmo 🥘🎸</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <button id="btnMenu" aria-label="Menú">⬅️</button>
+    <div class="chip lives"><span>❤️</span><b id="lives">3</b></div>
+  </div>
+  <div class="hud-center">
+    <div class="chip level">COMBO <b id="combo">x0</b></div>
+    <div id="mult" class="mult">x1</div>
+  </div>
+  <div class="hud-right">
+    <div class="chip score">🍲 <b id="score">0</b></div>
+    <button id="btnSound" aria-label="Sonido">🔊</button>
+    <button id="btnPause" aria-label="Pausa">⏸️</button>
+  </div>
+  <div id="progressWrap"><div id="progressBar"></div></div>
+</div>
+
+<!-- Pantalla de inicio -->
+<div id="startScreen" class="screen">
+  <img src="assets/victory.jpg" alt="" class="bg-blur">
+  <div class="scrim"></div>
+  <div class="pane">
+    <h1 class="title">OLLA GITANA</h1>
+    <h2 class="subtitle">EL RITMO 🥘🎸</h2>
+    <p class="tag">Toca los carriles al ritmo de <b>«Los Olla Gitana»</b>. La banda te llena la olla: si aciertas, ingredientes; si fallas, se enfría.</p>
+    <button id="btnPlay" class="btn btn-play">▶ ¡A TOCAR!</button>
+    <button id="btnHow" class="btn btn-ghost">ℹ️ Cómo se juega</button>
+    <div class="diffRow" id="diffRow">
+      <button class="diff" data-diff="easy">FÁCIL 🐢</button>
+      <button class="diff active" data-diff="normal">NORMAL 🥘</button>
+      <button class="diff" data-diff="hard">CANALLA 🔥</button>
+    </div>
+    <button id="btnRanking" class="btn btn-ghost">🏆 RANKING</button>
+    <p class="foot">Volumen: <b>la música manda</b> 🔊 · Hecho en Murcia</p>
+  </div>
+</div>
+
+<!-- Instrucciones -->
+<div id="howModal" class="modal hidden">
+  <div class="modalBox">
+    <button id="btnCloseHow" class="x">✕</button>
+    <h3>CÓMO SE JUEGA</h3>
+    <ul>
+      <li><b>4 carriles</b>: toca la pantalla en el carril cuando la nota cruce la línea (o pulsa <b>D F J K</b> / <b>←↓↑→</b>).</li>
+      <li><b>Ingredientes</b> 🍐🌿🧆🌶️🥘: cada acierto suma y sube el <b>combo</b>. El combo multiplica (x1 → x2 → x3 → x4).</li>
+      <li><b>Trampas</b> 💊💉🚬: ¡no las toques! Te quitan una vida.</li>
+      <li>Si se te escapa una nota buena, pierdes combo (no vida).</li>
+      <li><b>3 vidas</b>. Al terminar la canción, puntuación final y ranking.</li>
+      <li>Zarangollo 🥘 +50 · Pimiento 🌶️ duplica el multiplicador.</li>
+    </ul>
+    <button id="btnCloseHow2" class="btn btn-play">¡ENTENDIDO!</button>
+  </div>
+</div>
+
+<!-- Pausa -->
+<div id="pauseScreen" class="modal hidden">
+  <div class="modalBox center">
+    <h3>PAUSA</h3>
+    <p class="muted">La olla descansa…</p>
+    <button id="btnResume" class="btn btn-play">▶ Seguir</button>
+    <button id="btnRestart" class="btn btn-ghost">↻ Reiniciar</button>
+    <button id="btnQuit" class="btn btn-ghost">⬅️ Menú</button>
+  </div>
+</div>
+
+<!-- Ranking -->
+<div id="rankScreen" class="modal hidden">
+  <div class="modalBox">
+    <button id="btnCloseRank" class="x">✕</button>
+    <h3>🏆 RANKING</h3>
+    <div class="tabs" id="rankTabs">
+      <button class="tab active" data-diff="easy">FÁCIL</button>
+      <button class="tab" data-diff="normal">NORMAL</button>
+      <button class="tab" data-diff="hard">CANALLA</button>
+    </div>
+    <table class="rankTable">
+      <thead><tr><th>#</th><th>Nombre</th><th>Combo máx</th><th>Puntos</th></tr></thead>
+      <tbody id="rankBody"><tr><td colspan="4" class="muted">Cargando…</td></tr></tbody>
+    </table>
+    <p class="muted tiny" id="rankSource">Ranking guardado en el servidor de casa (Mac).</p>
+  </div>
+</div>
+
+<!-- Resultado -->
+<div id="endScreen" class="modal hidden">
+  <div class="modalBox center">
+    <h3 id="endTitle">¡SE TE HA IDO LA OLLA!</h3>
+    <p id="endPhrase" class="phrase">¡Menudo pijo!</p>
+    <div class="resultGrid">
+      <div><span class="k">Puntos</span><b id="endScore">0</b></div>
+      <div><span class="k">Combo máx</span><b id="endCombo">x0</b></div>
+      <div><span class="k">Precisión</span><b id="endAcc">0%</b></div>
+      <div><span class="k">Perfectos</span><b id="endPerfect">0</b></div>
+    </div>
+    <div id="nameRow">
+      <input id="playerName" maxlength="14" placeholder="Tu nombre (zagal/a)">
+      <button id="btnSaveScore" class="btn btn-play small">Guardar</button>
+    </div>
+    <button id="btnAgain" class="btn btn-play">↻ Otra vez</button>
+    <button id="btnEndMenu" class="btn btn-ghost">⬅️ Menú</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="beatmap.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

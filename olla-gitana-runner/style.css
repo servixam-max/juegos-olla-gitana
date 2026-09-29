@@ -1,0 +1,115 @@
+/* Olla Gitana: El Ritmo — estilos mobile-first */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0; height: 100%; width: 100%;
+  overflow: hidden; overscroll-behavior: none;
+  background: #0b0705; color: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+#stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+
+/* ---------- HUD ---------- */
+#hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; padding: max(8px, env(safe-area-inset-top)) 10px 0; }
+#hud.hidden { display: none; }
+.hud-left, .hud-right { position: absolute; top: max(8px, env(safe-area-inset-top)); display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+.hud-left { left: 10px; }
+.hud-right { right: 10px; }
+.hud-center { position: absolute; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(20,12,6,.72); border: 2px solid rgba(255,255,255,.28);
+  border-radius: 999px; padding: 4px 10px; font-weight: 800; font-size: 15px;
+  backdrop-filter: blur(6px); line-height: 1;
+}
+.chip.lives { border-color: #ef4444; color: #fecaca; }
+.chip.score { border-color: #22c55e; color: #bbf7d0; }
+.chip.level { font-size: 12px; letter-spacing: .06em; color: #fde68a; border-color: #f59e0b; }
+.mult { font-weight: 900; font-size: 20px; color: #fbbf24; text-shadow: 0 2px 0 rgba(0,0,0,.6); transition: transform .15s ease; }
+.mult.pop { transform: scale(1.35); }
+#btnMenu, #btnSound, #btnPause {
+  pointer-events: auto; width: 40px; height: 40px; border-radius: 999px; cursor: pointer;
+  border: 2px solid rgba(255,255,255,.3); background: rgba(20,12,6,.72); color: #fff; font-size: 17px;
+}
+#progressWrap { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(255,255,255,.14); }
+#progressBar { height: 100%; width: 0; background: linear-gradient(90deg,#f59e0b,#ef4444); transition: width .25s linear; }
+
+/* ---------- Pantallas ---------- */
+.screen { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; }
+.screen.hidden { display: none; }
+.bg-blur { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(6px) brightness(.6) saturate(1.1); }
+.scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,4,2,.72), rgba(8,4,2,.92)); }
+.pane { position: relative; width: min(94vw, 460px); text-align: center; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 96vh; overflow-y: auto; }
+.title { font-size: clamp(34px, 11vw, 56px); margin: 0; font-weight: 900; letter-spacing: .02em; color: #facc15; text-shadow: 0 5px 0 #b45309, 0 8px 22px rgba(0,0,0,.7); transform: rotate(-2deg); }
+.subtitle { font-size: clamp(19px, 6vw, 30px); margin: 2px 0 12px; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.8); transform: rotate(1deg); }
+.tag { color: #fde68a; font-size: 13.5px; line-height: 1.5; margin: 0 auto 16px; max-width: 34ch; }
+.tag b { color: #fff; }
+.btn {
+  display: block; width: 100%; margin: 9px 0; padding: 15px 16px; cursor: pointer;
+  border-radius: 999px; border: 3px solid #fff; font-weight: 900; font-size: 19px;
+  letter-spacing: .03em; color: #fff; background: #475569; transition: transform .08s ease, box-shadow .08s ease;
+}
+.btn:active { transform: translateY(2px); }
+.btn-play { background: linear-gradient(180deg,#34d399,#15803d); box-shadow: 0 6px 0 #14532d; font-size: 23px; }
+.btn-play:active { box-shadow: 0 2px 0 #14532d; }
+.btn-ghost { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.4); font-size: 15px; padding: 11px 14px; box-shadow: none; }
+.btn.small { width: auto; display: inline-block; padding: 11px 18px; font-size: 15px; }
+.diffRow { display: flex; gap: 7px; margin-top: 4px; }
+.diff {
+  flex: 1; cursor: pointer; padding: 11px 4px; border-radius: 14px; font-weight: 800; font-size: 12.5px;
+  border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.07); color: #fff;
+}
+.diff.active { background: linear-gradient(180deg,#60a5fa,#1d4ed8); border-color: #fff; box-shadow: 0 4px 0 #1e3a8a; }
+.foot { color: rgba(255,255,255,.55); font-size: 11.5px; margin-top: 14px; }
+
+/* ---------- Modales ---------- */
+.modal { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.78); backdrop-filter: blur(4px); padding: 16px; }
+.modal.hidden { display: none; }
+.modalBox {
+  position: relative; width: min(94vw, 470px); max-height: 92vh; overflow-y: auto;
+  background: #fff7ed; color: #1c1917; border: 4px solid #ea580c; border-radius: 20px;
+  padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.modalBox.center { text-align: center; background: #fff7ed; }
+.modalBox h3 { margin: 0 0 12px; font-size: 24px; font-weight: 900; color: #9a3412; text-align: center; letter-spacing: .02em; }
+.modalBox ul { margin: 0 0 16px; padding-left: 18px; font-size: 14px; line-height: 1.62; }
+.modalBox li { margin-bottom: 7px; }
+.modalBox .btn { color: #fff; }
+.modalBox .btn-ghost { background: rgba(0,0,0,.08); border-color: rgba(0,0,0,.35); color: #1c1917; }
+.x { position: absolute; top: -12px; right: -10px; width: 40px; height: 40px; border-radius: 999px; border: 3px solid #fff; background: #dc2626; color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; }
+.muted { color: #78716c; font-size: 13px; }
+.tiny { font-size: 11px; margin-top: 8px; text-align: center; }
+.phrase { font-size: 17px; font-weight: 800; color: #b45309; margin: 4px 0 14px; }
+.resultGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 14px; }
+.resultGrid > div { background: rgba(0,0,0,.06); border: 2px solid rgba(0,0,0,.12); border-radius: 12px; padding: 8px; }
+.resultGrid .k { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #57534e; }
+.resultGrid b { font-size: 21px; color: #15803d; }
+#nameRow { display: flex; gap: 8px; margin-bottom: 10px; }
+#nameRow.hidden { display: none; }
+#playerName { flex: 1; padding: 13px 14px; border-radius: 12px; border: 2px solid #d6d3d1; font-size: 16px; min-width: 0; }
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tab { flex: 1; padding: 9px 4px; border-radius: 10px; border: 2px solid #d6d3d1; background: #fff; font-weight: 800; font-size: 12.5px; cursor: pointer; color: #44403c; }
+.tab.active { background: #ea580c; color: #fff; border-color: #9a3412; }
+.rankTable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rankTable th, .rankTable td { padding: 7px 5px; text-align: left; border-bottom: 1px solid rgba(0,0,0,.09); }
+.rankTable th { font-size: 11px; text-transform: uppercase; color: #78716c; }
+.rankTable tr.top1 td { font-weight: 900; color: #b45309; }
+
+/* ---------- Toast ---------- */
+#toast {
+  position: absolute; left: 50%; bottom: 14%; transform: translate(-50%, 20px); z-index: 40;
+  background: rgba(0,0,0,.82); border: 2px solid rgba(255,255,255,.3); color: #fff;
+  padding: 10px 18px; border-radius: 999px; font-weight: 800; font-size: 15px;
+  opacity: 0; transition: opacity .25s ease, transform .25s ease; pointer-events: none; max-width: 88vw; text-align: center;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* Pantalla completa en horizontal (móvil tumbado) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .pane { width: min(92vw, 620px); }
+  .title { font-size: clamp(26px, 7vw, 40px); }
+  .resultGrid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (pointer: fine) {
+  .btn:hover { filter: brightness(1.06); }
+}
