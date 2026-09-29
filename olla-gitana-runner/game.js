@@ -44,6 +44,13 @@ const PHRASES_END = ['¡Se te ha ido la olla!', '¡Menudo pijo!', '¡Gambitero!'
 
 const BACKGROUNDS = Array.from({ length: 14 }, (_, i) => `assets/bg_${i + 1}.jpg`);
 
+/* Velocidad por niveles: sube POCA A POCA pero se nota en cada nivel.
+   +9% de velocidad por nivel, con tope (x1.8) para que siga siendo jugable. */
+const SPEED_BASE = 330;
+const SPEED_PER_LEVEL = 0.09;
+const SPEED_CAP = 1.80;
+const speedFactor = lv => Math.min(SPEED_CAP, 1 + (Math.max(1, lv) - 1) * SPEED_PER_LEVEL);
+
 /* ---------------- Estado ---------------- */
 let running = false, paused = false, rafId = 0, lastT = 0;
 let difficulty = 'normal';
@@ -80,7 +87,7 @@ function resetPlayer() {
 }
 
 function playerRect() {
-  const h = player.ducking && player.onGround ? player.h * 0.55 : player.h;
+  const h = player.ducking && player.onGround ? player.h * 0.45 : player.h;
   return { x: player.x - player.w * 0.42, y: GROUND_Y - h + (player.onGround ? 0 : player.y + player.h - GROUND_Y), w: player.w * 0.84, h };
 }
 
@@ -100,6 +107,10 @@ function sfx(name, vol = 0.7) {
   if (!soundOn) return;
   try { const a = audio[name].cloneNode(); a.volume = vol; a.play().catch(() => {}); } catch (e) {}
 }
+
+/* Vibración suave en móvil */
+let vibrateOk = true;
+function buzz(ms) { if (!vibrateOk || !soundOn) return; try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { vibrateOk = false; } }
 
 // Pitido leve al recoger ingredientes (WebAudio, sin ficheros):
 // el audio "hit" queda reservado para golpes / pérdida de vidas.
@@ -142,7 +153,7 @@ function startGame(diff) {
   meters = 0; itemPoints = 0; points = 0; lives = 3; level = 1; combo = 0; maxCombo = 0; itemsGot = 0;
   invuln = 0; shake = 0;
   obstacles = []; items = []; particles = []; popups = [];
-  speed = 330 * S * cfg.speed;
+  speed = SPEED_BASE * S * cfg.speed;
   spawnTimer = 1.1; itemTimer = 0.8;
   setBg(Math.floor(Math.random() * 3));
   resize(); resetPlayer();
@@ -185,11 +196,21 @@ function spawnObstacle() {
   const air = Math.random() < (level >= 2 ? 0.34 : 0.16);
   const kind = air ? OBSTACLES_AIR[Math.floor(Math.random() * OBSTACLES_AIR.length)]
                    : OBSTACLES_GROUND[Math.floor(Math.random() * OBSTACLES_GROUND.length)];
-  const size = (air ? 52 : 58) * S;
+  const size = (air ? 44 : 58) * S;
+  let y;
+  if (air) {
+    // Obstáculo AÉREO: hay que AGACHARSE (al revés que los de suelo, que se saltan).
+    // Geometría (en píxeles, con la caja de colisión al 88% del alto):
+    //   de pie la olla llega hasta GROUND_Y-56S -> choca
+    //   agachada llega hasta GROUND_Y-25S -> pasa por debajo
+    // => la base del obstáculo queda entre -63S y -32S (≈6px de margen por lado).
+    y = GROUND_Y - rand(70, 88) * S;
+  } else {
+    y = GROUND_Y - size;
+  }
   obstacles.push({
     type: air ? 'air' : 'ground', emoji: kind,
-    x: W + size, w: size, h: size,
-    y: air ? GROUND_Y - 86 * S : GROUND_Y - size      // aire = a la altura de la cabeza: agacharse o saltar
+    x: W + size, w: size, h: size, y
   });
   const gapScale = clamp(1.06 - level * 0.028, 0.72, 1.06);
   spawnTimer = rand(cfg.gaps[0], cfg.gaps[1]) * gapScale;
@@ -209,7 +230,7 @@ function spawnItem() {
 /* ---------------- Update ---------------- */
 function update(dt) {
   const cfg = DIFF[difficulty];
-  const targetSpeed = (330 + level * 26) * S * cfg.speed;
+  const targetSpeed = SPEED_BASE * speedFactor(level) * S * cfg.speed;
   speed += (targetSpeed - speed) * Math.min(1, dt * 0.9);
 
   // distancia y puntos base
@@ -246,6 +267,7 @@ function update(dt) {
     if (invuln <= 0 && hit(pr, ob)) {
       lives--; combo = 0; invuln = 1.6; shake = 1;
       sfx('hit', 0.85);
+      buzz(45);
       popup(PHRASES_HIT[Math.floor(Math.random() * PHRASES_HIT.length)], '#fca5a5', player.x + 40 * S, GROUND_Y - 170 * S);
       burst(o.x, o.y + o.h / 2, 12, '#f87171');
       obstacles.splice(i, 1);
@@ -266,8 +288,15 @@ function update(dt) {
       burst(it.x, it.y + it.h / 2, 7, '#fcd34d');
       popup('+' + 10 * mult(), '#fde68a', it.x, it.y - 10 * S);
       beep(784 + Math.min(6, Math.floor(combo / 4)) * 66, 0.07, 0.08);
+      buzz(8);
       items.splice(i, 1);
     }
+  }
+
+  // estela de la olla cuando corre (sensación de velocidad)
+  if (!paused && Math.random() < 0.55) {
+    particles.push({ x: player.x - player.w * 0.34, y: (player.ducking && player.onGround ? GROUND_Y - player.h * 0.22 : player.y + player.h * 0.72),
+      vx: rand(-140, -60) * S, vy: rand(-40, 10) * S, life: rand(0.2, 0.42), color: 'rgba(250,204,21,.55)', r: rand(1.6, 3.2) * S });
   }
 
   // partículas / popups
@@ -283,7 +312,13 @@ function update(dt) {
     level = nextLevel;
     setBg(bgIdx + 1);
     sfx('up', 0.8); shake = 0.5;
+    buzz(30);
     popup(PHRASES_UP[Math.floor(Math.random() * PHRASES_UP.length)], '#86efac', W * 0.5, H * 0.32);
+    // la velocidad sube un escalón en cada nivel (se avisa para que se note)
+    const pct = Math.round((speedFactor(level) - 1) * 100);
+    popup(`¡NIVEL ${level}! ⚡ +${pct}% velocidad`, '#fde047', W * 0.5, H * 0.32 + 44 * S);
+    // confeti de subida de nivel
+    for (let k = 0; k < 3; k++) burst(W * (0.3 + k * 0.2), GROUND_Y - 120 * S, 14, ['#86efac', '#fde047', '#fca5a5'][k]);
   }
   el('progressBar').style.width = ((points % 500) / 5) + '%';
 }
@@ -336,8 +371,14 @@ function draw() {
     ctx.beginPath(); ctx.ellipse(o.x + o.w / 2, GROUND_Y + 4 * S, o.w * 0.42, o.h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillText(o.emoji, o.x + o.w / 2, o.y + o.h / 2);
     if (o.type === 'air') {
-      ctx.strokeStyle = 'rgba(255,120,120,.5)'; ctx.lineWidth = 2;
+      // banda roja + flecha "agáchate": el obstáculo va alto, por debajo se pasa.
+      ctx.fillStyle = 'rgba(239,68,68,.22)';
+      ctx.fillRect(o.x - 4 * S, o.y - o.h * 0.42, o.w + 8 * S, o.h * 1.84);
+      ctx.strokeStyle = 'rgba(255,120,120,.55)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(o.x + o.w / 2, GROUND_Y); ctx.lineTo(o.x + o.w / 2, o.y + o.h); ctx.stroke();
+      ctx.font = `900 ${Math.round(13 * S)}px system-ui`;
+      ctx.fillStyle = 'rgba(255,190,190,.95)';
+      ctx.fillText('⬇', o.x + o.w / 2, GROUND_Y - 16 * S);
     }
   }
   // ingredientes (con brillo)
@@ -356,9 +397,13 @@ function draw() {
   ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath(); ctx.ellipse(player.x, GROUND_Y + 4 * S, player.w * 0.4, player.h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
   ctx.save();
-  ctx.translate(player.x, player.y + player.h / 2);
+  const ducking = player.ducking && player.onGround;
+  const sq = ducking ? 0.5 : player.squash;              // agachada se aplasta de verdad
+  const dh = player.h * sq;
+  const cy = ducking ? GROUND_Y - dh / 2 : player.y + player.h / 2;
+  ctx.translate(player.x, cy);
   ctx.rotate(player.rot * 0.06);
-  const sq = player.squash, w = player.w * (2 - sq), h = player.h * sq;
+  const w = player.w * (2 - sq), h = dh;
   ctx.font = `${Math.round(h * 1.06)}px system-ui`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('🥘', 0, 0);
@@ -478,6 +523,18 @@ async function renderRanking(diff) {
 }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+
+/* Récord personal en este dispositivo (se ve en la pantalla de inicio) */
+function updateBest() {
+  const node = el('bestScore');
+  if (!node) return;
+  try {
+    const rows = readLocal();
+    const best = rows.reduce((m, r) => Math.max(m, r.score || 0), 0);
+    node.textContent = best ? `🏆 Tu récord: ${best} puntos` : '';
+  } catch (e) {}
+}
+
 /* ---------------- UI ---------------- */
 let rankDiff = 'normal';
 el('diffRow').addEventListener('click', e => {
@@ -499,6 +556,7 @@ el('btnAgain').addEventListener('click', () => startGame(difficulty));
 el('btnEndMenu').addEventListener('click', backToMenu);
 
 function backToMenu() {
+  updateBest();
   running = false; paused = false; cancelAnimationFrame(rafId); stopMusic();
   hide(el('pauseScreen')); hide(el('endScreen')); hide(el('rankScreen')); hide(el('hud'));
   show(el('startScreen'));
@@ -523,7 +581,7 @@ el('rankTabs').addEventListener('click', e => {
 });
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
-  el('nameRow').classList.add('hidden');
+  el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
 
@@ -541,3 +599,4 @@ setBg(0); loadBg(1); loadBg(2);
 resetPlayer();
 draw();
 window.__runnerState = () => ({ running, paused, score: points, meters: Math.floor(meters), lives, level, combo: maxCombo, items: itemsGot, obstacles: obstacles.length, itemsOnScreen: items.length, api: API, difficulty });
+updateBest();

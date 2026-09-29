@@ -45,22 +45,36 @@ html, body {
 .tag { color: #fde68a; font-size: 13.5px; line-height: 1.5; margin: 0 auto 16px; max-width: 34ch; }
 .tag b { color: #fff; }
 .btn {
-  display: block; width: 100%; margin: 9px 0; padding: 15px 16px; cursor: pointer;
+  display: block; width: 100%; margin: 9px 0; padding: 16px; cursor: pointer;
   border-radius: 999px; border: 3px solid #fff; font-weight: 900; font-size: 19px;
-  letter-spacing: .03em; color: #fff; background: #475569; transition: transform .08s ease, box-shadow .08s ease;
+  letter-spacing: .03em; color: #fff; background: #475569;
+  transition: transform .08s cubic-bezier(.2,.9,.3,1.4), box-shadow .08s ease, filter .15s ease;
+  -webkit-user-select: none; user-select: none;
 }
-.btn:active { transform: translateY(2px); }
+.btn:active { transform: translateY(3px) scale(.985); }
 .btn-play { background: linear-gradient(180deg,#34d399,#15803d); box-shadow: 0 6px 0 #14532d; font-size: 23px; }
 .btn-play:active { box-shadow: 0 2px 0 #14532d; }
-.btn-ghost { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.4); font-size: 15px; padding: 11px 14px; box-shadow: none; }
-.btn.small { width: auto; display: inline-block; padding: 11px 18px; font-size: 15px; }
-.diffRow { display: flex; gap: 7px; margin-top: 4px; }
+.btn-ghost { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.4); font-size: 15px; padding: 12px 14px; box-shadow: none; }
+.btn-ghost:active { background: rgba(255,255,255,.16); }
+.btn.small { width: auto; display: inline-block; padding: 12px 20px; font-size: 15px; }
+.diffRow { display: flex; gap: 8px; margin-top: 6px; }
 .diff {
-  flex: 1; cursor: pointer; padding: 11px 4px; border-radius: 14px; font-weight: 800; font-size: 12.5px;
+  flex: 1; cursor: pointer; padding: 13px 4px; border-radius: 14px; font-weight: 800; font-size: 12.5px;
   border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.07); color: #fff;
+  transition: transform .1s ease, background .15s ease, border-color .15s ease;
+  min-height: 46px;
 }
-.diff.active { background: linear-gradient(180deg,#60a5fa,#1d4ed8); border-color: #fff; box-shadow: 0 4px 0 #1e3a8a; }
+.diff:active { transform: scale(.96); }
+.diff.active { background: linear-gradient(180deg,#60a5fa,#1d4ed8); border-color: #fff; box-shadow: 0 4px 0 #1e3a8a; transform: translateY(-1px); }
 .foot { color: rgba(255,255,255,.55); font-size: 11.5px; margin-top: 14px; }
+
+/* Entrada de pantallas y resultados (transiciones suaves) */
+.screen:not(.hidden) .pane { animation: paneIn .34s cubic-bezier(.2,.9,.3,1.15) both; }
+@keyframes paneIn { from { opacity: 0; transform: translateY(16px) scale(.975); } to { opacity: 1; transform: none; } }
+.modal:not(.hidden) .modalBox { animation: boxIn .3s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes boxIn { from { opacity: 0; transform: translateY(20px) scale(.95); } to { opacity: 1; transform: none; } }
+.resultGrid b { animation: numPop .4s cubic-bezier(.2,.9,.3,1.4) both; }
+@keyframes numPop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
 
 /* ---------- Modales ---------- */
 .modal { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.78); backdrop-filter: blur(4px); padding: 16px; }
@@ -86,7 +100,10 @@ html, body {
 .resultGrid b { font-size: 21px; color: #15803d; }
 #nameRow { display: flex; gap: 8px; margin-bottom: 10px; }
 #nameRow.hidden { display: none; }
-#playerName { flex: 1; padding: 13px 14px; border-radius: 12px; border: 2px solid #d6d3d1; font-size: 16px; min-width: 0; }
+#playerName { flex: 1; padding: 13px 14px; border-radius: 12px; border: 2px solid #d6d3d1; font-size: 16px; min-width: 0;
+  /* el input DEBE poder escribirse: el user-select:none global del body lo bloqueaba en móvil */
+  user-select: text; -webkit-user-select: text; touch-action: manipulation; -webkit-user-modify: read-write; }
+#playerName:focus { outline: 3px solid #f59e0b; border-color: #b45309; }
 .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .tab { flex: 1; padding: 9px 4px; border-radius: 10px; border: 2px solid #d6d3d1; background: #fff; font-weight: 800; font-size: 12.5px; cursor: pointer; color: #44403c; }
 .tab.active { background: #ea580c; color: #fff; border-color: #9a3412; }

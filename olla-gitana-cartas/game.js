@@ -328,6 +328,7 @@ function togglePause() {
   else { hide(el('pauseScreen')); playMusic(); }
 }
 function backToMenu() {
+  updateBest();
   running = false; paused = false;
   stopMusic();
   hide(el('pauseScreen')); hide(el('endScreen')); hide(el('rankScreen')); hide(el('hud')); hide(el('table'));
@@ -392,6 +393,18 @@ function toast(msg, ms = 1600) {
   toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
 
+
+/* Récord personal en este dispositivo (se ve en la pantalla de inicio) */
+function updateBest() {
+  const node = el('bestScore');
+  if (!node) return;
+  try {
+    const rows = readLocal();
+    const best = rows.reduce((m, r) => Math.max(m, r.score || 0), 0);
+    node.textContent = best ? `🏆 Tu récord: ${best} puntos` : '';
+  } catch (e) {}
+}
+
 /* ---------------- UI ---------------- */
 let rankDiff = 'normal';
 el('diffRow').addEventListener('click', e => {
@@ -434,7 +447,7 @@ el('rankTabs').addEventListener('click', e => {
 });
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
-  el('nameRow').classList.add('hidden');
+  el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
 
@@ -455,3 +468,4 @@ window.__cartasState = () => ({
   handsWon, handsPlayed, playerTotal: handTotal(player), dealerTotal: handTotal(dealer),
   dealerHidden, api: API, difficulty
 });
+updateBest();

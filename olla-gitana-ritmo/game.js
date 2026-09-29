@@ -44,9 +44,26 @@ let bgIndex = -1, lastBgChange = -1;
 let laneFlash = [0, 0, 0, 0];
 let laneRipple = [0, 0, 0, 0];
 let popups = [];            // textos flotantes {x,y,text,life,color,size}
+let particles = [];         // chispas al acertar {x,y,vx,vy,life,color,r}
+let judgePulse = 0;         // pulso de la línea de juicio al golpear
 let shake = 0;
 let soundOn = true;
 let bgImg = null, bgLoaded = -1;
+let vibrateOk = true;
+
+/* Vibración suave en móvil (algunos navegadores no la soportan) */
+function buzz(ms) {
+  if (!vibrateOk || !soundOn) return;
+  try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { vibrateOk = false; }
+}
+
+/* Chispas de color al acertar una nota */
+function spark(x, y, color, n = 10) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 210;
+    particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, life: 0.45 + Math.random() * 0.35, color, r: 2 + Math.random() * 3.2 });
+  }
+}
 
 /* ---------------- Canvas ---------------- */
 const stage = document.getElementById('stage');
@@ -168,7 +185,7 @@ function startGame(diff) {
   prepareNotes(diff);
   score = 0; combo = 0; maxCombo = 0; mult = 1; perfect = 0; good = 0; miss = 0; hitsCount = 0; judged = 0;
   lives = cfg.lives;
-  popups = []; shake = 0; laneFlash = [0, 0, 0, 0];
+  popups = []; shake = 0; laneFlash = [0, 0, 0, 0]; particles = []; judgePulse = 0;
   bgIndex = -1; lastBgChange = -1;
   running = true; paused = false; finished = false;
   el('endScreen').classList.add('hidden');
@@ -235,8 +252,11 @@ function update(dt) {
     laneRipple[i] = Math.max(0, laneRipple[i] - dt * 2.4);
   }
   shake = Math.max(0, shake - dt * 3);
+  judgePulse = Math.max(0, judgePulse - dt * 5);
   popups.forEach(p => { p.life -= dt * 1.25; p.y -= dt * 42; });
   popups = popups.filter(p => p.life > 0);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 620 * dt; p.life -= dt * 1.6; }
+  particles = particles.filter(p => p.life > 0);
 }
 
 /* ---------------- Input ---------------- */
@@ -260,6 +280,8 @@ function pressLane(i, x, y) {
     if (best.kind === 'trap') {
       lives--; shake = 1; combo = 0; mult = 1;
       playSfx('hit');
+      buzz(38);
+      spark(x || laneCenter(i), y || judgeY - 30, '#f87171', 16);
       popup(x || laneCenter(i), y || judgeY - 30, '💥 ¡Trampa!', '#fca5a5', 24);
       updateHUD();
       if (lives <= 0) { endGame(false); return; }
@@ -271,6 +293,9 @@ function pressLane(i, x, y) {
       score += base * mult;
       if (best.kind === 'zarangollo') { beep(1318, 0.10, 0.10); beep(1760, 0.13, 0.07); }
       else beep(isPerfect ? 1046 : 880);
+      spark(x || laneCenter(i), (y || judgeY) - 6, isPerfect ? '#fde047' : '#a7f3d0', isPerfect ? 12 : 7);
+      judgePulse = 1;
+      buzz(isPerfect ? 12 : 8);
       popup(x || laneCenter(i), (y || judgeY) - 34,
         best.kind === 'zarangollo' ? '🥘 +50' : `+${base * mult}`,
         isPerfect ? '#fde047' : '#bbf7d0', isPerfect ? 30 : 24);
@@ -321,6 +346,7 @@ el('btnRestart').addEventListener('click', () => { hide(el('pauseScreen')); star
 el('btnQuit').addEventListener('click', backToMenu);
 el('btnMenu').addEventListener('click', backToMenu);
 function backToMenu() {
+  updateBest();
   running = false; paused = false; cancelAnimationFrame(rafId);
   try { audio && audio.pause(); } catch (e) {}
   hide(el('pauseScreen')); hide(el('endScreen')); hide(el('hud'));
@@ -406,7 +432,7 @@ el('btnRanking').addEventListener('click', () => { rankDiff = difficulty; [...el
 el('btnCloseRank').addEventListener('click', () => hide(el('rankScreen')));
 el('btnSaveScore').addEventListener('click', async () => {
   const r = await saveScore(el('playerName').value.trim());
-  el('nameRow').classList.add('hidden');
+  el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
 function setRankSource(online) {
@@ -477,8 +503,23 @@ function draw(dt) {
   }
 
   // línea de juicio + pads
-  ctx.fillStyle = 'rgba(255,255,255,.85)';
-  ctx.fillRect(0, judgeY - 1.5, W, 3);
+  const jp = 1 + judgePulse * 0.9;
+  ctx.fillStyle = `rgba(255,255,255,${0.85 - judgePulse * 0.25})`;
+  ctx.fillRect(0, judgeY - 1.5 * jp, W, 3 * jp);
+  if (judgePulse > 0) {
+    ctx.globalAlpha = judgePulse * 0.5;
+    const jg = ctx.createLinearGradient(0, judgeY - 26, 0, judgeY + 26);
+    jg.addColorStop(0, 'rgba(250,204,21,0)'); jg.addColorStop(.5, 'rgba(250,204,21,.55)'); jg.addColorStop(1, 'rgba(250,204,21,0)');
+    ctx.fillStyle = jg; ctx.fillRect(0, judgeY - 26, W, 52);
+    ctx.globalAlpha = 1;
+  }
+  // chispas
+  for (const p of particles) {
+    ctx.globalAlpha = clamp(p.life, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
   for (let i = 0; i < LANES; i++) {
     const x = laneCenter(i);
     ctx.globalAlpha = 0.9;
@@ -555,3 +596,15 @@ document.addEventListener('visibilitychange', () => {
 // Evitar gestos que hagan scroll/zoom
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* Récord personal en este dispositivo (se ve en la pantalla de inicio) */
+function updateBest() {
+  const node = el('bestScore');
+  if (!node) return;
+  try {
+    const rows = readLocal();
+    const best = rows.reduce((m, r) => Math.max(m, r.score || 0), 0);
+    node.textContent = best ? `🏆 Tu récord: ${best} puntos` : '';
+  } catch (e) {}
+}
+updateBest();

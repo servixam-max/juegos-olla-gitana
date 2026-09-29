@@ -81,3 +81,10 @@ input::placeholder {
     color: #6b7280;
     opacity: 1;
 }
+
+/* El input del ranking DEBE poder escribirse en móvil (user-select:none global lo rompía) */
+#playerName, #playerNameVictory {
+  user-select: text !important; -webkit-user-select: text !important;
+  touch-action: manipulation; -webkit-user-modify: read-write;
+}
+#playerName:focus, #playerNameVictory:focus { outline: 3px solid #facc15; }
