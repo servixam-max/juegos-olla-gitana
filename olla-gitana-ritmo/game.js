@@ -104,6 +104,28 @@ function playSfx(kind) {
     if (a) { a.currentTime = 0; a.play().catch(() => {}); }
   } catch (e) {}
 }
+
+// Pitido leve al acertar (WebAudio, sin ficheros): el audio "hit" queda solo para fallos
+let beepCtx = null;
+function beep(freq = 880, dur = 0.075, vol = 0.085) {
+  if (!soundOn) return;
+  try {
+    if (!beepCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      beepCtx = new AC();
+    }
+    if (beepCtx.state === 'suspended') beepCtx.resume().catch(() => {});
+    const now = beepCtx.currentTime;
+    const osc = beepCtx.createOscillator(), g = beepCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, now);
+    g.gain.setValueAtTime(vol, now);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+    osc.connect(g); g.connect(beepCtx.destination);
+    osc.start(now); osc.stop(now + dur + 0.02);
+  } catch (e) {}
+}
 function ensureMusic() {
   initAudio();
   audio.muted = !soundOn;
@@ -237,6 +259,7 @@ function pressLane(i, x, y) {
     judged++; hitsCount++;
     if (best.kind === 'trap') {
       lives--; shake = 1; combo = 0; mult = 1;
+      playSfx('hit');
       popup(x || laneCenter(i), y || judgeY - 30, '💥 ¡Trampa!', '#fca5a5', 24);
       updateHUD();
       if (lives <= 0) { endGame(false); return; }
@@ -246,7 +269,8 @@ function pressLane(i, x, y) {
       combo++; maxCombo = Math.max(maxCombo, combo);
       mult = combo >= 40 ? 4 : combo >= 25 ? 3 : combo >= 12 ? 2 : 1;
       score += base * mult;
-      playSfx(best.kind === 'zarangollo' ? 'level' : 'hit');
+      if (best.kind === 'zarangollo') { beep(1318, 0.10, 0.10); beep(1760, 0.13, 0.07); }
+      else beep(isPerfect ? 1046 : 880);
       popup(x || laneCenter(i), (y || judgeY) - 34,
         best.kind === 'zarangollo' ? '🥘 +50' : `+${base * mult}`,
         isPerfect ? '#fde047' : '#bbf7d0', isPerfect ? 30 : 24);

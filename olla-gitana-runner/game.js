@@ -101,6 +101,29 @@ function sfx(name, vol = 0.7) {
   try { const a = audio[name].cloneNode(); a.volume = vol; a.play().catch(() => {}); } catch (e) {}
 }
 
+// Pitido leve al recoger ingredientes (WebAudio, sin ficheros):
+// el audio "hit" queda reservado para golpes / pérdida de vidas.
+let beepCtx = null;
+function beep(freq = 880, dur = 0.075, vol = 0.085) {
+  if (!soundOn) return;
+  try {
+    if (!beepCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      beepCtx = new AC();
+    }
+    if (beepCtx.state === 'suspended') beepCtx.resume().catch(() => {});
+    const now = beepCtx.currentTime;
+    const osc = beepCtx.createOscillator(), g = beepCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, now);
+    g.gain.setValueAtTime(vol, now);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+    osc.connect(g); g.connect(beepCtx.destination);
+    osc.start(now); osc.stop(now + dur + 0.02);
+  } catch (e) {}
+}
+
 /* ---------------- Fondos ---------------- */
 function loadBg(i) {
   const src = BACKGROUNDS[i % BACKGROUNDS.length];
@@ -242,7 +265,7 @@ function update(dt) {
       itemPoints += 10 * mult();
       burst(it.x, it.y + it.h / 2, 7, '#fcd34d');
       popup('+' + 10 * mult(), '#fde68a', it.x, it.y - 10 * S);
-      sfx('hit', 0.45);
+      beep(784 + Math.min(6, Math.floor(combo / 4)) * 66, 0.07, 0.08);
       items.splice(i, 1);
     }
   }

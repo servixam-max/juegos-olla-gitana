@@ -5,7 +5,7 @@ body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #87CEEB; /* Fallback Sky Blue */
+    background-color: #0b0705; /* Fondo oscuro: nada de franjas claras en móvil */
     background-image: url('https://images.unsplash.com/photo-1548625361-987719602035?auto=format&fit=crop&w=800&q=60'), linear-gradient(to bottom, #87CEEB, #E0F6FF);
     background-size: cover;
     background-position: center;

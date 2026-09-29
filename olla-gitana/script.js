@@ -10,6 +10,7 @@ const CONFIG = {
     GAME_HEIGHT: window.innerHeight,
     PLAYER_WIDTH: 100,
     PLAYER_HEIGHT: 70, 
+    POT_MARGIN: 10, // margen inferior de la olla (se recalcula en resize)
     ITEM_SIZE: 55, // Slightly larger
     SPAWN_RATE: 70,
     LEVEL_THRESHOLD: 200,
@@ -415,16 +416,30 @@ const instructionsModal = document.getElementById('instructionsModal');
 const difficultyToggle = document.getElementById('difficultyToggle');
 
 // --- RESIZE ---
+function getPotMargin(h) {
+    // En vertical, la barra de gestos/toolbar del móvil tapa el borde inferior:
+    // subimos la olla un % de la pantalla para que se vea entera (60-110 px)
+    if (h < window.innerWidth) return 12;                 // apaisado: casi pegada abajo
+    return Math.round(Math.min(110, Math.max(60, h * 0.09)));
+}
+
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    CONFIG.GAME_WIDTH = canvas.width;
-    CONFIG.GAME_HEIGHT = canvas.height;
+    const w = window.innerWidth;
+    const h = Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight);
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    CONFIG.GAME_WIDTH = w;
+    CONFIG.GAME_HEIGHT = h;
+    CONFIG.POT_MARGIN = getPotMargin(h);
     if (state.playerX > canvas.width - CONFIG.PLAYER_WIDTH) {
         state.playerX = canvas.width - CONFIG.PLAYER_WIDTH;
     }
 }
 window.addEventListener('resize', resize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 300));
 resize();
 
 // --- BACKGROUNDS ---
@@ -509,7 +524,9 @@ function drawPot(x, y, w, h) {
     const centerX = x + w/2;
     const bottomY = y + h;
     
+    const tilt = Math.max(-0.16, Math.min(0.16, -state.playerVelocity * 0.004));
     ctx.translate(centerX, bottomY);
+    ctx.rotate(tilt);
     ctx.scale(scaleX, scaleY);
     ctx.translate(-centerX, -bottomY);
 
@@ -638,7 +655,7 @@ function update() {
     const spawnRate = Math.max(20, CONFIG.SPAWN_RATE - (state.level * 2));
     if (state.frames % spawnRate === 0) spawnItem();
 
-    const potTop = CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT;
+    const potTop = CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT - CONFIG.POT_MARGIN;
     const potLeft = state.playerX + 10;
     const potRight = state.playerX + CONFIG.PLAYER_WIDTH - 10;
 
@@ -1040,7 +1057,7 @@ function drawPumpkin(x, y, size) {
 function drawSpotlight() {
     // Spotlight Effect centered on Pot
     const centerX = state.playerX + CONFIG.PLAYER_WIDTH / 2;
-    const centerY = CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT / 2;
+    const centerY = CONFIG.GAME_HEIGHT - CONFIG.POT_MARGIN - CONFIG.PLAYER_HEIGHT / 2;
 
     const grad = ctx.createRadialGradient(centerX, centerY, 100, centerX, centerY, 800);
     grad.addColorStop(0, 'rgba(0,0,0,0)'); // Clear center
@@ -1054,7 +1071,7 @@ function drawSpotlight() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    drawPot(state.playerX, CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT - 10, CONFIG.PLAYER_WIDTH, CONFIG.PLAYER_HEIGHT);
+    drawPot(state.playerX, CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT - CONFIG.POT_MARGIN, CONFIG.PLAYER_WIDTH, CONFIG.PLAYER_HEIGHT);
     
     ctx.font = `${CONFIG.ITEM_SIZE}px serif`;
     ctx.textAlign = 'left';
