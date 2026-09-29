@@ -1,3 +1,10 @@
 olla-gitana/.git/
 admin_token.txt
 *.tmp
+
+# Olla Gitana 3D: no versionar build ni fotogramas del vídeo
+olla-gitana-crash-3d/node_modules/
+olla-gitana-crash-3d/dist/
+olla-gitana-crash-3d/.frames/
+olla-gitana-crash-3d/.vite/
+olla-gitana-crash-3d-servido/

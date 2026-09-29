@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#12081f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>Olla Gitana 3D — El Juego</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div id="app"><canvas id="game"></canvas></div>
+
+<!-- ================= HUD ================= -->
+<div id="hud" class="hidden">
+  <div class="hudTop">
+    <div class="chip" id="livesChip"><span class="lbl">VIDAS</span><span id="lives"></span></div>
+    <div class="chip" id="noteChip">🎵 <span class="num" id="noteNum">0</span></div>
+    <div class="chip" id="crateChip">📦 <span class="num" id="crateNum">0/0</span></div>
+    <div class="chip" id="comboChip">COMBO <span class="num" id="comboNum">x1</span></div>
+    <div class="chip" id="timerChip">⏱ <span class="num" id="timerNum">0:00</span></div>
+    <button id="pauseBtn" title="Pausa (P)">⏸</button>
+  </div>
+  <div id="powerRow">
+    <div class="pw aura hidden" id="pwAura"><i></i></div>
+    <div class="pw ghost hidden" id="pwGhost"><i></i></div>
+    <div class="pw shield hidden" id="pwShield"><i></i></div>
+  </div>
+  <div class="hudBottom">
+    <div class="chip dim small" id="hintChip">gira x · salta espacio</div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<div id="dmgFlash"></div>
+<div id="pressFlash" class="hidden"></div>
+<div id="pressLbl" class="hidden">💀 ¡PRESIÓN!</div>
+
+<!-- ================= Controles táctiles ================= -->
+<div id="touch" class="hidden">
+  <div id="tStick"><span class="knob"></span><span class="padLbl">MOVER</span></div>
+  <button class="tBtn" id="tJump">SALTO<span class="padLbl">saltar / 2x</span></button>
+  <button class="tBtn" id="tSpin">GIRA<span class="padLbl">atacar</span></button>
+  <button class="tBtn" id="tSlide">⬇<span class="padLbl">barrer</span></button>
+</div>
+
+<!-- ================= Pantalla de carga ================= -->
+<div class="overlay" id="loadPanel">
+  <div class="panel">
+    <h1>OLLA GITANA 3D</h1>
+    <div class="sub">El Juego · edición rumbera</div>
+    <div class="bar"><i id="loadBar"></i></div>
+    <div class="tip" id="loadTip">Preparando la furgoneta…</div>
+  </div>
+</div>
+
+<!-- ================= Menú principal ================= -->
+<div class="overlay hidden" id="menuPanel">
+  <div class="panel" id="menuBox">
+    <h1>OLLA GITANA 3D</h1>
+    <div class="sub">Recoge notas, rompe cajones y llega al escenario 🎸</div>
+    <img id="menuImg" class="hidden" alt="" style="width:100%;border-radius:14px;margin-bottom:10px" />
+    <div class="levels" id="levelGrid"></div>
+    <div class="row">
+      <button class="btn ghost" id="btnIntro">🎬 Ver intro</button>
+      <button class="btn ghost" id="btnHelp">❓ Controles</button>
+      <button class="btn ghost" id="btnMute2">🔊 Sonido</button>
+      <button class="btn ghost" id="btnRank">🏆 Ranking</button>
+    </div>
+    <div class="keys small" id="gamepadHint"></div>
+  </div>
+</div>
+
+<!-- ================= Ayuda / controles ================= -->
+<div class="overlay hidden" id="helpPanel">
+  <div class="panel">
+    <h2>Controles</h2>
+    <div class="keys">
+      <div><b>Moverse</b> <span class="pill">← →</span><span class="pill">A D</span><span class="pill">stick</span></div>
+      <div><b>Saltar</b> <span class="pill">Espacio</span><span class="pill">Z</span><span class="pill">A</span></div>
+      <div><b>Doble salto</b> salta otra vez en el aire</div>
+      <div><b>Giro (atacar)</b> <span class="pill">X</span><span class="pill">Shift</span><span class="pill">X</span></div>
+      <div><b>Barrida</b> <span class="pill">C</span><span class="pill">Ctrl</span><span class="pill">B</span></div>
+      <div><b>Salto largo</b> salta mientras barres</div>
+      <div><b>Pausa</b> <span class="pill">P</span><span class="pill">Esc</span></div>
+    </div>
+    <p class="small">Rompe cajones con el giro o saltando encima. Los cajones <b>?</b> rebotan 5 veces.
+    Los <b>TNT</b> explotan en 3 s (¡aléjate!). Los <b>Nitro</b> estallan al tocarlos.
+    Los <b>!</b> activan cosas del nivel y los <b>✔</b> son puntos de control.</p>
+    <p class="small">Junta 3 máscaras 🎭 y tendrás el <b>aura rumbera</b>: invencible y a toda velocidad.</p>
+    <div class="row"><button class="btn" id="btnHelpBack">Vale, ¡vamos!</button></div>
+  </div>
+</div>
+
+<!-- ================= Pausa ================= -->
+<div class="overlay hidden" id="pausePanel">
+  <div class="panel">
+    <h2>Pausa</h2>
+    <div class="row">
+      <button class="btn wide" id="btnResume">▶ Seguir</button>
+      <button class="btn alt wide" id="btnRestart">⟲ Reiniciar nivel</button>
+      <button class="btn ghost wide" id="btnLevels">🗺️ Elegir nivel</button>
+      <button class="btn ghost wide" id="btnMute">🔊 Sonido</button>
+    </div>
+    <div class="sliderRow"><span>🔉</span><input type="range" id="volRange" min="0" max="100" value="70" /><span id="volLbl">70%</span></div>
+    <p class="small center" id="pauseStats"></p>
+  </div>
+</div>
+
+<!-- ================= Fin de nivel ================= -->
+<div class="overlay hidden" id="endPanel">
+  <div class="panel">
+    <img id="endImg" class="hidden" alt="" style="width:100%;border-radius:14px;margin-bottom:8px" />
+    <h2 id="endTitle">¡Nivel completado!</h2>
+    <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="statNotes">0</div><div class="k">NOTAS</div></div>
+      <div class="stat"><div class="v" id="statCrates">0/0</div><div class="k">CAJONES</div></div>
+      <div class="stat"><div class="v" id="statTime">0:00</div><div class="k">TIEMPO</div></div>
+      <div class="stat"><div class="v" id="statBest">—</div><div class="k">RÉCORD</div></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnNext">▶ Siguiente</button>
+      <button class="btn alt" id="btnRetry">⟲ Repetir</button>
+      <button class="btn ghost" id="btnLevels2">🗺️ Niveles</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Fin de partida (sin vidas) ================= -->
+<div class="overlay hidden" id="overPanel">
+  <div class="panel">
+    <h2 id="overTitle">¡Te has quedao sin vidas!</h2>
+    <p class="center small" id="overSub">Pero la rumba no para…</p>
+    <div class="row">
+      <button class="btn" id="btnOverRetry">⟲ Otra vez</button>
+      <button class="btn ghost" id="btnOverLevels">🗺️ Niveles</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Ranking ================= -->
+<div class="overlay hidden" id="rankPanel">
+  <div class="panel">
+    <h2>🏆 Ranking</h2>
+    <div id="rankBody" class="small"></div>
+    <div class="row"><button class="btn" id="btnRankBack">Volver</button></div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
