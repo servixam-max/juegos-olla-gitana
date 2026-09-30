@@ -249,6 +249,8 @@ function showMenu() {
   hud.show(false);
   boss.alive = false;
   Audio.playMenuMusic();
+  // chip de progreso: super-vidas y continues disponibles
+  hud.setSuper(progreso.superVidas, progreso.continues);
   const grid = $('levelGrid');
   grid.innerHTML = '';
   const desbloqueados = progreso.desbloqueados;
