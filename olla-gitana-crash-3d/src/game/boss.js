@@ -58,8 +58,10 @@ export class Boss {
     this.phaseT += dt;
     this.hitFlash = Math.max(0, this.hitFlash - dt * 3);
 
-    // fase por vida
-    const newPhase = 3 - Math.max(0, this.hp - 1) >= 3 ? 3 : Math.max(1, 3 - this.hp);
+    // fase por vida: hp 3 → fase 1, hp 2 → fase 2, hp 1 → fase 3
+    // OJO: antes era `3 - Math.max(0, hp-1) >= 3 ? 3 : ...` y la precedencia lo
+    // dejaba en `(3-x)>=3` → la fase 2 nunca se alcanzaba (bug de QA).
+    const newPhase = Math.min(3, 4 - this.hp);
     if (newPhase !== this.phase) {
       this.phase = newPhase;
       this.phaseT = 0;

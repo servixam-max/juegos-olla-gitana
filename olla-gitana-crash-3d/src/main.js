@@ -848,7 +848,11 @@ function checkGoal() {
   // si hay jefe intermedio pendiente o vivo, la meta está cerrada
   if (state.ferminPending || (state.ferminActive && fermin.alive)) return;
   const d = Math.hypot(player.pos.x - lv.goal.x, player.pos.z - lv.goal.z);
-  if (d < 3.6 || player.pos.z > lv.goal.z + 1.5) endLevel(true);
+  // OJO: antes bastaba con z > goal.z+1.5 sin mirar la x, así que se podía
+  // "ganar" el nivel desde fuera del pasillo (detrás del muro). Ahora hace
+  // falta estar cerca de la meta Y dentro del ancho jugable.
+  const enAncho = Math.abs(player.pos.x - (lv.goal.x || 0)) < 4.5;
+  if (d < 3.6 || (enAncho && player.pos.z > lv.goal.z + 1.5)) endLevel(true);
 }
 
 function updateVan(dt) {
@@ -1248,7 +1252,7 @@ window.__qa = {
     if (this.data.fpsSamples.length > 40) this.data.fpsSamples.shift();
   },
   step: (dt = 1 / 30, n = 1) => { for (let i = 0; i < n; i++) tick(dt); },
-  state: () => ({ mode: state.mode, level: state.level && state.level.id, lives: state.lives, pos: { ...player.pos }, notas: pickups.noteCount, cajas: crates.broken, totalCajas: crates.total, fps: state.fps, ended: state.ended, boss: state.bossActive ? { hp: boss.hp, phase: boss.phase, alive: boss.alive } : (state.ferminActive ? { hp: fermin.hp, phase: 1, alive: fermin.alive, fermin: true } : null), ferminPending: !!state.ferminPending }),
+  state: () => ({ mode: state.mode, level: state.levelIndex, levelId: state.level && state.level.id, lives: state.lives, pos: { ...player.pos }, notas: pickups.noteCount, cajas: crates.broken, totalCajas: crates.total, fps: state.fps, ended: state.ended, boss: state.bossActive ? { hp: boss.hp, phase: boss.phase, alive: boss.alive } : (state.ferminActive ? { hp: fermin.hp, phase: 1, alive: fermin.alive, fermin: true } : null), ferminPending: !!state.ferminPending }),
   /* diagnóstico para los agentes de QA: estado interno del motor */
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,

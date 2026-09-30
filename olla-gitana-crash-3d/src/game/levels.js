@@ -21,8 +21,8 @@ const R = (seed) => {
 };
 
 /* ---------- helpers de construcción ---------- */
-function solid(world, scene, { x, y, z, w, h, d, color = PALETA.asfalto, tag = '', mat = null, moving = null, visible = true }) {
-  const b = world.add(new Box({ x, y: y + h / 2, z, w, h, d, tag }));
+function solid(world, scene, { x, y, z, w, h, d, color = PALETA.asfalto, tag = '', mat = null, moving = null, visible = true, solid: esSolido = true }) {
+  const b = world.add(new Box({ x, y: y + h / 2, z, w, h, d, tag, solid: esSolido }));
   if (moving) b.moving = moving;
   if (visible) {
     // textura procedural según el mundo y el tipo de bloque (si hay receta)
@@ -116,8 +116,13 @@ export function buildLevel1(world, scene, fx) {
     wall(world, scene, { x: 5.6, z: zi + 6, w: 1.2, h: 5.4, d: 12, color: 0x5b4b8a });
   }
   // techo de pasillo abierto más adelante (sensación de calle)
+  // OJO: era `visible:false` y sólido. Al resolver por ejes, un techo invisible
+  // cuyo borde inferior cruzas en el aire te expulsaba lateralmente a través del
+  // muro del pasillo (bug crítico encontrado por QA: N1 teletransporte a x=-6.6).
+  // Solución: el techo NO es sólido (es solo decorativo/ambiental) → sin colisión,
+  // sin eyección. La sensación de calle se mantiene igual.
   for (let zi = 24; zi < 96; zi += 16) {
-    solid(world, scene, { x: 0, y: 4.6, z: zi, w: 11.2, h: 0.5, d: 16, color: 0x4a3f6b, tag: 'roof', visible: false });
+    solid(world, scene, { x: 0, y: 4.6, z: zi, w: 11.2, h: 0.5, d: 16, color: 0x4a3f6b, tag: 'roof', visible: false, solid: false });
   }
 
   // farolas y decoración
@@ -497,7 +502,7 @@ export function buildBossArena(world, scene, fx) {
   }
 
   return {
-    id: 4, nombre: 'Duelo en el Escenario',
+    id: 8, nombre: 'Duelo en el Escenario',
     tip: 'Devuelve los cajones con el giro cuando te los lance. Esquiva las ondas y escóndete tras los pilares.',
     length: 0, spawn: { x: 0, y: 0.1, z: 14 }, goal: null,
     crates, notes, masks, checkpoints, puddles, enemies, switches,

@@ -629,13 +629,14 @@ export function makeBoss() {
     g.add(tooth);
   }
   // ---- ojo LED central: brilla en el centro del altavoz grande y parpadea ----
+  // (delante de la tapa antipolvo: z=1.14 > 1.10 = superficie de la tapa)
   const ledEyeMat = new THREE.MeshBasicMaterial({ color: 0x4cc9f0 });
-  const ledEye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), ledEyeMat);
-  ledEye.position.set(0, 2.2, 0.95);
-  ledEye.scale.set(1, 1, 0.5);
+  const ledEye = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), ledEyeMat);
+  ledEye.position.set(0, 2.2, 1.14);
+  ledEye.scale.set(1, 1, 0.55);
   g.add(ledEye);
-  const ledEyeRing = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.05, 6, 18), toonMat(0x0d0d0d));
-  ledEyeRing.position.set(0, 2.2, 0.97);
+  const ledEyeRing = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.05, 6, 18), toonMat(0x222222));
+  ledEyeRing.position.set(0, 2.2, 1.14);
   g.add(ledEyeRing);
 
   // ---- brazos con altavoces ----
