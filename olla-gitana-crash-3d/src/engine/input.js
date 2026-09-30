@@ -2,6 +2,16 @@
    Se consulta una vez por frame con poll(): devuelve el estado y los flancos
    (pulsado este frame) comparando con el frame anterior. */
 
+/* --- ajustes del pad táctil (afinar aquí) --- */
+const DEAD_ZONE = 0.12;      // zona muerta: por debajo de esto no hay movimiento
+const EXPO = 1.2;            // curva de respuesta: 1 = lineal, >1 = más fino cerca del centro
+const STICK_RECENTER = 1.1;  // stick dinámico: si el dedo pasa de radius*esto, el origen le sigue
+const KNOB_TRAVEL = 0.72;    // recorrido visual del knob (fracción del radio del pad)
+const VIBRATE_MS = 8;        // vibración al pulsar un botón
+
+/* vibración corta (móvil): nunca lanza si no existe o el navegador la bloquea */
+const buzz = (ms = VIBRATE_MS) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {} };
+
 const MOVE_KEYS = {
   ArrowUp: [0, 1], KeyW: [0, 1],
   ArrowDown: [0, -1], KeyS: [0, -1],
@@ -22,14 +32,23 @@ export class Input {
     this.enabled = true;
     this._stickId = null;
     this._stickOrigin = { x: 0, y: 0 };
+    this._knob = null;
     this._bound = false;
     this.onPause = null;
     this.onAny = null;
   }
 
+  /* suelta el stick: sin dedo activo y knob de vuelta al centro */
+  _resetStick() {
+    this._stickId = null;
+    this.touch.x = 0; this.touch.y = 0;
+    if (this._knob) this._knob.style.transform = 'translate(0px, 0px)';
+  }
+
   bindDom({ stick, knob, jumpBtn, spinBtn, slideBtn }) {
     if (this._bound) return;
     this._bound = true;
+    this._knob = knob || null;
 
     window.addEventListener('keydown', (e) => {
       if (PREVENT.has(e.code)) e.preventDefault();
@@ -38,11 +57,11 @@ export class Input {
       this.keys.add(e.code);
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
-    window.addEventListener('blur', () => { this.keys.clear(); this.touch.jump = this.touch.spin = this.touch.slide = false; this.touch.x = this.touch.y = 0; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.touch.jump = this.touch.spin = this.touch.slide = false; this._resetStick(); });
 
     const hold = (el, prop) => {
       if (!el) return;
-      const on = (ev) => { ev.preventDefault(); el.classList.add('on'); this.touch[prop] = true; if (this.onAny) this.onAny('touch'); try { el.setPointerCapture(ev.pointerId); } catch (_) {} };
+      const on = (ev) => { ev.preventDefault(); el.classList.add('on'); this.touch[prop] = true; buzz(); if (this.onAny) this.onAny('touch'); try { el.setPointerCapture(ev.pointerId); } catch (_) {} };
       const off = (ev) => { ev.preventDefault(); el.classList.remove('on'); this.touch[prop] = false; };
       el.addEventListener('pointerdown', on);
       el.addEventListener('pointerup', off);
@@ -56,35 +75,60 @@ export class Input {
       const move = (ev) => {
         if (this._stickId !== ev.pointerId) return;
         const r = radius();
-        let dx = (ev.clientX - this._stickOrigin.x) / r;
-        let dy = (ev.clientY - this._stickOrigin.y) / r;
-        const len = Math.hypot(dx, dy);
-        if (len > 1) { dx /= len; dy /= len; }
-        this.touch.x = dx; this.touch.y = dy;
-        if (knob) knob.style.transform = `translate(${dx * r * 0.72}px, ${dy * r * 0.72}px)`;
+        let dx = ev.clientX - this._stickOrigin.x;
+        let dy = ev.clientY - this._stickOrigin.y;
+        let dist = Math.hypot(dx, dy);
+        // stick dinámico (estilo Brawl Stars): si el dedo se aleja más allá del
+        // aro, el origen le sigue en vez de recortar el vector — el control
+        // nunca "se queda corto" al arrastrar lejos.
+        const maxD = r * STICK_RECENTER;
+        if (dist > maxD) {
+          this._stickOrigin.x += dx * ((dist - maxD) / dist);
+          this._stickOrigin.y += dy * ((dist - maxD) / dist);
+          dx = ev.clientX - this._stickOrigin.x;
+          dy = ev.clientY - this._stickOrigin.y;
+          dist = Math.hypot(dx, dy);
+        }
+        const nx = dist > 1e-6 ? dx / dist : 0;
+        const ny = dist > 1e-6 ? dy / dist : 0;
+        const mag = Math.min(1, dist / r);
+        this.touch.x = nx * mag; this.touch.y = ny * mag;
+        // el knob apunta siempre hacia el dedo respecto al origen (nuevo)
+        if (knob) knob.style.transform = `translate(${nx * mag * r * KNOB_TRAVEL}px, ${ny * mag * r * KNOB_TRAVEL}px)`;
       };
       const end = (ev) => {
         if (this._stickId !== ev.pointerId) return;
-        this._stickId = null; this.touch.x = 0; this.touch.y = 0;
-        if (knob) knob.style.transform = 'translate(0px, 0px)';
+        this._resetStick();
+      };
+      // pointerleave solo suelta si NO tenemos captura del puntero: con captura
+      // el dedo puede salir del pad y el stick sigue vivo hasta pointerup/cancel
+      const leave = (ev) => {
+        if (this._stickId !== ev.pointerId) return;
+        let captured = false;
+        try { captured = !!(stick.hasPointerCapture && stick.hasPointerCapture(ev.pointerId)); } catch (_) { captured = false; }
+        if (!captured) end(ev);
       };
       stick.addEventListener('pointerdown', (ev) => {
+        if (this._stickId !== null) return;   // ya hay un dedo en el stick
         ev.preventDefault();
         const r = stick.getBoundingClientRect();
         this._stickId = ev.pointerId;
         this._stickOrigin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        try { stick.setPointerCapture(ev.pointerId); } catch (_) {}   // el dedo no se pierde al salir del pad
         move(ev);
       });
       stick.addEventListener('pointermove', move);
       stick.addEventListener('pointerup', end);
       stick.addEventListener('pointercancel', end);
+      stick.addEventListener('lostpointercapture', end);
+      stick.addEventListener('pointerleave', leave);
     }
 
     window.addEventListener('gamepadconnected', (e) => { this.gamepadIndex = e.gamepad.index; });
     window.addEventListener('gamepaddisconnected', () => { this.gamepadIndex = null; });
   }
 
-  setEnabled(v) { this.enabled = v; if (!v) { this.keys.clear(); this.touch.jump = this.touch.spin = this.touch.slide = false; this.touch.x = this.touch.y = 0; } }
+  setEnabled(v) { this.enabled = v; if (!v) { this.keys.clear(); this.touch.jump = this.touch.spin = this.touch.slide = false; this._resetStick(); } }
 
   gamepad() {
     if (!navigator.getGamepads) return null;
@@ -128,10 +172,9 @@ export class Input {
       // pad: zona muerta + curva (control fino cerca del centro, tope en el borde)
       let tx = this.touch.x, ty = this.touch.y;
       const tm = Math.hypot(tx, ty);
-      const DZ = 0.14;
-      if (tm <= DZ) { tx = 0; ty = 0; }
+      if (tm <= DEAD_ZONE) { tx = 0; ty = 0; }
       else {
-        const c = Math.pow(Math.min(1, (tm - DZ) / (1 - DZ)), 1.25);
+        const c = Math.pow(Math.min(1, (tm - DEAD_ZONE) / (1 - DEAD_ZONE)), EXPO);
         tx = (tx / tm) * c; ty = (ty / tm) * c;
       }
       out.x += tx;

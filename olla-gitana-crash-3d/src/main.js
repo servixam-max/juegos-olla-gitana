@@ -878,6 +878,15 @@ function botStep(dt) {
     z: 1,
     jump: false, jumpP: false, spin: false, spinP: false, slide: false, slideP: false
   };
+  // Atascado contra una plataforma móvil/andamio: soltar el objetivo por
+  // delante y saltar INSISTENTEMENTE hacia arriba (los andamios no tienen
+  // rampa y la plataforma oscila; quedarse empujando no desencalla nunca).
+  // Bug conocido y reproducido: N2 (Ruta al Festi) z≈134 en ~30% de rondas.
+  if (b.stuckT > 1.6 && !state.level.arena) {
+    out.x = Math.sin(b.t * 3) * 0.5;   // zigzag suave en los saltos
+    out.z = 1;
+    if (b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.32; }
+  }
   // en la arena del jefe: colocarse, cubrirse tras los pilares y girar para devolver cajones
   if (state.level.arena) {
     out.jump = false; out.jumpP = false;

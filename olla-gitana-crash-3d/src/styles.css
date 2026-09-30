@@ -121,12 +121,13 @@ canvas#game { display: block; width: 100%; height: 100%; }
   background: rgba(30, 15, 45, .42);
   backdrop-filter: blur(2px);
   border-radius: 999px;
+  touch-action: none;
 }
 .tBtn:active, .tBtn.on { background: rgba(255, 190, 11, .5); transform: scale(.94); }
-#tJump { right: 18px; bottom: 120px; width: 92px; height: 92px; }
-#tSpin { right: 122px; bottom: 46px; width: 78px; height: 78px; }
-#tSlide { right: 20px; bottom: 24px; width: 66px; height: 66px; font-size: 15px; }
-#tStick { left: 22px; bottom: 34px; width: 132px; height: 132px; border-radius: 50%; position: absolute; pointer-events: auto; border: 3px dashed rgba(255,255,255,.35); background: rgba(30,15,45,.28); }
+#tJump { right: 18px; bottom: 120px; width: 104px; height: 104px; }
+#tSpin { right: 122px; bottom: 46px; width: 88px; height: 88px; }
+#tSlide { right: 20px; bottom: 24px; width: 74px; height: 74px; font-size: 15px; }
+#tStick { left: 22px; bottom: 34px; width: 132px; height: 132px; border-radius: 50%; position: absolute; pointer-events: auto; border: 3px dashed rgba(255,255,255,.35); background: rgba(30,15,45,.28); touch-action: none; }
 #tStick .knob {
   position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px;
   border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe08a, #d99a00);

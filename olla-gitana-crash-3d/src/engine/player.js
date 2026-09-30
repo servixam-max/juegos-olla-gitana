@@ -1,6 +1,7 @@
 /* Controlador de la olla (Worker 1): aceleración, salto de gravedad variable,
-   doble salto, giro (spin attack) con ventana activa de 0.4 s, barrida (slide),
-   salto largo tras barrida y sombra proyectada. */
+   doble salto, giro (spin attack) con ventana activa de 0.4 s e impulso corto,
+   barrida (slide) cancelable con salto, salto largo tras barrida, frenada con
+   inercia ("slide stop" suave), inclinación (roll) al girar y sombra. */
 import * as THREE from 'three';
 import { makeOlla } from '../game/art.js';
 import { resolveActor } from './physics.js';
@@ -16,8 +17,16 @@ const GRAV_DOWN = 30;
 const SLIDE_SPEED = 13.5;
 const SLIDE_TIME = 0.55;
 const SPIN_TIME = 0.4;
-const COYOTE = 0.12;
-const JUMP_BUFFER = 0.16;
+const COYOTE = 0.15;        // 0.12 → 0.15: salto más fiable al borde del suelo
+const JUMP_BUFFER = 0.20;   // 0.16 → 0.20: perdona pulsaciones algo tempranas
+const STOP_GRACE = 0.15;    // al soltar: los primeros 0.15 s frenan más suave
+const STOP_FRICTION = FRICTION * 0.75;
+const TURN_GROUND = 14;     // giro al orientar en suelo
+const TURN_AIR = 12;        // en aire más flojo (nada de giro robótico)
+const ROLL_MAX = 0.12;      // inclinación visual al cambiar de dirección
+const SPIN_IMPULSE_T = 0.15; // el giro sostiene la velocidad 0.15 s
+const SPIN_IMPULSE_X = 1.15;
+const DJUMP_V = 1.0;        // doble salto (con 0.94 quedaba flojo)
 
 export class Player {
   constructor(scene) {
@@ -57,6 +66,10 @@ export class Player {
     this.longJumpWindow = 0;
     this.coyote = 0;
     this.buffer = 0;
+    this.stopT = 0;              // "slide stop": tiempo restante de frenada suave
+    this.roll = 0;               // inclinación visual actual (interpolada)
+    this.spinImpulseT = 0;       // impulso hacia delante del giro
+    this.hadInput = false;       // había input en la frame anterior (detecta "soltar")
     this.animT = 0;
     this.dead = false;
     this.fell = false;
@@ -73,6 +86,8 @@ export class Player {
     this.pos = { x, y, z };
     this.vel = { x: 0, y: 0, z: 0 };
     this.jumps = 0; this.spinT = 0; this.slideT = 0;
+    this.coyote = 0; this.buffer = 0; this.stopT = 0;
+    this.spinImpulseT = 0; this.roll = 0; this.hadInput = false;
     this.dead = false; this.fell = false; this.animT = 0;
     this.grounded = false; this.hurtT = 0;
     this.obj.position.set(x, y, z);
@@ -112,14 +127,32 @@ export class Player {
     this.ghost = Math.max(0, this.ghost - dt);
     this.longJumpWindow = Math.max(0, this.longJumpWindow - dt);
 
+    this.spinT = Math.max(0, this.spinT - dt);
+    this.spinImpulseT = Math.max(0, this.spinImpulseT - dt);
+    this.stopT = Math.max(0, this.stopT - dt);
+
+    // velocidad máxima efectiva (boost del aura incluida): la usan el giro,
+    // el movimiento y la barrida
+    const boost = this.speedBoost * (this.aura ? 1.22 : 1);
+    const maxS = MAX_SPEED * boost;
+
     // ---- ataque: giro ----
     if (input.spinP && this.spinCd <= 0) {
       this.spinT = SPIN_TIME;
       this.spinCd = SPIN_TIME + 0.18;
       if (this.slideT > 0) this.slideT = 0;
+      // pequeño impulso hacia delante si ya se movía (encadenar giros se siente ágil):
+      // ×1.15 durante 0.15 s, nunca frena y no acumula más allá del tope
+      const spIn = Math.hypot(this.vel.x, this.vel.z);
+      if (spIn > 0.5) {
+        this.spinImpulseT = SPIN_IMPULSE_T;
+        const newSp = Math.max(spIn, Math.min(maxS * SPIN_IMPULSE_X, spIn * SPIN_IMPULSE_X));
+        const mult = newSp / spIn;
+        this.vel.x *= mult;
+        this.vel.z *= mult;
+      }
       this.onSpin && this.onSpin();
     }
-    this.spinT = Math.max(0, this.spinT - dt);
 
     // ---- barrida ----
     if (input.slideP && this.slideCd <= 0 && this.grounded) {
@@ -141,31 +174,41 @@ export class Player {
     let wx = -input.x * cos + input.z * sin;
     let wz = input.x * sin + input.z * cos;
     const wlen = Math.hypot(wx, wz);
-    const boost = this.speedBoost * (this.aura ? 1.22 : 1);
-    const maxS = MAX_SPEED * boost;
     const accel = this.grounded ? ACCEL : AIR_ACCEL;
     const ctrl = this.slideT > 0 ? 0.25 : 1;
+    const hasInput = wlen > 0.05;
+    // el giro empuja un poco hacia delante: objetivo ×1.15 durante 0.15 s
+    const spinPush = this.spinImpulseT > 0 ? SPIN_IMPULSE_X : 1;
+    let rollTarget = 0;
 
-    if (wlen > 0.05) {
-      const tx = (wx / (wlen || 1)) * maxS;
-      const tz = (wz / (wlen || 1)) * maxS;
+    if (hasInput) {
+      const tx = (wx / (wlen || 1)) * maxS * spinPush;
+      const tz = (wz / (wlen || 1)) * maxS * spinPush;
       this.vel.x += (tx - this.vel.x) * Math.min(1, accel * ctrl * dt / maxS * 1.4);
       this.vel.z += (tz - this.vel.z) * Math.min(1, accel * ctrl * dt / maxS * 1.4);
-      // orientar a donde va
+      // orientar a donde va (en suelo gira más vivo; en aire, sin robotismo)
       const target = Math.atan2(wx, wz);
       let diff = target - this.facing;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      const turnRate = this.spinT > 0 ? 18 : 12;
+      const turnRate = this.spinT > 0 ? 18 : (this.grounded ? TURN_GROUND : TURN_AIR);
       this.facing += diff * Math.min(1, turnRate * dt);
+      // roll visual hacia el lado del giro (solo presentación)
+      rollTarget = Math.max(-1, Math.min(1, -diff * 1.8)) * ROLL_MAX;
     } else if (this.grounded) {
+      // frenada con inercia: al soltar, 0.15 s de fricción suave y luego la normal
+      if (this.hadInput) this.stopT = STOP_GRACE;
+      const fr = this.stopT > 0 ? STOP_FRICTION : FRICTION;
       const sp = Math.hypot(this.vel.x, this.vel.z);
       if (sp > 0) {
-        const drop = Math.min(sp, FRICTION * dt);
+        const drop = Math.min(sp, fr * dt);
         this.vel.x -= (this.vel.x / sp) * drop;
         this.vel.z -= (this.vel.z / sp) * drop;
       }
     }
+    // el roll siempre se interpola (se endereza solo al dejar de girar)
+    this.roll += (rollTarget - this.roll) * Math.min(1, 12 * dt);
+    this.hadInput = hasInput;
 
     // barrida: impulso fuerte
     if (this.slideT > 0 && wlen < 0.2) {
@@ -196,11 +239,13 @@ export class Player {
           this.vel.z = (this.vel.z / sp) * maxS * 1.35;
           this.onLongJump && this.onLongJump();
         }
+        // cancelar barrida con el salto (el salto largo de la ventana se mantiene)
+        if (this.slideT > 0) this.slideT = 0;
         this.buffer = 0; this.coyote = 0;
         this.onJump && this.onJump(false);
       } else if (this.jumps === 1 && this.maxJumps > 1) {
         this.jumps = 2;
-        this.vel.y = JUMP_V * 0.94;
+        this.vel.y = JUMP_V * DJUMP_V;
         this.buffer = 0;
         this.onJump && this.onJump(true);
       }
@@ -227,6 +272,7 @@ export class Player {
     if (this.slideT > 0) tilt = 0.9;
     const hop = this.grounded ? Math.abs(Math.sin(this.animT * 11)) * 0.08 * Math.min(1, Math.hypot(this.vel.x, this.vel.z) / MAX_SPEED) : 0;
     this.obj.rotation.x = tilt;
+    this.obj.rotation.z = this.roll;   // inclinación al girar (presentación)
     this.obj.scale.set(0.92, 0.92 * sq, 0.92);
     if (this.spinT > 0) {
       const k = 1 - this.spinT / SPIN_TIME;
