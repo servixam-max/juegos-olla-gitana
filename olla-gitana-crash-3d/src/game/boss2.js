@@ -160,11 +160,17 @@ export class BossFermin {
     const bowMat = toonMat(PALETA.rojo);
     const bowMat2 = toonMat(PALETA.rojoOsc);
     const bowY = 4.52, bowZ = 1.14;
-    const bowL = mk(new THREE.ConeGeometry(0.22, 0.5, 4), bowMat, -0.3, bowY, bowZ);
-    bowL.rotation.z = Math.PI / 2; bowL.rotation.y = Math.PI / 2;
-    const bowR = mk(new THREE.ConeGeometry(0.22, 0.5, 4), bowMat, 0.3, bowY, bowZ);
-    bowR.rotation.z = -Math.PI / 2; bowR.rotation.y = Math.PI / 2;
-    mk(new THREE.BoxGeometry(0.16, 0.24, 0.16), bowMat2, 0, bowY, bowZ);
+    // alas de la pajarita: cajas inclinadas (triángulo clásico visto de frente)
+    const wingL = mk(new THREE.BoxGeometry(0.48, 0.34, 0.12), bowMat, -0.29, bowY, bowZ);
+    wingL.rotation.z = -0.34;
+    const wingR = mk(new THREE.BoxGeometry(0.48, 0.34, 0.12), bowMat, 0.29, bowY, bowZ);
+    wingR.rotation.z = 0.34;
+    // borde oscuro inferior de cada ala (volumen)
+    const wingL2 = mk(new THREE.BoxGeometry(0.44, 0.12, 0.1), bowMat2, -0.3, bowY - 0.14, bowZ);
+    wingL2.rotation.z = -0.34;
+    const wingR2 = mk(new THREE.BoxGeometry(0.44, 0.12, 0.1), bowMat2, 0.3, bowY - 0.14, bowZ);
+    wingR2.rotation.z = 0.34;
+    mk(new THREE.BoxGeometry(0.17, 0.26, 0.17), bowMat2, 0, bowY, bowZ);
     // cascabeles colgando de la pajarita
     const bellMat = new THREE.MeshBasicMaterial({ color: PALETA.dorado });
     mk(new THREE.SphereGeometry(0.075, 10, 8), bellMat, -0.12, bowY - 0.28, bowZ);
@@ -217,6 +223,7 @@ export class BossFermin {
     }
 
     // ---- animación de baile: pies al ritmo de sevillanas (solo visual) ----
+    // El hook va en los MESHES (los Group no son "renderables" y su onBeforeRender nunca dispara)
     const beatDur = 60 / this.bpm * 0.5;
     const animateDance = () => {
       const phL = Math.sin(self.t * Math.PI / beatDur);
@@ -227,8 +234,8 @@ export class BossFermin {
       const compasPh = (self.t % (beatDur * 6)) / (beatDur * 6);
       if (compasPh < 0.12) { pieL.rotation.x = 0.3; pieR.rotation.x = 0.3; }
     };
-    pieL.onBeforeRender = animateDance;
-    pieR.onBeforeRender = animateDance;
+    pieL.children[0].onBeforeRender = animateDance;
+    pieR.children[0].onBeforeRender = animateDance;
 
     // ---- leds que cambian con el estado (vulnerable / vidas / golpe) ----
     const animateLeds = () => {
