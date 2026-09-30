@@ -699,43 +699,30 @@ function startLevel(index, { keepLives = false } = {}) {
     // CUCHILLAS de la arena: la fase 1 ya trae 2 (petición del usuario)
     traps.load();
     boss.onHp = (hp, max) => hud.toast(`👹 CACHARRO ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
+    /* FASE: SOLO aviso + obstáculos nuevos. La cutscene y el retorno al inicio
+       los lleva el ASALTO de abajo (antes se pisaban: al quitarle una vida se
+       disparaban onPhase y onHit a la vez, cada uno con su cutscene, y el
+       retorno al inicio se abortaba). */
     boss.onPhase = (ph) => {
-      hud.toast(`⚡ ¡FASE ${ph}!`, 'bad');
       Audio.sfx('phaseup');
-      // cada fase trae obstáculos NUEVOS (cuchillas que cruzan la arena)
-      traps.setFase(ph);
-      state.assaulT = 0;
-      const lineas = JEFE.fases[ph];
-      if (lineas) { state.pending.push({ after: 0.6, fn: () => { if (state.mode === 'play') playCutscene(lineas, { speaker: boss.obj, camara: 'jefe', dur: 3.4, onEnd: () => { state.mode = 'play'; } }); } }); }
+      traps.setFase(ph);          // cada fase trae obstáculos nuevos
     };
-    /* ASALTO (petición del usuario): cada vez que le quitas una vida, el juego
-       se para, sale la cutscene y te DEVUELVE AL INICIO del ring: tienes que
-       volver a llegar hasta él esquivando las cuchillas. 3 asaltos = victoria. */
+    /* ASALTO: al quitarle una vida, el juego se para, sale la cutscene y te
+       DEVUELVE AL INICIO del mapa (spawn). Una sola secuencia limpia, sin
+       solapes. 3 asaltos = victoria. */
     boss.onHit = () => {
       if (!boss.alive || boss.hp <= 0) return;
       state.assaults = (state.assaults || 0) + 1;
+      const fases = [null, 'FASE 1 → 2', 'FASE 2 → 3', 'ÚLTIMA FASE'];
+      hud.toast(`⚡ ${fases[state.assaults] || 'FASE'}`, 'bad');
       const linea = (JEFE.asaltos && JEFE.asaltos[state.assaults]) || null;
-      state.pending.push({ after: 0.9, fn: () => {
-        if (state.mode !== 'play') return;
-        if (linea) {
-          playCutscene(linea, { speaker: boss.obj, camara: 'jefe', dur: 3.2, onEnd: () => {
-            // de vuelta al inicio: vuelve a por él esquivando las trampas nuevas
-            player.reset(0, 0.2, 15);
-            camState.z = 15 - 7.4;
-            boss.obj.position.set(0, 0, -8);
-            traps.reset();
-            traps.setFase(boss.phase);
-            hud.toast('¡Vuelve a por él! 🏃', 'bad');
-            state.mode = 'play';
-          } });
-        } else {
-          player.reset(0, 0.2, 15);
-          camState.z = 15 - 7.4;
-          boss.obj.position.set(0, 0, -8);
-          traps.reset();
-          traps.setFase(boss.phase);
-          hud.toast('¡Vuelve a por él! 🏃', 'bad');
-        }
+      // parar el juego YA (modo cine) para que nada más se dispare encima
+      state.mode = 'cine';
+      state.pending.push({ after: 0.55, fn: () => {
+        if (state.ended) return;
+        const onEnd = () => { volverAlInicioJefe(); };
+        if (linea) playCutscene(linea, { speaker: boss.obj, camara: 'jefe', dur: 3.2, onEnd });
+        else { hud.show(false); director.start([{ camara: 'jefe', t: 1.2, foco: { x: boss.pos.x, y: 3.4, z: boss.pos.z }, onEnd }], { cutscene: true, foco: { x: boss.pos.x, y: 3.4, z: boss.pos.z } }); }
       } });
     };
     boss.onDefeat = () => {
@@ -1098,7 +1085,42 @@ function demoHooks() {
   };
 }
 
-/* ---------- aparición del jefe intermedio ---------- */
+/* ---------- arena del jefe: vuelta al inicio y reset de fases ---------- */
+/* Al quitarle una vida al jefe (asalto) o al morir el jugador en la arena, se
+   vuelve AL INICIO DEL MAPA (el spawn del nivel, no a un z fijo) y el jefe se
+   queda esperando en su sitio. Si el jugador MUERE, el jefe se resetea a fase 1
+   (petición del usuario: "si te matan tienes que empezar desde la fase 1, no
+   continuar; hay que matar las 3 fases sin que te mate"). */
+function volverAlInicioJefe() {
+  const sp = state.level && state.level.spawn ? state.level.spawn : { x: 0, y: 0.2, z: 14 };
+  player.reset(sp.x, sp.y, sp.z);
+  camState.x = sp.x; camState.z = sp.z - 7.4; camState.yaw = 0;
+  if (boss.obj) boss.obj.position.set(0, 0, -8);
+  traps.reset();
+  traps.setFase(boss.phase);
+  state.mode = 'play';
+  hud.show(true);
+  hud.toast('¡Vuelve a por él! 🏃', 'bad');
+}
+
+/* muerte del jugador en la arena: el Cacharro vuelve a FASE 1 con toda la vida */
+function resetJefeFase1() {
+  if (!state.level || !state.level.arena) return;
+  boss.hp = boss.maxHp;
+  boss.phase = 1;
+  boss.phaseT = 0;
+  boss.invT = 0;
+  boss.alive = true;
+  boss.cd = 2.2;
+  if (boss.obj) { boss.obj.position.set(0, 0, -8); boss.obj.visible = true; }
+  boss.projectiles.forEach((p) => scene.remove(p.mesh));
+  boss.projectiles = [];
+  traps.reset();               // vuelven las 2 cuchillas de la fase 1
+  state.assaults = 0;
+  boss.onHp && boss.onHp(boss.hp, boss.maxHp);
+  hud.toast('👹 ¡El Cacharro se recompone! Vuelve a FASE 1', 'bad');
+}
+
 function checkFerminAppear() {  if (!state.ferminPending) return;
   if (player.pos.z > state.ferminZ - 6) {
     state.ferminPending = false;
@@ -1370,6 +1392,9 @@ function respawnAtCheckpoint() {
   const c = state.checkpoint || state.level.spawn;
   player.reset(c.x, c.y + 0.4, c.z);
   player.vel.y = 6;
+  // en la arena del jefe: al morir, el Cacharro vuelve a FASE 1 con toda la vida
+  // (petición del usuario: hay que matar las 3 fases sin que te mate)
+  if (state.level && state.level.arena) resetJefeFase1();
   hud.toast('¡Vuelta a la carga!', 'bad');
   Audio.sfx('damage');
 }

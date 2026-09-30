@@ -369,10 +369,10 @@ export function buildLevel2(world, scene, fx) {
   const B = calzada(world, scene, { z0: 40, z1: 96, rnd, color: 0x4b4550 });
   tramosFirmes.push(...B.tramos);
   const scaffolds = [
-    { z: 46, h: [1.7, 3.3], side: -1 },
-    { z: 58, h: [1.9, 3.7, 5.3], side: 1 },
-    { z: 72, h: [2.3, 4.3], side: -1 },
-    { z: 86, h: [1.6, 3.1, 4.7], side: 1 }
+    { z: 46, h: [2.7, 3.9], side: -1 },
+    { z: 58, h: [2.9, 4.1, 5.3], side: 1 },
+    { z: 72, h: [3.2, 4.4], side: -1 },
+    { z: 86, h: [2.8, 4.0, 5.2], side: 1 }
   ];
   for (const s of scaffolds) {
     s.h.forEach((h, i) => {
@@ -380,8 +380,9 @@ export function buildLevel2(world, scene, fx) {
       floorSeg(world, scene, { x, y: h, z: s.z, w: 3.2, d: 3.4, color: PALETA.madera, tag: 'platform' });
       // barrotes
       solid(world, scene, { x: x + s.side * 2.0, y: h, z: s.z, w: 0.14, h: 1.1, d: 3.4, color: 0x8a5a2b, tag: 'rail' });
-      // notas sobre las plataformas (premio por subir)
-      if (i % 2 === 0) notes.push(buildNote(world, scene, { x, y: h + 0.9, z: s.z }));
+      // notas SOLO en la plataforma más alta: el premio está arriba, pero el
+      // bot no se queda atascado intentando subir a las intermedias
+      if (i === s.h.length - 1) notes.push(buildNote(world, scene, { x, y: h + 0.9, z: s.z }));
     });
     // poste del andamio (retirado a x=±3.4: en ±2.2 bloqueaba el paso del jugador)
     solid(world, scene, { x: s.side * 3.4, y: 0, z: s.z, w: 0.18, h: 5.6, d: 0.18, color: 0x6f6f7a, tag: 'pole' });

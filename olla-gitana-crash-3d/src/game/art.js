@@ -475,6 +475,135 @@ export function makeBarrel({ color = PALETA.rojo } = {}) {
   return g;
 }
 
+/* Barril RODANTE (mecánica Crash): barril tumbado que rueda por el pasillo
+   hacia el jugador. Se lee como peligro a primera vista: duelas de madera,
+   aros metálicos y una franja roja de aviso en el centro. */
+export function makeBarrelRodante({ color = PALETA.madera } = {}) {
+  const g = new THREE.Group();
+  const mat = toonMat(color);
+  const matOsc = toonMat(PALETA.maderaOsc);
+  // cuerpo tumbado (eje X): rueda girando sobre x
+  const cuerpo = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 1.05, 14), mat);
+  cuerpo.rotation.z = Math.PI / 2;
+  cuerpo.position.y = 0.62;
+  g.add(cuerpo);
+  // aros metálicos
+  for (const x of [-0.34, 0.34]) {
+    const aro = new THREE.Mesh(new THREE.TorusGeometry(0.63, 0.06, 6, 16), matOsc);
+    aro.rotation.y = Math.PI / 2;
+    aro.position.set(x, 0.62, 0);
+    g.add(aro);
+  }
+  // franja roja de aviso (centro) + remaches: peligro evidente
+  const franja = new THREE.Mesh(new THREE.CylinderGeometry(0.635, 0.635, 0.2, 14), toonMat(PALETA.rojo));
+  franja.rotation.z = Math.PI / 2;
+  franja.position.y = 0.62;
+  g.add(franja);
+  for (const s of [-1, 1]) {
+    const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff3b0 }));
+    ojo.position.set(s * 0.53, 0.95, 0.18);
+    g.add(ojo);
+  }
+  g.userData.type = 'rodante';
+  return g;
+}
+
+/* Caja FLECHA (arrow crate, Crash clásico): flecha amarilla hacia arriba.
+   Al pisarla rebota MUY alto (no se rompe con el pisotón; sí con el giro).
+   Sirve para alcanzar zonas altas y rutas secretas. */
+export function makeArrowCrate() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.92, 0.92), toonMat(PALETA.crema));
+  g.add(body);
+  // marco de madera
+  const plank = toonMat(PALETA.maderaOsc);
+  const bar = new THREE.BoxGeometry(1.0, 0.13, 0.13);
+  for (const y of [-0.46, 0.46]) for (const z of [-0.47, 0.47]) g.add(mesh(bar, plank, 0, y, z));
+  // flecha hacia arriba en las 4 caras
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const c = cv.getContext('2d');
+  c.clearRect(0, 0, 256, 256);
+  c.fillStyle = '#ffbe0b';
+  c.strokeStyle = 'rgba(0,0,0,.55)';
+  c.lineWidth = 12;
+  c.beginPath();                       // punta
+  c.moveTo(128, 34); c.lineTo(206, 118); c.lineTo(160, 118);
+  c.lineTo(160, 224); c.lineTo(96, 224); c.lineTo(96, 118); c.lineTo(50, 118);
+  c.closePath(); c.fill(); c.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  const plano = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.76), mat);
+  plano.position.z = 0.475; g.add(plano);
+  const p2 = plano.clone(); p2.position.z = -0.475; p2.rotation.y = Math.PI; g.add(p2);
+  const p3 = plano.clone(); p3.rotation.y = Math.PI / 2; p3.position.set(0.475, 0, 0); g.add(p3);
+  const p4 = plano.clone(); p4.rotation.y = -Math.PI / 2; p4.position.set(-0.475, 0, 0); g.add(p4);
+  // halo dorado: se ve desde lejos (pista visual del rebote)
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(0.62, 0.045, 6, 20),
+    new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.5 })
+  );
+  halo.rotation.x = Math.PI / 2;
+  halo.position.y = 0.05;
+  g.add(halo);
+  g.userData.halo = halo;
+  g.userData.type = 'arrow';
+  return g;
+}
+
+/* Caja CONTORNO (outline crate, Crash clásico): solo el contorno, NO es sólida
+   hasta que el jugador pulsa una caja '!' cercana. Entonces se materializa
+   (madera de verdad). Es la llave de las rutas secretas. */
+export function makeOutlineCrate() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.3, wireframe: true });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.92, 0.92), mat);
+  g.add(body);
+  // esquinas marcadas para que se lea como caja fantasma
+  const esq = new THREE.MeshBasicMaterial({ color: 0xfff5e1, transparent: true, opacity: 0.85 });
+  const s = 0.14;
+  for (const x of [-0.4, 0.4]) for (const y of [-0.4, 0.4]) for (const z of [-0.4, 0.4]) {
+    const c = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), esq);
+    c.position.set(x, y, z);
+    g.add(c);
+  }
+  g.userData.ghostMat = mat;
+  g.userData.type = 'outline';
+  return g;
+}
+
+/* Plataforma que SE DESMORONA (mecánica Crash): tabla de madera agrietada que
+   tiembla al pisarla y se desploma. Lleva marcas de grieta visibles. */
+export function makePlataformaRuina() {
+  const g = new THREE.Group();
+  const tablon = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), toonMat(0x8a6a3f));
+  g.add(tablon);
+  // grietas (líneas oscuras cruzando la cara superior)
+  for (const [x, z, ry] of [[-0.18, 0, 0.5], [0.2, -0.12, -0.4], [0.04, 0.22, 1.1]]) {
+    const gr = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.7), toonMat(0x2b1a08));
+    gr.position.set(x, 0.505, z);
+    gr.rotation.y = ry;
+    g.add(gr);
+  }
+  // tablones laterales más oscuros (se ve la estructura de la tabla)
+  const osc = toonMat(PALETA.maderaOsc);
+  for (const z of [-0.5, 0.5]) g.add(mesh(new THREE.BoxGeometry(1.02, 0.14, 0.05), osc, 0, 0.42, z));
+  // marca de aviso (X roja) en la cara superior: se cae
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const c = cv.getContext('2d');
+  c.strokeStyle = '#e63946'; c.lineWidth = 14; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(28, 28); c.lineTo(100, 100); c.moveTo(100, 28); c.lineTo(28, 100); c.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  const marca = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), mat);
+  marca.rotation.x = -Math.PI / 2;
+  marca.position.y = 0.506;
+  g.add(marca);
+  g.userData.type = 'ruina';
+  return g;
+}
+
 export function makeLampPost({ height = 3.4 } = {}) {
   const g = new THREE.Group();
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, height, 8), toonMat(0x4a5057));
