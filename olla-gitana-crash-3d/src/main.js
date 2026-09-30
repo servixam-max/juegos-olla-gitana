@@ -714,9 +714,17 @@ function startLevel(index, { keepLives = false } = {}) {
     boss.start();
     state.bossActive = true;
     state.assaults = 0;
-    // CUCHILLAS de la arena: la fase 1 ya trae 2 (petición del usuario)
-    traps.load();
-    boss.onHp = (hp, max) => hud.toast(`👹 CACHARRO ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
+    state.invicto = false;              // el Cacharro está vivo: hay peligro
+    boss.hp = boss.maxHp;
+    // CUCHILLAS de la arena: la fase 1 ya trae 2 (petición del usuario).
+    // zSegura: NINGUNA cuchilla dentro de los 3,5 m del punto de reaparición
+    // (queja del usuario: "las cuchillas salen donde el personaje y te matan
+    // sin llegar a manejar").
+    traps.load({ zSegura: (level.spawn ? level.spawn.z : 14) - 3.5 });
+    boss.onHp = (hp, max) => {
+      if (hp <= 0) state.invicto = true;   // jefe derrotado: ya no te pueden matar
+      hud.toast(`👹 CACHARRO ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
+    };
     /* FASE: SOLO aviso + obstáculos nuevos. La cutscene y el retorno al inicio
        los lleva el ASALTO de abajo (antes se pisaban: al quitarle una vida se
        disparaban onPhase y onHit a la vez, cada uno con su cutscene, y el
@@ -744,6 +752,14 @@ function startLevel(index, { keepLives = false } = {}) {
       } });
     };
     boss.onDefeat = () => {
+      // jefe muerto: la arena se despeja (las cuchillas se van) y ya no te
+      // pueden matar (petición del usuario: "una vez matado el jefe del todo
+      // no te pueden matar")
+      state.invicto = true;
+      traps.clear();
+      enemies.waves = enemies.waves.filter((w) => { if (w.alive) { scene.remove(w.mesh); w.alive = false; } return false; });
+      boss.projectiles.forEach((p) => { if (p.alive) { scene.remove(p.mesh); p.alive = false; } });
+      boss.projectiles = [];
       logros3d.registrar('jefe', { jefe: 'cacharro' });
       playCutscene(JEFE.derrota, {
         speaker: boss.obj, camara: 'jefe', dur: 6.5,
@@ -776,6 +792,7 @@ function startLevel(index, { keepLives = false } = {}) {
   hud.setSuper(progreso.superVidas, progreso.continues);
   maskCompanion.reset();                                   // la máscara no sobrevive entre niveles
   state.invT = 0;
+  state.invicto = false;                                   // sin jefe muerto: hay peligro
   // la meta NO se ve hasta cumplir el objetivo del nivel (matar al jefe si lo hay)
   actualizarMetaVisible();
   hud.setHint(level.tip.length > 52 ? level.tip.slice(0, 50) + '…' : level.tip);
@@ -1118,6 +1135,14 @@ function volverAlInicioJefe() {
   if (boss.obj) boss.obj.position.set(0, 0, -8);
   traps.reset();
   traps.setFase(boss.phase);
+  // limpia las ondas/bombas que siguieran activas (no te pueden tocar al volver)
+  enemies.waves = enemies.waves.filter((w) => { if (w.alive) { scene.remove(w.mesh); w.alive = false; } return false; });
+  boss.projectiles.forEach((p) => { if (p.alive) { scene.remove(p.mesh); p.alive = false; } });
+  boss.projectiles = [];
+  // unos segundos de invulnerabilidad al volver: el jugador acaba de pegarle
+  // al jefe y no debe morir nada más reaparecer (petición del usuario)
+  player.invulnT = Math.max(player.invulnT, 2.5);
+  traps.grace(2.5);
   state.mode = 'play';
   hud.show(true);
   hud.toast('¡Vuelve a por él! 🏃', 'bad');
@@ -1135,8 +1160,12 @@ function resetJefeFase1() {
   if (boss.obj) { boss.obj.position.set(0, 0, -8); boss.obj.visible = true; }
   boss.projectiles.forEach((p) => scene.remove(p.mesh));
   boss.projectiles = [];
+  // limpia también las ondas del suelo que hubiera dejado el jefe
+  enemies.waves = enemies.waves.filter((w) => { if (w.alive) { scene.remove(w.mesh); w.alive = false; } return false; });
   traps.reset();               // vuelven las 2 cuchillas de la fase 1
+  traps.grace(2.0);            // y se arman con aviso ámbar (no te matan al salir)
   state.assaults = 0;
+  state.invicto = false;       // el jefe revive: vuelve el peligro
   boss.onHp && boss.onHp(boss.hp, boss.maxHp);
   hud.toast('👹 ¡El Cacharro se recompone! Vuelve a FASE 1', 'bad');
 }
@@ -1154,8 +1183,13 @@ function checkFerminAppear() {  if (!state.ferminPending) return;
     hud.setLives(state.lives);
     hud.toast('¡JEFE! Ahora tienes más margen 💛');
     // un toque de drama: el escenario se tiñe
-    fermin.onHp = (hp, max) => hud.toast(`🎺 FERMÍN ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
+    fermin.onHp = (hp, max) => {
+      if (hp <= 0) state.invicto = true;   // jefe derrotado: ya no te pueden matar
+      hud.toast(`🎺 FERMÍN ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
+    };
     fermin.onDefeat = () => {
+      // jefe derrotado: no te pueden matar mientras celebra (petición del usuario)
+      state.invicto = true;
       logros3d.registrar('jefe', { jefe: 'fermin' });
       playCutscene(JEFE_INTERMEDIO.derrota, {
         speaker: fermin.obj, camara: 'jefe', dur: 5.5,
@@ -1364,6 +1398,7 @@ function outOfArena() {
 function damagePlayer(reason) {
   if (player.dead) return;
   if (state.god) return;                 // QA: modo dios
+  if (state.invicto) return;             // jefe derrotado: ya no te pueden matar
   // máscara dorada: invulnerable 1 min
   if (maskCompanion.invulnerable) return;
   // la máscara compañera absorbe el golpe (tipo Aku Aku)

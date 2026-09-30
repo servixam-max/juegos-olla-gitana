@@ -5,7 +5,16 @@
 
    Fase 1: 2 cuchillas lentas.
    Fase 2: + 3 cuchillas rápidas y una vertical.
-   Fase 3: + doble fila y más veloces (el pasillo se pone criminal). */
+   Fase 3: + doble fila y más veloces (el pasillo se pone criminal).
+
+   REGLAS ANTI-INJUSTICIA (petición del usuario: "las cuchillas salen donde el
+   personaje y te matan sin llegar a manejar" + "cuando le pegues al boss que te
+   dé unos segundos de invulnerabilidad"):
+   - NINGUNA cuchilla dentro de la zona del punto de reaparición (zSegura):
+     al volver al inicio del ring no puede haber una barra esperándote.
+   - GRACE: cada vez que se activan cuchillas nuevas (cambio de fase, vuelta al
+     inicio) están "armándose" ~1,2 s: se mueven y las luces parpadean en ÁMBAR,
+     pero NO hacen daño. Te da tiempo a verlas y colocarte. */
 import * as THREE from 'three';
 import { toonMat, PALETA } from './art.js';
 
@@ -46,29 +55,35 @@ export class TrapSystem {
     this.traps = [];
     this.fase = 0;
     this.t = 0;
+    this.graceT = 0;        // las cuchillas están armándose: aún no hacen daño
     this.onHit = null;      // callback cuando pillan al jugador
   }
 
-  /* construye las tandas de cuchillas de la arena (una por fase) */
-  load() {
+  /* construye las tandas de cuchillas de la arena (una por fase).
+     opts.zSegura: nada de cuchillas a partir de ese z (por defecto 10.5, con el
+     spawn de la arena en z=14 → 3,5 m libres alrededor del punto de reaparición). */
+  load(opts = {}) {
     this.clear();
+    const zSegura = opts.zSegura != null ? opts.zSegura : 10.5;
     const defs = [
       // ---- FASE 1: dos cuchillas lentas cruzando el centro ----
       { z: 8, len: 9, speed: 2.2, amp: 9, fase: 1, y: 0 },
       { z: -3, len: 9, speed: 2.4, amp: 9, fase: 1, y: 0 },
       // ---- FASE 2: tres más rápidas + una vertical deslizante ----
-      { z: 14, len: 8, speed: 3.4, amp: 10, fase: 2, y: 0 },
+      { z: 10, len: 8, speed: 3.4, amp: 10, fase: 2, y: 0 },
       { z: 2, len: 8, speed: 3.6, amp: 10, fase: 2, y: 0 },
       { z: -9, len: 8, speed: 3.2, amp: 10, fase: 2, y: 0 },
       { z: 6, len: 6, speed: 3.0, amp: 7, fase: 2, y: 1.6, vert: true },
       // ---- FASE 3: doble fila y a toda velocidad ----
-      { z: 16, len: 10, speed: 4.6, amp: 11, fase: 3, y: 0 },
-      { z: 9, len: 10, speed: 4.8, amp: 11, fase: 3, y: 0 },
-      { z: 1, len: 10, speed: 5.0, amp: 11, fase: 3, y: 0 },
-      { z: -7, len: 10, speed: 4.7, amp: 11, fase: 3, y: 0 },
-      { z: -14, len: 10, speed: 4.4, amp: 11, fase: 3, y: 0 }
+      { z: 5, len: 10, speed: 4.6, amp: 11, fase: 3, y: 0 },
+      { z: 0, len: 10, speed: 4.8, amp: 11, fase: 3, y: 0 },
+      { z: -6, len: 10, speed: 5.0, amp: 11, fase: 3, y: 0 },
+      { z: -12, len: 10, speed: 4.7, amp: 11, fase: 3, y: 0 },
+      { z: -18, len: 10, speed: 4.4, amp: 11, fase: 3, y: 0 }
     ];
     for (const d of defs) {
+      // nunca una cuchilla sobre el punto de reaparición del jugador
+      if (d.z > zSegura) d.z = zSegura;
       const obj = makeCuchilla(d.len);
       if (d.vert) obj.rotation.x = Math.PI / 2;   // filo vertical (rueda que sube)
       obj.position.set(0, d.y, d.z);
@@ -83,13 +98,18 @@ export class TrapSystem {
     for (const t of this.traps) this.scene.remove(t.obj);
     this.traps = [];
     this.fase = 0;
+    this.graceT = 0;
   }
 
   /* activa los obstáculos hasta la fase n (las anteriores siguen) */
   setFase(n) {
     this.fase = Math.max(this.fase, n);
     for (const t of this.traps) t.activa = t.fase <= this.fase;
+    this.graceT = Math.max(this.graceT, 1.6);   // aviso ámbar antes de hacer daño
   }
+
+  /* invulnerabilidad temporal de las cuchillas (segundos) */
+  grace(t = 1.2) { this.graceT = Math.max(this.graceT, t); }
 
   reset() {
     this.fase = 0;
@@ -100,6 +120,7 @@ export class TrapSystem {
   /* ¿pilla al jugador? devuelve true si le da este frame */
   update(dt, player) {
     this.t += dt;
+    this.graceT = Math.max(0, this.graceT - dt);
     let hit = false;
     const p = player.pos;
     for (const t of this.traps) {
@@ -115,9 +136,13 @@ export class TrapSystem {
       } else {
         t.obj.position.x = o;
       }
+      // luz: ÁMBAR parpadeante mientras se arma; ROJA cuando es letal
       if (t.obj.userData.luz) {
-        t.obj.userData.luz.material.color.setHex((Math.floor(this.t * 4) % 2) ? 0xff2e2e : 0x5a1010);
+        const armando = this.graceT > 0;
+        const on = armando ? (Math.floor(this.t * 8) % 2) : (Math.floor(this.t * 4) % 2);
+        t.obj.userData.luz.material.color.setHex(armando ? (on ? 0xffd166 : 0x8a6a10) : (on ? 0xff2e2e : 0x5a1010));
       }
+      if (this.graceT > 0) continue;   // armándose: se mueve y avisa, pero no hace daño
       // COLISIÓN: la barra es un rectángulo (largo t.len en x, fino en z)
       const dx = Math.abs(p.x - t.obj.position.x);
       const dz = Math.abs(p.z - t.z);
