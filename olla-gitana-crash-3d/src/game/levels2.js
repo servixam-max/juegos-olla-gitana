@@ -331,7 +331,7 @@ export function buildLevel6(world, scene, fx) {
     enemies.push(enemy('bee', { x: -2.5 + (bz % 5), z: bz, span: 3.6, speed: 2.0, height: 2.6 }));
   }
   enemies.push(enemy('patrol', { x: 0, z: 44, span: 9, speed: 3.2, axis: 'z' }));
-  enemies.push(enemy('turret', { x: 6.4, z: 132, period: 2.8 }));
+  enemies.push(enemy('turret', { x: 6.4, z: 132, period: 3.4 }));
 
   // cajas
   const clusters = [

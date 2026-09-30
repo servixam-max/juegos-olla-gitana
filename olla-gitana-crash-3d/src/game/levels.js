@@ -459,7 +459,7 @@ export function buildLevel3(world, scene, fx) {
     length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: 205, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: true, arena: false, bg: 3, colorTecho: 0x101a2e, lampIntensity: 0.9,
-    van: { startZ: -8, speed: 6.2, accel: 0.12, catchUp: true }
+    van: { startZ: -8, speed: 6.0, accel: 0.12, catchUp: true }
   };
 }
 

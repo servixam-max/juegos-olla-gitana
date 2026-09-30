@@ -920,7 +920,9 @@ function inPuddle() {
   const lv = state.level;
   if (!lv) return false;
   for (const p of lv.puddles) {
-    if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < p.r * 0.62 && player.pos.y < 0.4) return true;
+    // 0.62 → 0.45: el charco no debe frenar tanto (el agua de la Huerta dejaba
+    // al jugador al 39 % de velocidad: queja reportada del nivel que "va lento")
+    if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < p.r * 0.45 && player.pos.y < 0.4) return true;
   }
   if (lv.resbalon) {
     // el Casino: todo el suelo resbala (fricción muy baja)
@@ -1130,6 +1132,12 @@ function crateInteractions() {
     const dx = Math.abs(c.mesh.position.x - player.pos.x);
     const dz = Math.abs(c.mesh.position.z - player.pos.z);
     const dy = Math.abs(c.mesh.position.y - (player.pos.y + 0.5));
+    // checkpoint: activa también de FRENTE (dz<1.1), no solo cayendo encima
+    // (el auditor midió que de frente te bloqueaba sin dar el premio)
+    if (c.crateType === 'checkpoint' && dx < 1.0 && dz < 1.1 && dy < 1.3) {
+      crates.checkpoint(c); useCheckpoint(c.mesh.position.z);
+      continue;
+    }
     if (dx < 0.8 && dz < 0.8 && dy < 1.0) {
       if (c.crateType === 'nitro') { crates.nitro(c); damagePlayer('nitro'); }
       else if (c.crateType === 'tnt' && !c.lit) crates.igniteTnt(c);
@@ -1246,7 +1254,7 @@ function updateVan(dt) {
     player.vel.z = Math.max(player.vel.z, 9);
     player.vel.y = 5.5;
     van.position.z = player.pos.z - 9.5;
-    state.vanGrace = 2.6;
+    state.vanGrace = 3.5;
     fx.addShake(0.6);
   }
 }
@@ -1476,7 +1484,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     world.update(dt);   // ¡las plataformas móviles deben avanzar ANTES de resolver el actor!
     const inp = botStep(dt) || input.poll();
     const slippery = inPuddle();
-    const frictionSave = slippery ? (state.level.resbalon ? 0.3 : 0.55) : 1;
+    const frictionSave = slippery ? (state.level.resbalon ? 0.75 : 0.55) : 1;
     player.update(dt * frictionSave, inp, world, camState.yaw);
     crates.update(dt, player);
     collectCrateHits();
