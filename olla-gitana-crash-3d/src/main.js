@@ -14,6 +14,8 @@ import { Pickups } from './game/pickups.js';
 import { Boss } from './game/boss.js';
 import { BossFermin } from './game/boss2.js';
 import { LEVELS } from './game/levels.js';
+import { MaskCompanion } from './game/mask.js';
+import { Progreso, VIDAS_NIVEL, SUPER_VIDAS_INICIAL, CONTINUES } from './game/progreso.js';
 import { toonMat, makeOlla, makeVan, PALETA, makeNote } from './game/art.js';
 import { DialogQueue } from './narrative/bocadillos.js';
 import { Director } from './narrative/director.js';
@@ -56,13 +58,20 @@ const state = {
   cratesBrokenAtEnd: 0,
   pending: [],
   god: false,
-  pendingScore: null
+  pendingScore: null,
+  // vidas de nivel actuales (3) + super-vidas de reserva + continues: ver progreso.js
+  superVidas: SUPER_VIDAS_INICIAL,
+  continues: CONTINUES,
+  mascara: 0,           // nivel de la máscara compañera (0-3)
+  invT: 0               // invulnerabilidad de la máscara dorada (s)
 };
 
 const records = loadRecords();
 function loadRecords() {
   try { return JSON.parse(localStorage.getItem('olla3d_records_v1') || '{}'); } catch { return {}; }
 }
+/* progreso del jugador: niveles desbloqueados, super-vidas y continues */
+const progreso = new Progreso();
 function saveRecord(id, data) {
   const prev = records[id];
   const better = !prev || data.notas > prev.notas || (data.notas === prev.notas && data.cajas > prev.cajas);
@@ -107,6 +116,8 @@ const pickups = new Pickups({ scene, fx, audio: Audio });
 const player = new Player(scene);
 const boss = new Boss({ scene, fx, audio: Audio, enemies, pickups });
 const fermin = new BossFermin({ scene, fx, audio: Audio, enemies });
+/* máscara compañera (tipo Aku Aku): sigue a la olla y absorbe un golpe */
+const maskCompanion = new MaskCompanion(scene);
 
 let van = null;
 let bgPlane = null, bgTexs = {};
@@ -138,15 +149,18 @@ function cineTitle(on, l1 = '', l2 = '', l3 = '') {
    IMPORTANTE: hud.show(false) oculta HUD **y controles táctiles**; hay que
    restaurarlos SIEMPRE al acabar (si no, el jugador se queda sin mandos y
    parece que el juego está pillado — bug reportado por el usuario). */
-function playCutscene(lineas, { onEnd = null, speaker = null, camara = 'cajaFija', dur = null } = {}) {
+function playCutscene(lineas, { onEnd = null, speaker = null, camara = 'cajaFija', dur = null, foco = null } = {}) {
   if (!lineas || !lineas.length) { if (onEnd) onEnd(); return; }
   const durTotal = dur || Math.max(4.5, lineas.reduce((a, l) => a + (l.t.length / 21 + (l.hold || 1.4) + 0.35), 0));
   state.mode = 'cine';
   hud.show(false);
   dialog.speaker = speaker;
+  // foco por defecto: el propio interlocutor (así NUNCA se enfoca el vacío)
+  const focoFinal = foco || (speaker ? { x: speaker.position.x, y: speaker.position.y + 2.6, z: speaker.position.z } : null);
   const planos = [{ camara, t: durTotal, dialogos: lineas }];
   director.start(planos, {
     cutscene: true,
+    foco: focoFinal,
     onEnd: () => {
       dialog.speaker = null;
       // restaurar mandos si seguimos en partida (no en menú/fin de nivel)
@@ -237,10 +251,24 @@ function showMenu() {
   Audio.playMenuMusic();
   const grid = $('levelGrid');
   grid.innerHTML = '';
+  const desbloqueados = progreso.desbloqueados;
   LEVELS.forEach((lv, i) => {
     const rec = records[lv.id];
+    const abierto = i < desbloqueados;
     const card = document.createElement('button');
-    card.className = 'lvCard';
+    card.className = 'lvCard' + (abierto ? '' : ' locked');
+    if (!abierto) {
+      card.innerHTML = `
+        <div class="thumb lockedThumb">🔒</div>
+        <div class="body">
+          <div class="t">${lv.nombre}</div>
+          <div class="d">Supera el mundo ${i} para desbloquear</div>
+          <div class="meta"><span class="tag lock">🔒 BLOQUEADO</span></div>
+        </div>`;
+      card.onclick = () => { Audio.sfx('land'); hud.toast('🔒 Supera el mundo anterior', 'bad'); };
+      grid.appendChild(card);
+      return;
+    }
     card.innerHTML = `
       <img class="thumb" src="${BACKGROUNDS[(i * 4) % 14]}" alt="" />
       <div class="body">
@@ -372,7 +400,7 @@ function startLevel(index, { keepLives = false } = {}) {
     boss.onHp = (hp, max) => hud.toast(`👹 CACHARRO ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
     boss.onPhase = (ph) => {
       hud.toast(`⚡ ¡FASE ${ph}!`, 'bad');
-      Audio.sfx('levelup');
+      Audio.sfx('phaseup');
       const lineas = JEFE.fases[ph];
       if (lineas) { state.pending.push({ after: 0.6, fn: () => { if (state.mode === 'play') playCutscene(lineas, { speaker: boss.obj, camara: 'jefe', dur: 3.4, onEnd: () => { state.mode = 'play'; } }); } }); }
     };
@@ -401,7 +429,12 @@ function startLevel(index, { keepLives = false } = {}) {
   hud.show(true);
   hud.start();
   crates.publish();                                        // re-sincroniza el contador de cajones
-  if (level.arena) { state.lives = 6; hud.setLives(6); }   // el jefe se juega con más margen
+  hud.setLives(state.lives);
+  hud.setSuper(progreso.superVidas, progreso.continues);
+  maskCompanion.reset();                                   // la máscara no sobrevive entre niveles
+  state.invT = 0;
+  // la meta NO se ve hasta cumplir el objetivo del nivel (matar al jefe si lo hay)
+  actualizarMetaVisible();
   hud.setHint(level.tip.length > 52 ? level.tip.slice(0, 50) + '…' : level.tip);
   state.mode = 'play';
   Audio.resume();
@@ -433,7 +466,14 @@ function startLevel(index, { keepLives = false } = {}) {
       dialog.play([{ t: pick(FRASES.caja), tone: 'grito', tail: 'down', hold: 0.8 }]);
     }
   };
-  pickups.onMask = () => { if (!dialog.active) { dialog.speaker = player.obj; dialog.play([{ t: pick(FRASES.mask), tone: 'exito', tail: 'down', hold: 0.9 }]); } };
+  pickups.onMask = () => {
+    // la máscara se vuelve compañera (tipo Aku Aku)
+    const nivel = maskCompanion.add();
+    const txt = nivel === 3 ? '🎭 ¡MÁSCARA DORADA! 1 min invulnerable' : `🎭 Máscara nivel ${nivel}`;
+    hud.toast(txt, 'record');
+    if (nivel === 3) Audio.sfx('aura');
+    if (!dialog.active) { dialog.speaker = player.obj; dialog.play([{ t: pick(FRASES.mask), tone: 'exito', tail: 'down', hold: 0.9 }]); }
+  };
   pickups.onAura = () => {
     hud.toast('¡AURA RUMBERA! 🎸', 'record');
     dialog.speaker = player.obj;
@@ -471,6 +511,15 @@ function endLevel(win, extra = {}) {
   if (DEMO && demoDir && demoDir.activo) return;   // el vídeo nunca termina el nivel
   state.ended = true;
   const lv = state.level;
+  // nivel superado: se desbloquea el siguiente (guardado local, como los logros)
+  if (win) {
+    progreso.completarNivel(state.levelIndex);
+    const desb = progreso.desbloqueados;
+    if (desb > state.levelIndex + 1 && desb <= LEVELS.length) {
+      hud.toast(`🔓 ¡MUNDO ${desb} desbloqueado!`, 'record');
+      Audio.sfx('unlock');
+    }
+  }
   const totalNotes = lv.notes.length + lv.masks.length * 3;
   const earnedNotes = pickups.noteCount + pickups.maskCount * 3;
   const time = Math.max(1, Math.floor(state.t));
@@ -480,7 +529,7 @@ function endLevel(win, extra = {}) {
   const { better } = win ? saveRecord(lv.id, data) : { better: false };
 
   Audio.stopGenerative();
-  if (win) { Audio.sfx('victory'); fx.confettiBurst(); } else { Audio.sfx('death'); }
+  if (win) { Audio.sfx(extra.boss ? 'bossdown' : 'victory'); fx.confettiBurst(); } else { Audio.sfx('death'); }
 
   hud.show(false);
   state.mode = win ? 'end' : 'over';
@@ -741,6 +790,20 @@ function outOfArena() {
 function damagePlayer(reason) {
   if (player.dead) return;
   if (state.god) return;                 // QA: modo dios
+  // máscara dorada: invulnerable 1 min
+  if (maskCompanion.invulnerable) return;
+  // la máscara compañera absorbe el golpe (tipo Aku Aku)
+  if (maskCompanion.nivel > 0) {
+    if (maskCompanion.hit()) {
+      hud.toast('🎭 ¡La máscara aguantó el golpe!', 'good');
+      Audio.sfx('maskBreak');
+      fx.burst({ x: player.pos.x, y: player.pos.y + 1.4, z: player.pos.z }, { count: 16, speed: 5, up: 5, life: 0.8, colors: [PALETA.madera, PALETA.rojo, 0xffbe0b] });
+      fx.addShake(0.4);
+      player.invulnT = 1.6;
+      if (navigator.vibrate) navigator.vibrate(40);
+      return;
+    }
+  }
   const res = player.hurt();
   if (res === 'shield') { hud.toast('🛡️ ¡Escudo aguantó!', 'good'); Audio.sfx('crate'); return; }
   if (res !== 'hurt') return;
@@ -752,24 +815,77 @@ function damagePlayer(reason) {
   fx.addShake(0.5);
   state.combo = 1;
   if (navigator.vibrate) navigator.vibrate(60);
-  if (state.lives <= 0) {
-    player.dead = true;
-    state.pending.push({ after: 0.55, fn: () => endLevel(false) });
+  if (state.lives <= 0) perderVidasNivel();
+}
+
+/* se acabaron las 3 vidas del nivel: gastar una super-vida (o continue) y seguir */
+function perderVidasNivel() {
+  player.dead = true;
+  const sv = progreso.gastarSuperVida();
+  if (sv > 0) {
+    hud.toast(`💛 ¡Super-vida gastada! Te quedan ${sv}`, 'bad');
+    state.pending.push({ after: 0.55, fn: () => {
+      player.dead = false;
+      state.lives = VIDAS_NIVEL;
+      hud.setLives(state.lives);
+      respawnAtCheckpoint();
+    } });
+    return;
   }
+  // sin super-vidas → continue
+  if (progreso.continues > 0) {
+    const cont = progreso.gastarContinue();
+    hud.toast(`⏩ ¡CONTINUE! Te quedan ${cont}`, 'record');
+    Audio.sfx('continue');
+    state.pending.push({ after: 0.7, fn: () => {
+      player.dead = false;
+      progreso.addSuperVida(SUPER_VIDAS_INICIAL);   // el continue rellena las super-vidas
+      state.lives = VIDAS_NIVEL;
+      hud.setLives(state.lives);
+      startLevel(state.levelIndex, { keepLives: false });
+    } });
+    return;
+  }
+  // sin continues → GAME OVER de verdad: se borra el progreso guardado
+  gameOverTotal();
+}
+function gameOverTotal() {
+  progreso.reset();
+  state.superVidas = SUPER_VIDAS_INICIAL;
+  state.continues = CONTINUES;
+  state.pending.push({ after: 0.6, fn: () => {
+    Audio.sfx('gameover');
+    hud.toast('💀 GAME OVER… ¡a empezar de cero!', 'bad');
+    endLevelGameOver();
+  } });
+}
+function endLevelGameOver() {
+  if (state.ended) return;
+  state.ended = true;
+  Audio.stopGenerative();
+  hud.show(false);
+  state.mode = 'over';
+  hideOverlays();
+  $('overTitle') && ($('overTitle').textContent = '¡GAME OVER!');
+  $('overBest').textContent = '—';
+  $('overNotes').textContent = `${pickups.noteCount + pickups.maskCount * 3}`;
+  $('overCrates').textContent = `${crates.broken}/${crates.total}`;
+  $('playerNameOver').value = loadPrefs().name || '';
+  $('overPanel').classList.remove('hidden');
+  // aviso de progreso borrado en el panel
+  const av = $('overWarn');
+  if (av) av.classList.remove('hidden');
+  const avc = $('overCont');
+  if (avc) avc.classList.add('hidden');
 }
 
 function useCheckpoint(z) {
   state.checkpoint = { x: 0, y: 0.1, z: z - 3 };
-  // los checkpoints dan vida (+1, máx 6): sin esto el jugador no podía
-  // recuperarse nunca y llegaba a los jefes con 1 vida (queja del usuario)
-  if (state.lives < 6) {
-    state.lives++;
-    hud.setLives(state.lives);
-    hud.toast(`✔ Punto de control · +1 vida (${state.lives})`, 'good');
-    Audio.sfx('heart');
-  } else {
-    hud.toast('✔ Punto de control', 'good');
-  }
+  // los checkpoints dan una super-vida (+1 de reserva): sin esto el jugador no
+  // podía recuperarse nunca y llegaba a los jefes con 1 vida (queja del usuario)
+  const sv = progreso.addSuperVida(1);
+  hud.toast(`✔ Punto de control · +1 super-vida (${sv} 💛)`, 'good');
+  Audio.sfx('heart');
 }
 
 function respawnAtCheckpoint() {
@@ -853,6 +969,28 @@ function checkGoal() {
   // falta estar cerca de la meta Y dentro del ancho jugable.
   const enAncho = Math.abs(player.pos.x - (lv.goal.x || 0)) < 4.5;
   if (d < 3.6 || (enAncho && player.pos.z > lv.goal.z + 1.5)) endLevel(true);
+}
+
+/* La salida solo se ve cuando el nivel está "abierto": si hay jefe pendiente o
+   vivo, la meta permanece oculta hasta derrotarlo (petición del usuario). */
+function metaAbierta() {
+  const lv = state.level;
+  if (!lv) return true;
+  if (state.ferminPending) return false;
+  if (state.ferminActive && fermin.alive) return false;
+  return true;
+}
+function actualizarMetaVisible(anunciar = false) {
+  const abierta = metaAbierta();
+  if (goalMesh) {
+    goalMesh.visible = abierta;
+    // aviso luminoso para localizarla cuando se abre (solo en la transición)
+    if (anunciar && abierta && !goalMesh.userData.avisado) {
+      goalMesh.userData.avisado = true;
+      hud.toast('🏁 ¡La salida está abierta!', 'good');
+      Audio.sfx('unlock');
+    }
+  }
 }
 
 function updateVan(dt) {
@@ -1115,6 +1253,9 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     applyHumo(dt);
     checkFerminAppear();
     checkGoal();
+    actualizarMetaVisible(true);
+    maskCompanion.update(dt, player, camera);
+    maskCompanion.invT > 0 && (state.invT = maskCompanion.invT);
     fx.update(dt);
     updateCamera(dt);
     fx.ambient(null, dt, camera, state.level);   // partículas ambientales del mundo
@@ -1130,6 +1271,8 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     if (state.level.chase && player.pos.z < state.level.spawn.z - 4) state.pressure = true;
     hud.setPressure(state.pressure && state.level.chase);
     if (player.pos.y < -12) { if (state.god) { respawnAtCheckpoint(); } else { damagePlayer('fall'); if (!player.dead) respawnAtCheckpoint(); } }
+    // la máscara dorada mantiene al jugador invulnerable también al contacto
+    if (state.invT > 0 && player.invulnT < 0.5) player.invulnT = Math.max(player.invulnT, 0.4);
   } else if (state.mode === 'cine') {
     // cinemática: manda el director (cámara + diálogos)
     director.update(dt, {});
@@ -1166,7 +1309,7 @@ $('btnLevels2').onclick = () => { clearLevel(); showMenu(); };
 $('btnNext').onclick = () => { const n = Math.min(LEVELS.length - 1, state.levelIndex + 1); nextOrRetry(() => startLevel(n)); };
 $('btnRetry').onclick = () => nextOrRetry(() => startLevel(state.levelIndex));
 $('btnOverRetry').onclick = () => startLevel(state.levelIndex);
-$('btnOverLevels').onclick = () => { clearLevel(); showMenu(); };
+$('btnOverLevels').onclick = () => { $('overWarn') && $('overWarn').classList.add('hidden'); clearLevel(); showMenu(); };
 $('btnHelp').onclick = () => { Audio.sfx('ui'); $('helpPanel').classList.remove('hidden'); };
 $('btnHelpBack').onclick = () => $('helpPanel').classList.add('hidden');
 $('btnIntro').onclick = () => { Audio.sfx('ui'); hideOverlays(); startIntro(() => { showMenu(); Audio.playMenuMusic(); }); };
@@ -1253,6 +1396,10 @@ window.__qa = {
   },
   step: (dt = 1 / 30, n = 1) => { for (let i = 0; i < n; i++) tick(dt); },
   state: () => ({ mode: state.mode, level: state.levelIndex, levelId: state.level && state.level.id, lives: state.lives, pos: { ...player.pos }, notas: pickups.noteCount, cajas: crates.broken, totalCajas: crates.total, fps: state.fps, ended: state.ended, boss: state.bossActive ? { hp: boss.hp, phase: boss.phase, alive: boss.alive } : (state.ferminActive ? { hp: fermin.hp, phase: 1, alive: fermin.alive, fermin: true } : null), ferminPending: !!state.ferminPending }),
+  /* progreso, máscara y vidas (para QA) */
+  progreso: () => ({ desbloqueados: progreso.desbloqueados, superVidas: progreso.superVidas, continues: progreso.continues }),
+  mascara: () => ({ nivel: maskCompanion.nivel, invT: +maskCompanion.invT.toFixed(1), invulnerable: maskCompanion.invulnerable, visible: !!(maskCompanion.obj && maskCompanion.obj.visible) }),
+  metaVisible: () => !!(goalMesh && goalMesh.visible),
   /* diagnóstico para los agentes de QA: estado interno del motor */
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,

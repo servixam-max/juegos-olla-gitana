@@ -254,6 +254,20 @@ export class AudioEngine {
       case 'ui': this.tone({ type: 'triangle', f0: 720, dur: 0.06, vol: 0.1 }); break;
       case 'damage': this._playBuffer('hit', { vol: 0.75 }); break;
       case 'death': this._playBuffer('hit', { vol: 0.9, rate: 0.85 }); break;
+      /* máscara rota: crujido de madera + caída */
+      case 'maskBreak': this.noise({ dur: 0.22, vol: 0.3, freq: 1600, sweep: 260, type: 'bandpass' }); this.tone({ type: 'triangle', f0: 320, f1: 120, dur: 0.22, vol: 0.16 }); break;
+      /* continue: barrido ascendente de "vuelves a la carga" */
+      case 'continue': [392, 523, 659, 784].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.2, vol: 0.14, delay: i * 0.09 })); this.noise({ dur: 0.5, vol: 0.12, freq: 400, sweep: 3000, type: 'bandpass' }); break;
+      /* game over: descenso grave y largo */
+      case 'gameover': [440, 392, 330, 262, 196].forEach((f, i) => this.tone({ type: 'sawtooth', f0: f, dur: 0.34, vol: 0.16, delay: i * 0.18, filter: 900 })); this.tone({ type: 'sine', f0: 98, f1: 60, dur: 1.4, vol: 0.22, delay: 0.5 }); break;
+      /* super-vida conseguida */
+      case 'supervida': [659, 784, 988, 1319].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.2, vol: 0.17, delay: i * 0.075 })); break;
+      /* moneda/nota especial de nivel nuevo desbloqueado */
+      case 'unlock': [523, 659, 784].forEach((f, i) => this.tone({ type: 'sine', f0: f, dur: 0.26, vol: 0.16, delay: i * 0.1 })); this.tone({ type: 'triangle', f0: 1046, dur: 0.4, vol: 0.14, delay: 0.3 }); break;
+      /* paso a fase 2/3 del jefe */
+      case 'phaseup': this.tone({ type: 'sawtooth', f0: 150, f1: 420, dur: 0.5, vol: 0.2, filter: 1200 }); this.noise({ dur: 0.35, vol: 0.2, freq: 800, sweep: 2600, type: 'bandpass' }); break;
+      /* el jefe cae (victoria de jefe) */
+      case 'bossdown': this.noise({ dur: 1.0, vol: 0.4, freq: 1800, sweep: 90 }); [196, 165, 131].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.4, vol: 0.16, delay: i * 0.22 })); break;
       case 'levelup': this._playBuffer('levelup', { vol: 0.8 }); break;
       case 'victory': this._playBuffer('levelup', { vol: 0.9 }); break;
     }

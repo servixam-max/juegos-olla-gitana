@@ -125,12 +125,44 @@ export class EnemySystem {
 
   makePatrol(d) {
     const obj = makeAmp();
+    // el ampli se veía como un bloque negro: se le da carácter (ojos, boca,
+    // ribete dorado) para que se lea como enemigo y no como un cuadrado oscuro
+    obj.traverse((c) => { if (c.isMesh && c.material && c.material.color) c.material.color.set(0x2f2f3a); });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff5d5d });
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), eyeMat);
+      eye.position.set(s * 0.2, 0.42, 0.28);
+      obj.add(eye);
+    }
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.07, 0.54), toonMat(PALETA.dorado));
+    rib.position.y = 0.58;
+    obj.add(rib);
+    // ruedas para que se lea "rodante"
+    const wheelMat = toonMat(0x141414);
+    for (const s of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.08, 10), wheelMat);
+      w.rotation.z = Math.PI / 2;
+      w.position.set(s * 0.42, 0.13, 0);
+      obj.add(w);
+    }
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
     return { ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'patrol', hp: 1 };
   }
   makeTurret(d) {
     const obj = makeSpeaker({ big: true, color: 0x9d0208 });
+    // cono visible de altavoz + luz propia (antes era una caja roja oscura)
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.5, 12), toonMat(0x151515));
+    cone.rotation.x = Math.PI / 2;
+    cone.position.set(0, 1.05, 0.68);
+    obj.add(cone);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 6, 16), toonMat(0xd9dde2));
+    ring.position.set(0, 1.05, 0.55);
+    obj.add(ring);
+    const luz = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff5d5d }));
+    luz.position.set(0, 1.6, 0.4);
+    obj.add(luz);
+    obj.userData.luz = luz;
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
     return { ...d, obj, t: Math.random() * 2, alive: true, kind: 'turret', cd: d.period || 2.0, hp: 2 };
@@ -138,6 +170,13 @@ export class EnemySystem {
   makeRoller(d) {
     const obj = makeAmp();
     obj.scale.setScalar(1.5);
+    obj.traverse((c) => { if (c.isMesh && c.material && c.material.color) c.material.color.set(0x6a1f1f); });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffbe0b });
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), eyeMat);
+      eye.position.set(s * 0.22, 0.5, 0.3);
+      obj.add(eye);
+    }
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
     return { ...d, obj, alive: true, kind: 'roller', vz: -(d.speed || 8), base: { x: d.x, z: d.z }, hp: 1 };

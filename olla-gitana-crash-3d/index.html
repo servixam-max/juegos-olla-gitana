@@ -19,6 +19,7 @@
       <div class="chip" id="livesChip" title="Vidas"><span id="lives"></span></div>
       <div class="chip" id="noteChip" title="Notas musicales">🎵 <span class="num" id="noteNum">0</span></div>
       <div class="chip" id="crateChip" title="Cajones rotos">📦 <span class="num" id="crateNum">0/0</span></div>
+      <div class="chip" id="superChip" title="Super-vidas y continues">💛 <span class="num" id="superNum">5</span> · ⏩ <span class="num" id="contNum">3</span></div>
       <div class="chip" id="comboChip" title="Combo rumbero">🔥 <span class="num" id="comboNum">x1.0</span></div>
       <div class="chip" id="timerChip" title="Tiempo">⏱ <span class="num" id="timerNum">0:00</span></div>
     </div>
@@ -151,7 +152,9 @@
       <div class="stat"><div class="v" id="overNotes">0</div><div class="k">NOTAS</div></div>
       <div class="stat"><div class="v" id="overCrates">0/0</div><div class="k">CAJONES</div></div>
       <div class="stat"><div class="v" id="overBest">—</div><div class="k">RÉCORD</div></div>
-    </div>
+      </div>
+    <p class="small center hidden" id="overWarn">⚠️ Se ha borrado tu progreso: vuelves al mundo 1</p>
+    <p class="small center hidden" id="overCont">¿Seguir? Te quedan continues</p>
     <div class="nameRow">
       <input id="playerNameOver" maxlength="14" placeholder="Tu nombre (zagal/a)" autocomplete="nickname" />
       <button class="btn" id="btnSaveScoreOver">💾 Guardar</button>

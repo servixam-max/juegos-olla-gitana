@@ -333,7 +333,7 @@ export function buildLevel2(world, scene, fx) {
     } else {
       crates.push(buildCrate(world, scene, { x: -2.4, z: c.z, type: 'normal' }));
       crates.push(buildCrate(world, scene, { x: -1.4, y: 0.96, z: c.z, type: 'normal' }));
-      crates.push(buildCrate(world, scene, { x: 1.2, z: c.z, type: 'nitro' }));
+      crates.push(buildCrate(world, scene, { x: 1.2, z: c.z, type: 'checkpoint' }));
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'steel' }));
     }
   }
@@ -434,7 +434,7 @@ export function buildLevel3(world, scene, fx) {
   // cajas: pocas (es una carrera), casi todas TNT/Nitro para esquivar
   crates.push(buildCrate(world, scene, { x: -1.5, z: 34, type: 'normal' }));
   crates.push(buildCrate(world, scene, { x: 1.5, z: 34, type: 'normal' }));
-  crates.push(buildCrate(world, scene, { x: 0, z: 72, type: 'nitro' }));
+  crates.push(buildCrate(world, scene, { x: 0, z: 72, type: 'checkpoint' }));
   crates.push(buildCrate(world, scene, { x: -2.4, z: 108, type: 'tnt' }));
   crates.push(buildCrate(world, scene, { x: 2.4, z: 108, type: 'tnt' }));
   crates.push(buildCrate(world, scene, { x: 0, z: 156, type: 'bounce' }));

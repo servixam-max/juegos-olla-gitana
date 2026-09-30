@@ -80,9 +80,7 @@ export class Pickups {
         m.obj.visible = false;
         this.maskCount++;
         this.audio.sfx(maskLevel(this.maskCount) === 3 ? 'aura' : 'mask');
-        this.fx.burst({ x: m.pos.x, y: m.pos.y, z: m.pos.z }, { count: 18, speed: 5, up: 5, life: 0.9, colors: [0xffbe0b, 0xe63946, 0xff70a6] });
         if (this.onMask) this.onMask(this.maskCount);
-        if (this.maskCount > 0 && this.maskCount % 3 === 0 && this.onAura) this.onAura();
       }
     }
   }

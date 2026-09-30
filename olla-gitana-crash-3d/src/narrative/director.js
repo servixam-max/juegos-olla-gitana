@@ -95,7 +95,7 @@ export class Director {
   letterboxOff() { this.letterbox.style.display = 'none'; }
 
   /* planos: [{ camara, t, lookAt?, dialogos? }] */
-  start(planos, { skipCb = null, onEnd = null, cutscene = false } = {}) {
+  start(planos, { skipCb = null, onEnd = null, cutscene = false, foco = null } = {}) {
     this.planos = planos;
     this.i = -1;
     this.t = 0;
@@ -103,6 +103,11 @@ export class Director {
     this.cutscene = cutscene;
     this.skipCb = skipCb;
     this.onEnd = onEnd;
+    // Punto de interés para las cámaras de cutscene. Las cámaras 'jefe' usaban
+    // coordenadas ABSOLUTAS del escenario de la intro (z≈5); al aparecer Fermín
+    // en z=84 la cámara enfocaba el vacío → pantalla negra. Con `foco` la
+    // cutscene se encuadra sobre quien la protagoniza.
+    this.foco = foco;
     this.letterboxOn();
     this.skipBtn.style.display = cutscene ? 'none' : 'block';
     if (this.hud) this.hud.show(false);
@@ -198,8 +203,12 @@ export class Director {
         break;
       }
       case 'jefe': {
-        cam.position.set(0, 5.6, 6.5 - k * 1.5);
-        cam.lookAt(0, 3.4, -6);
+        // si la cutscene trae foco (x,z), se encuadra sobre el jefe que la
+        // protagoniza (Fermín aparece en mitad del nivel, no en el escenario
+        // de la intro: con coordenadas fijas la cámara salía en negro)
+        const f = this.foco || { x: 0, z: -6, y: 3.4 };
+        cam.position.set(f.x + Math.sin(k * 0.5) * 0.8, 5.6, f.z + 6.5 - k * 1.5);
+        cam.lookAt(f.x, f.y != null ? f.y : 3.4, f.z);
         break;
       }
       case 'orbita': {

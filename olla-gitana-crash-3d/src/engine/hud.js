@@ -6,6 +6,8 @@ export class Hud {
       lives: document.getElementById('lives'),
       noteNum: document.getElementById('noteNum'),
       crateNum: document.getElementById('crateNum'),
+      superNum: document.getElementById('superNum'),
+      contNum: document.getElementById('contNum'),
       comboNum: document.getElementById('comboNum'),
       comboChip: document.getElementById('comboChip'),
       timerNum: document.getElementById('timerNum'),
@@ -49,27 +51,31 @@ export class Hud {
     wrap.innerHTML = '';
     if (!n || n <= 0) {
       wrap.textContent = '—';
-    } else if (n <= 5) {
-      // hasta 5 vidas: se dibujan las ollitas una a una
-      for (let i = 0; i < n; i++) {
+    } else {
+      // corazones: 3 vidas de nivel (siempre pocas, se dibujan una a una)
+      for (let i = 0; i < Math.min(n, 8); i++) {
         const img = document.createElement('span');
         img.className = 'lifeOlla';
-        img.textContent = '🥘';
+        img.textContent = '❤️';
         img.style.fontSize = '15px';
         wrap.appendChild(img);
       }
-    } else {
-      // muchas vidas: contador compacto para no comerse la pantalla
-      wrap.innerHTML = '<span class="lifeOlla" style="font-size:15px">🥘</span>';
-      const num = document.createElement('span');
-      num.className = 'num';
-      num.textContent = 'x' + n;
-      wrap.appendChild(num);
+      if (n > 8) {
+        const num = document.createElement('span');
+        num.className = 'num';
+        num.textContent = 'x' + n;
+        wrap.appendChild(num);
+      }
     }
     this.flash('livesChip');
   }
   setNotes(n) { this.el.noteNum.textContent = n; this.flash('noteChip'); }
   setCrates(b, t) { this.el.crateNum.textContent = `${b}/${t}`; }
+  /* super-vidas de reserva y continues restantes */
+  setSuper(sv, cont) {
+    if (this.el.superNum) this.el.superNum.textContent = sv;
+    if (this.el.contNum) this.el.contNum.textContent = cont;
+  }
   setCombo(m) {
     this.el.comboNum.textContent = 'x' + m.toFixed(1);
     this.el.comboChip.classList.toggle('hot', m >= 3);

@@ -150,7 +150,7 @@ export function buildLevel4(world, scene, fx) {
     } else {
       crates.push(buildCrate(world, scene, { x: -2.4, z: c.z }));
       crates.push(buildCrate(world, scene, { x: -1.3, y: 0.96, z: c.z }));
-      crates.push(buildCrate(world, scene, { x: 1.4, z: c.z, type: 'nitro' }));
+      crates.push(buildCrate(world, scene, { x: 1.4, z: c.z, type: 'checkpoint' }));
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'steel' }));
     }
   }
@@ -359,7 +359,7 @@ export function buildLevel6(world, scene, fx) {
       for (let i = 0; i < 5; i++) notes.push(buildNote(world, scene, { x: -1.6 + i * 0.8, y: 4.4 + i * 0.5, z: c.z + 1.2 }));
     } else {
       crates.push(buildCrate(world, scene, { x: -2.4, z: c.z }));
-      crates.push(buildCrate(world, scene, { x: 1.4, z: c.z, type: 'nitro' }));
+      crates.push(buildCrate(world, scene, { x: 1.4, z: c.z, type: 'checkpoint' }));
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'steel' }));
     }
   }
@@ -465,7 +465,7 @@ export function buildLevel7(world, scene, fx) {
       for (let i = 0; i < 3; i++) crates.push(buildCrate(world, scene, { x: -1.4 + i * 1.4, z: c.z, type: 'bounce' }));
     } else {
       crates.push(buildCrate(world, scene, { x: -2.4, z: c.z }));
-      crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'nitro' }));
+      crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'checkpoint' }));
     }
   }
   for (let zi = 12; zi < L - 10; zi += 5.5) {

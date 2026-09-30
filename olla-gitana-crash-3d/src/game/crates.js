@@ -66,7 +66,9 @@ export class CrateSystem {
     if (crate.crateType === 'nitro') { this.nitro(crate); return true; }
     if (crate.crateType === 'bounce') { this.bounce(crate); return true; }
     if (crate.crateType === 'switch') { this.pulseSwitch(crate); return true; }
-    if (crate.crateType === 'checkpoint') { return false; }
+    // las cajas de vida (verdes ✔) también se rompen con el giro/pisotón,
+    // no solo pisándolas: se abren, dan el punto de control y desaparecen
+    if (crate.crateType === 'checkpoint') { this.checkpoint(crate); return true; }
 
     this.finishBreak(crate, PALETA.madera);
     return true;
@@ -107,12 +109,16 @@ export class CrateSystem {
   }
 
   checkpoint(crate) {
+    // la caja de vida se abre, brilla y DESAPARECE (antes se quedaba ahí
+    // recoloreada en verde, y el jugador no sabía si la había cogido)
     crate.dead = true;
+    crate.disabled = true;
     if (crate.worldBox) crate.worldBox.solid = false;
-    if (crate.mesh) {
-      crate.mesh.userData.hitT = 0;
-      crate.mesh.traverse((c) => { if (c.isMesh && c.material && c.material.color) c.material.color.set(0x38b000); });
-    }
+    const p = crate.mesh ? crate.mesh.position : { x: 0, y: 0.5, z: 0 };
+    this.fx.burst(p, { count: 22, speed: 5.5, up: 6, life: 1.0, colors: [0x38b000, 0xb5e48c, 0xffffff] });
+    this.fx.addShake(0.25);
+    if (crate.mesh) crate.mesh.visible = false;
+    this.audio.sfx('checkpoint');
     if (this.onCheckpoint) this.onCheckpoint(crate);
   }
 

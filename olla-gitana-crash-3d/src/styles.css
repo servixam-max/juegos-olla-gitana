@@ -234,6 +234,17 @@ button.btn.wide { flex: 1 1 46%; min-width: 190px; }
 }
 .lvCard:active { transform: scale(.965); }
 .lvCard.on { border-color: var(--dorado); box-shadow: 0 0 0 3px rgba(255,190,11,.25); }
+/* tarjeta bloqueada: se ve el candado y no invita a pulsar */
+.lvCard.locked { opacity: .62; cursor: not-allowed; }
+.lvCard.locked:hover { transform: none; box-shadow: none; }
+.lvCard.locked:hover .thumb { transform: none; }
+.lvCard.locked .t { color: rgba(255,245,225,.62); }
+.thumb.lockedThumb {
+  display: grid; place-items: center; font-size: 42px; min-height: 84px;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 12px, rgba(255,255,255,.08) 12px 24px);
+  border-radius: 12px;
+}
+.tag.lock { background: rgba(255,255,255,.10); color: rgba(255,245,225,.75); border-color: rgba(255,255,255,.18); }
 .lvCard .thumb {
   width: 100%; height: 78px; object-fit: cover; display: block; filter: saturate(1.15);
   transition: transform .25s ease;
