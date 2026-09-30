@@ -510,6 +510,50 @@ export function sfxMecanicas(engine, name) {
     case 'secreto': [659, 880, 1046, 1319].forEach((f, i) => pito(engine, { type: 'triangle', f0: f, dur: 0.2, vol: 0.15, delay: i * 0.075 })); break;
     /* la caja de contorno se materializa */
     case 'materializa': pito(engine, { type: 'triangle', f0: 300, f1: 1200, dur: 0.2, vol: 0.14 }); pito(engine, { type: 'sine', f0: 1760, dur: 0.3, vol: 0.08, delay: 0.16 }); break;
+    /* ===== enemigos v3 (el sistema de enemies.js los pide por su nombre) ===== */
+    /* toro: resoplido de aviso ANTES de embestir (telegrafía sonora) */
+    case 'toro_aviso':
+      pito(engine, { type: 'sawtooth', f0: 132, f1: 86, dur: 0.34, vol: 0.16, filter: 900 });
+      pito(engine, { type: 'square', f0: 96, f1: 62, dur: 0.28, vol: 0.1, delay: 0.17 });
+      break;
+    /* toro: mugido grave al arrancar la embestida */
+    case 'toro_embiste':
+      pito(engine, { type: 'sawtooth', f0: 240, f1: 68, dur: 0.5, vol: 0.22, filter: 800 });
+      pito(engine, { type: 'square', f0: 112, f1: 54, dur: 0.42, vol: 0.13, delay: 0.03 });
+      break;
+    /* toro: choque contra el muro (se aturde) + estrellitas */
+    case 'toro_trompa':
+      pito(engine, { type: 'sine', f0: 190, f1: 46, dur: 0.34, vol: 0.26 });
+      pito(engine, { type: 'triangle', f0: 1250, f1: 480, dur: 0.2, vol: 0.12, delay: 0.05 });
+      break;
+    /* globo del planeador: silbido descendente mientras apunta */
+    case 'globo_aviso':
+      pito(engine, { type: 'sine', f0: 1900, f1: 880, dur: 0.3, vol: 0.1 });
+      pito(engine, { type: 'sine', f0: 1420, f1: 660, dur: 0.24, vol: 0.08, delay: 0.16 });
+      break;
+    /* el planeador suelta la gota */
+    case 'globo_dispara': pito(engine, { type: 'triangle', f0: 920, f1: 300, dur: 0.16, vol: 0.14 }); break;
+    /* la gota revienta en el suelo */
+    case 'globo_pop':
+      pito(engine, { type: 'square', f0: 700, f1: 170, dur: 0.12, vol: 0.16 });
+      pito(engine, { type: 'triangle', f0: 1600, f1: 620, dur: 0.16, vol: 0.1, delay: 0.03 });
+      break;
+    /* acorazado: la chapa metálica rebota (pisotón inútil) */
+    case 'coraza':
+      pito(engine, { type: 'square', f0: 330, f1: 175, dur: 0.1, vol: 0.14 });
+      pito(engine, { type: 'sine', f0: 1450, dur: 0.28, vol: 0.07, delay: 0.02 });
+      break;
+    /* acorazado destrozado: la chapa vuela (solo el giro lo rompe) */
+    case 'coraza_rota':
+      pito(engine, { type: 'sawtooth', f0: 480, f1: 86, dur: 0.4, vol: 0.2, filter: 1700 });
+      pito(engine, { type: 'triangle', f0: 1320, f1: 420, dur: 0.3, vol: 0.12, delay: 0.04 });
+      pito(engine, { type: 'sine', f0: 120, f1: 58, dur: 0.3, vol: 0.16, delay: 0.1 });
+      break;
+    /* bicho reventado con el giro: el "pop" genérico de muerte */
+    case 'bicho_pop':
+      pito(engine, { type: 'triangle', f0: 640, f1: 170, dur: 0.18, vol: 0.18 });
+      pito(engine, { type: 'sine', f0: 180, f1: 68, dur: 0.24, vol: 0.14, delay: 0.03 });
+      break;
     default: break;
   }
 }
@@ -1120,5 +1164,300 @@ export function makeFuente({ r = 1.5 } = {}) {
   g.add(pila, borde, columna, taza, agua, chorro);
   g.userData.water = agua;
   g.userData.chorro = chorro;
+  return g;
+}
+
+/* =========================================================
+   ENEMIGOS v3 (arte) — los 3 BICHOS NUEVOS con identidad murciana
+   Cada uno lleva la BANDERA DE ESPAÑA (el usuario quiere que "se noten
+   que son enemigos") y una CARA RARA propia. El sistema de enemies.js
+   anima las piezas que se exponen por userData.
+   ========================================================= */
+
+/* ---------- TORO BRAVO "El Pimiento" ----------
+   Bicho cuadrúpedo rojo con cuernos, bandera atada a la cola y una CARA
+   muy avisada: se agacha (telegrafía) y luego embiste en línea recta. Al
+   chocar contra un muro SE ATURDE (estrellitas) — contrajuego justo. */
+export function makeToroBravo({ color = 0xb31217 } = {}) {
+  const g = new THREE.Group();
+  const mat = toonMat(color, { emissive: new THREE.Color(color).multiplyScalar(0.14) });
+  const osc = toonMat(0x2a0d0d);
+  // cuerpo alargado
+  const cuerpo = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 12), mat);
+  cuerpo.scale.set(1, 0.85, 1.5);
+  cuerpo.position.y = 0.82;
+  g.add(cuerpo);
+  // joroba + panza clara
+  const joroba = new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 10), mat);
+  joroba.scale.set(0.9, 0.7, 1.1); joroba.position.set(0, 1.24, -0.18);
+  const panza = new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 10), toonMat(0xf6e7c9));
+  panza.scale.set(1, 0.6, 1.2); panza.position.set(0, 0.6, 0.1);
+  g.add(joroba, panza);
+  // cabeza ancha que SIEMPRE mira al frente (la mueve el sistema)
+  const cabeza = new THREE.Group();
+  const morro = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), mat);
+  morro.scale.set(1.05, 0.9, 1.1);
+  const hocico = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), toonMat(0xe9b8b8));
+  hocico.scale.set(1, 0.8, 0.9); hocico.position.set(0, -0.12, 0.3);
+  cabeza.add(morro, hocico);
+  // ojos saltones furiosos (blancos con pupila; se ven de lejos)
+  for (const s of [-1, 1]) {
+    const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff8e7 }));
+    ojo.position.set(s * 0.2, 0.14, 0.3);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.062, 8, 6), new THREE.MeshBasicMaterial({ color: 0x140404 }));
+    pup.position.set(s * 0.235, 0.13, 0.4);
+    cabeza.add(ojo, pup);
+  }
+  // ceño de mala leche
+  for (const s of [-1, 1]) {
+    const ceja = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.07), osc);
+    ceja.position.set(s * 0.2, 0.3, 0.32); ceja.rotation.z = -s * 0.5;
+    cabeza.add(ceja);
+  }
+  // cuernos de verdad (avisan del peligro) + orejas
+  for (const s of [-1, 1]) {
+    const cuerno = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.46, 7), toonMat(0xfff1c0));
+    cuerno.position.set(s * 0.34, 0.32, 0.06); cuerno.rotation.z = s * 1.15; cuerno.rotation.x = -0.25;
+    const oreja = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 6), mat);
+    oreja.position.set(s * 0.42, 0.14, -0.14); oreja.rotation.z = s * 1.5;
+    cabeza.add(cuerno, oreja);
+  }
+  cabeza.position.set(0, 0.86, 0.92);
+  g.add(cabeza);
+  // anillo de la nariz (bélico, se lee "toro") + vaho que sale al resoplar
+  const anilla = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 5, 12), toonMat(0xffbe0b));
+  anilla.position.set(0, -0.08, 0.52);
+  cabeza.add(anilla);
+  const vaho = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 }));
+  vaho.position.set(0, -0.12, 0.68); vaho.scale.set(1, 0.7, 1.4);
+  cabeza.add(vaho);
+  // 4 patas (trotan)
+  const patas = [];
+  for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const pata = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.34, 4, 7), osc);
+    pata.position.set(sx * 0.32, 0.32, sz * 0.42);
+    pata.geometry.translate(0, -0.2, 0);
+    g.add(pata);
+    patas.push(pata);
+  }
+  // cola con borla
+  const cola = new THREE.Group();
+  const rabo = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.7, 6), osc);
+  rabo.position.y = -0.28;
+  const borla = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), osc);
+  borla.position.y = -0.62;
+  cola.add(rabo, borla);
+  cola.position.set(0, 1.06, -0.9); cola.rotation.x = 0.45;
+  g.add(cola);
+  // BANDERA DE ESPAÑA atada a la cola (identidad de la banda)
+  const bandera = new THREE.Group();
+  const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), toonMat(0x8a6a3a));
+  mastil.position.y = 0.35;
+  bandera.add(mastil);
+  const tela = new THREE.Group();
+  const hR = 0.065, hY = 0.12;
+  const r1 = new THREE.Mesh(new THREE.PlaneGeometry(0.3, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+  r1.position.y = hY + hR / 2;
+  const am = new THREE.Mesh(new THREE.PlaneGeometry(0.3, hY), new THREE.MeshBasicMaterial({ color: 0xffc400, side: THREE.DoubleSide }));
+  const r2 = new THREE.Mesh(new THREE.PlaneGeometry(0.3, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+  r2.position.y = -hY - hR / 2;
+  tela.add(r1, am, r2); tela.position.set(0, 0.72, 0);
+  bandera.add(tela);
+  bandera.position.copy(cola.position); bandera.position.y += 0.1;
+  g.add(bandera);
+  g.userData = { cuerpo, cabeza, patas, cola, bandera, tela, vaho, anilla };
+  return g;
+}
+
+/* ---------- GLOBO-PLANEADOR "La Gota Fría" ----------
+   Bicho con globo (¡la gota fría murciana!), alas de planeo, bandera y una
+   boca-vertedero por la que suelta gotas. Avisa (globo rojo pulsando) antes
+   de soltar: lo que cae es una gota que salpica abajo (esquivable). */
+export function makeGloboPlaneador({ color = 0x1b7f79 } = {}) {
+  const g = new THREE.Group();
+  const mat = toonMat(color, { emissive: new THREE.Color(color).multiplyScalar(0.18) });
+  const osc = toonMat(0x10201f);
+  // CUERPO: pimiento/bicho rechoncho que cuelga del globo
+  const cuerpo = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.3, 5, 12), mat);
+  cuerpo.position.y = 1.28;
+  cuerpo.scale.set(1, 1, 0.85);
+  g.add(cuerpo);
+  // panza clara
+  const panza = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), toonMat(0xf6e7c9));
+  panza.scale.set(0.9, 0.85, 0.5); panza.position.set(0, 1.2, 0.18);
+  g.add(panza);
+  // ojazos que miran al jugador
+  const cabeza = new THREE.Group();
+  for (const s of [-1, 1]) {
+    const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff8e7 }));
+    ojo.position.set(s * 0.14, 0.06, 0.16);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), new THREE.MeshBasicMaterial({ color: 0x101010 }));
+    pup.position.set(s * 0.15, 0.06, 0.25);
+    cabeza.add(ojo, pup);
+  }
+  const boca = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.035, 6, 12), osc);
+  boca.rotation.x = Math.PI / 2;
+  boca.position.set(0, -0.12, 0.2);
+  cabeza.add(boca);
+  // gorra de rumbero (le da cara de "malo con estilo")
+  const gorra = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), toonMat(0xc60b1e));
+  gorra.position.y = 0.14;
+  const visera = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.03, 0.16), toonMat(0xc60b1e));
+  visera.position.set(0, 0.12, 0.24);
+  cabeza.add(gorra, visera);
+  cabeza.position.set(0, 1.36, 0.24);
+  g.add(cabeza);
+  // ALAS de planeo (alas rígidas + alerón que se mueve)
+  const alaMat = new THREE.MeshToonMaterial({ color: 0xdff3ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+  const alas = [];
+  for (const s of [-1, 1]) {
+    const ala = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.34), alaMat);
+    ala.position.set(s * 0.5, 1.5, -0.04);
+    ala.rotation.set(-0.15, s * 0.2, s * 0.12);
+    g.add(ala);
+    alas.push(ala);
+  }
+  // GLOBO que lo mantiene arriba (late en rojo cuando va a soltar la gota)
+  const globo = new THREE.Group();
+  const vela = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 12), toonMat(0xff5d5d));
+  vela.scale.set(1, 1.1, 1);
+  const gajos = new THREE.Mesh(new THREE.SphereGeometry(0.63, 14, 12), toonMat(0xffc400));
+  gajos.scale.set(1, 1.1, 1);
+  gajos.material = new THREE.MeshBasicMaterial({ color: 0xffc400, transparent: true, opacity: 0.28, wireframe: true });
+  const nudo = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 8), toonMat(0x8a1f1f));
+  nudo.position.y = -0.7; nudo.rotation.x = Math.PI;
+  globo.add(vela, gajos, nudo);
+  // cuerdas del globo al cuerpo
+  for (const s of [-1, 1]) {
+    const cuerda = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.72, 5), osc);
+    cuerda.position.set(s * 0.2, 1.94, 0);
+    cuerda.rotation.z = s * 0.3;
+    globo.add(cuerda);
+  }
+  globo.position.set(0, 2.35, 0);
+  g.add(globo);
+  // BANDERA DE ESPAÑA en un mástil del globo (identidad: es de los enemigos)
+  const bandera = new THREE.Group();
+  const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.66, 5), toonMat(0x8a6a3a));
+  mastil.position.y = 0.33;
+  bandera.add(mastil);
+  const hR = 0.055, hY = 0.1;
+  const tela = new THREE.Group();
+  const r1 = new THREE.Mesh(new THREE.PlaneGeometry(0.26, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+  r1.position.y = hY + hR / 2;
+  const am = new THREE.Mesh(new THREE.PlaneGeometry(0.26, hY), new THREE.MeshBasicMaterial({ color: 0xffc400, side: THREE.DoubleSide }));
+  const r2 = new THREE.Mesh(new THREE.PlaneGeometry(0.26, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+  r2.position.y = -hY - hR / 2;
+  tela.add(r1, am, r2); tela.position.y = 0.68;
+  bandera.add(tela);
+  bandera.position.set(0.5, 2.6, 0);
+  g.add(bandera);
+  g.userData = { cuerpo, cabeza, alas, globo, vela, tela, bandera };
+  return g;
+}
+
+/* GOTA FRÍA (proyectil del planeador): gota azul con brillo y una estela
+   de gotitas; al tocar el suelo salpica (aviso: sombra/aro rojo en el suelo). */
+export function makeGotaFria() {
+  const g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), new THREE.MeshBasicMaterial({ color: 0x59b7e8 }));
+  cuerpo.scale.set(1, 1.15, 1);
+  const brillo = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xeaf7ff }));
+  brillo.scale.set(1, 1.3, 1); brillo.position.set(-0.07, 0.07, 0.16);
+  const punta = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.34, 10), new THREE.MeshBasicMaterial({ color: 0x3f9ecf }));
+  punta.rotation.x = Math.PI; punta.position.y = 0.28;
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), new THREE.MeshBasicMaterial({ color: 0x9fe1ff, transparent: true, opacity: 0.18, depthWrite: false }));
+  g.add(cuerpo, punta, brillo, halo);
+  g.userData = { cuerpo, brillo, halo };
+  return g;
+}
+
+/* ---------- BLINDADO "El Cacharro Chico" ----------
+   Bicho con CASCO de chapa remachada: el pisotón le rebota (suena CLANG) y
+   solo lo revienta el GIRO. Telegrafía: se agacha y las luces del casco
+   parpadean en rojo antes de tirarse hacia delante a trompicones. */
+export function makeBlindado({ color = 0x4b6b4a } = {}) {
+  const g = new THREE.Group();
+  const mat = toonMat(color, { emissive: new THREE.Color(color).multiplyScalar(0.15) });
+  const metal = toonMat(0x8f98a3);
+  const osc = toonMat(0x1e2a1d);
+  // cuerpo bajo y ancho
+  const cuerpo = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 12), mat);
+  cuerpo.scale.set(1.15, 0.8, 1.05);
+  cuerpo.position.y = 0.55;
+  g.add(cuerpo);
+  const panza = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 10), toonMat(0xf6e7c9));
+  panza.scale.set(1, 0.7, 0.6); panza.position.set(0, 0.44, 0.34);
+  g.add(panza);
+  // CASCO REMACHADO: casquete con remaches y franja de aviso
+  const casco = new THREE.Group();
+  const chapa = new THREE.Mesh(new THREE.SphereGeometry(0.54, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), metal);
+  chapa.scale.set(1.1, 0.95, 1.05);
+  const franja = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.045, 6, 18), toonMat(PALETA.rojo));
+  franja.rotation.x = Math.PI / 2; franja.scale.set(1.08, 1.03, 1);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const remache = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), toonMat(0x5a636e));
+    remache.position.set(Math.sin(a) * 0.5, 0.12, Math.cos(a) * 0.5);
+    casco.add(remache);
+  }
+  // crestón (le da silueta de "blindado")
+  const creston = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.26, 0.62), metal);
+  creston.position.set(0, 0.46, 0);
+  casco.add(chapa, franja, creston);
+  casco.position.set(0, 0.62, 0);
+  g.add(casco);
+  // cara: ojos estrechos + boca de rendija con dientes
+  const cara = new THREE.Group();
+  for (const s of [-1, 1]) {
+    const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff8e7 }));
+    ojo.position.set(s * 0.17, 0.64, 0.42);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x0c0c0c }));
+    pup.position.set(s * 0.18, 0.63, 0.5);
+    cara.add(ojo, pup);
+  }
+  const rendija = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.06), osc);
+  rendija.position.set(0, 0.46, 0.48);
+  cara.add(rendija);
+  for (let i = 0; i < 3; i++) {
+    const diente = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 5), new THREE.MeshBasicMaterial({ color: 0xfff8e7 }));
+    diente.position.set(-0.12 + i * 0.12, 0.425, 0.5); diente.rotation.x = Math.PI;
+    cara.add(diente);
+  }
+  g.add(cara);
+  // LUCES DE AVISO del casco: 3 pilotos que parpadean en rojo (telegrafía)
+  const luces = [];
+  for (let i = 0; i < 3; i++) {
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0x66ff88 }));
+    l.position.set(-0.16 + i * 0.16, 1.02, 0.16);
+    g.add(l);
+    luces.push(l);
+  }
+  // patas cortas de blindado
+  const patas = [];
+  for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const pata = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.24, 4, 6), osc);
+    pata.position.set(sx * 0.34, 0.24, sz * 0.3);
+    pata.geometry.translate(0, -0.16, 0);
+    g.add(pata);
+    patas.push(pata);
+  }
+  // BANDERA DE ESPAÑA en el crestón (identidad de enemigo de la banda)
+  const bandera = new THREE.Group();
+  const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.58, 5), toonMat(0x8a6a3a));
+  mastil.position.y = 0.29;
+  bandera.add(mastil);
+  const hR = 0.05, hY = 0.09;
+  const tela = new THREE.Group();
+  const r1 = new THREE.Mesh(new THREE.PlaneGeometry(0.24, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+  r1.position.y = hY + hR / 2;
+  const am = new THREE.Mesh(new THREE.PlaneGeometry(0.24, hY), new THREE.MeshBasicMaterial({ color: 0xffc400, side: THREE.DoubleSide }));
+  const r2 = new THREE.Mesh(new THREE.PlaneGeometry(0.24, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+  r2.position.y = -hY - hR / 2;
+  tela.add(r1, am, r2); tela.position.y = 0.6;
+  bandera.add(tela);
+  bandera.position.set(0, 1.12, -0.2);
+  g.add(bandera);
+  g.userData = { cuerpo, casco, luces, patas, tela, bandera };
   return g;
 }

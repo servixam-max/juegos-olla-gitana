@@ -1,23 +1,6 @@
 /* Físicas propias: colisión AABB contra cajas estáticas y plataformas móviles.
    El jugador se trata como una cápsula aproximada por un cilindro -> AABB
-   resuelta por ejes (X, Z, Y) para que los deslizamientos laterales funcionen.
-
-   ENDURECIMIENTO (bug del usuario: "con físicas a veces atravesamos paredes sin
-   sentido"). El resolutor anterior resolvía con el AABB DEL DESTINO y con la
-   altura YA resuelta, y eso permitía tres formas de cruzar un sólido:
-     (1) MURO EN DIAGONAL/CAÍDA: al caer pegado a una pared, el AABB dejaba de
-         solapar el muro en Y (los pies ya estaban por debajo de su techo) y el
-         actor avanzaba DE LADO a través del muro. Medido: x=6,40 con la cara
-         interior del muro en 5,00 (muro de x∈[5,0, 6,2]).
-     (2) SÓLIDOS DELGADOS: a 30 m/s de caída (1,5 m por frame a dt 0,05) o con
-         barrida a 15 m/s un solo paso podía saltar de lado a lado el barrote de
-         un andamio (0,14 m de grosor).
-     (3) CAJA QUE YA SE DEJABA ATRÁS: el clamp elegía la cara "de delante" según
-         la dirección del movimiento y devolvía al actor metros atrás (visto al
-         bajar de una plataforma).
-   Ahora: SUBPASOS (0,12 m de avance máximo por subpaso), BARRIDO swept-AABB por
-   eje con el rango vertical barrido del subpaso, cara de entrada correcta y
-   depenetración al final del subpaso si aun así queda dentro. */
+   resuelta por ejes (X, Z, Y) para que los deslizamientos laterales funcionen. */
 
 export class Box {
   constructor({ x, y, z, w, h, d, solid = true, tag = '', mat = null }) {
@@ -83,15 +66,6 @@ function freeAt(world, x, y, z, r, h) {
     if (penetrationDepth(x, y, z, r, h, b) > DEPEN_EPS) return false;
   }
   return true;
-}
-/* ¿el actor está dentro de algún sólido ahora mismo? (la depenetración es la
-   parte cara del resolutor: solo se llama cuando de verdad hace falta) */
-function insideAny(world, x, y, z, r, h) {
-  for (const b of world.boxes) {
-    if (!collides(b)) continue;
-    if (penetrationDepth(x, y, z, r, h, b) > DEPEN_EPS) return true;
-  }
-  return false;
 }
 function depenetrate(actor, world, r, h) {
   for (let pass = 0; pass < 3; pass++) {
@@ -221,123 +195,6 @@ function carryStep(actor, world, r, h, dx, dy, dz) {
 }
 
 /* ---------- colisión y resolución del actor contra el mundo ---------- */
-
-/* Subpasos: por encima de ~4 m/s (0,13 m de avance por frame a 1/30 s) el frame
-   se parte en subpasos de como mucho SUBPASO_MAX metros. Así la barrida
-   (15 m/s), el giro con impulso (17,25), el salto largo (11,3) y la caída
-   (hasta 30 m/s = 1,5 m por frame a dt 0,05) no pueden saltarse una esquina ni
-   un barrote delgado (0,14 m). */
-const SUBPASO_MAX = 0.12;   // metros de avance máximos por subpaso
-const SUBPASO_TOPE = 16;    // tope de subpasos por frame (protección ante NaN)
-
-/* Un subpaso: resuelve Y, luego X y luego Z (ejes independientes) con BARRIDO
-   swept-AABB: se prueba el volumen que recorre el actor durante el subpaso, no
-   solo su posición final. Devuelve { grounded, groundBox }. */
-function pasoActor(actor, world, sdt, onHitWall) {
-  const r = actor.radius, h = actor.height;
-  const piesPrevios = actor.pos.y;        // pies ANTES del movimiento vertical
-  let contacto = false;
-
-  // ---- Eje Y: subir/bajar ---- (elige el techo MÁS ALTO al aterrizar: con
-  // pilas de cajas y plataformas superpuestas el orden no debe importar)
-  let grounded = false, groundBox = null;
-  const dy = actor.vel.y * sdt;
-  const nextY = piesPrevios + dy;
-  const x0 = actor.pos.x, z0 = actor.pos.z;
-  let landTop = -Infinity, ceilBase = Infinity, ceilBox = null;
-  for (const b of world.boxes) {
-    if (!collides(b)) continue;
-    const mn = b.min, mx = b.max;
-    if (x0 + r <= mn.x || x0 - r >= mx.x || z0 + r <= mn.z || z0 - r >= mx.z) continue;
-    if (dy <= 0 && piesPrevios >= mx.y - 0.02 && nextY <= mx.y) {
-      // aterrizaje encima (se guarda el más alto)
-      if (mx.y > landTop) { landTop = mx.y; groundBox = b; }
-      grounded = true;
-    } else if (dy > 0 && piesPrevios + h <= mn.y + 0.02 && nextY + h >= mn.y) {
-      // cabezazo (se guarda el techo más bajo)
-      if (mn.y < ceilBase) { ceilBase = mn.y; ceilBox = b; }
-    }
-  }
-  if (grounded) { actor.pos.y = landTop; actor.vel.y = 0; contacto = true; }
-  else if (ceilBox) { actor.pos.y = ceilBase - h; actor.vel.y = Math.min(0, actor.vel.y); actor.hitCeiling = true; contacto = true; }
-  else {
-    actor.pos.y = nextY;
-    if (actor.pos.y <= world.killY) actor.fell = true;
-  }
-
-  // ---- Rango vertical BARRIDO del subpaso: si el actor cae pegado a un muro,
-  // su cuerpo sigue cruzando la altura del muro aunque los pies ya estén por
-  // debajo de su techo; sin esto se colaba de lado a través de la pared.
-  const yLo = Math.min(piesPrevios, actor.pos.y);
-  const yHi = Math.max(piesPrevios, actor.pos.y) + h;
-
-  // ---- Ejes X y Z ---- (clamp a la cara MÁS restrictiva: con dos sólidos en
-  // el mismo barrido, resolver solo contra el primero de world.boxes dejaba al
-  // actor dentro del segundo)
-  // (aritmética directa sobre pos/half: los getters min/max crean 2 objetos por
-  //  caja y con subpasos el bucle se repite; esto lo mantiene barato)
-  for (const eje of ['x', 'z']) {
-    const cur = actor.pos[eje];
-    const vel = actor.vel[eje];
-    const prox = cur + vel * sdt;
-    if (prox === cur) continue;
-    const lo = Math.min(cur, prox) - r, hi = Math.max(cur, prox) + r;   // barrido en el eje
-    const otro = eje === 'x' ? 'z' : 'x';
-    const posOtro = actor.pos[otro];
-    const oLo = posOtro - r, oHi = posOtro + r;
-    let clamp = null, hitBox = null;
-    for (const b of world.boxes) {
-      if (!collides(b)) continue;
-      let bminY = b.pos.y - b.half.y;
-      const bmaxY = b.pos.y + b.half.y;
-      // CONTENCIÓN HACIA ABAJO: una pared que nace a ras de suelo (y≈0) sigue
-      // conteniendo a quien cae por un hueco pegado a ella. Antes el muro
-      // terminaba en y=0 y, al descender por el agujero, el actor quedaba por
-      // debajo de su base y derivaba lateralmente A TRAVÉS de la pared (medido
-      // en navegador: x 4,58 → 5,90 con la cara interior del muro en 5,00).
-      // Con esto la pared le sigue bloqueando el paso lateral mientras su cuerpo
-      // esté por debajo del techo del muro; solo deja de bloquear cuando el
-      // actor está entero por encima (caja bajo los pies, ver más abajo).
-      if (bminY <= 0.02) bminY = -1e9;
-      if (yHi <= bminY + 0.02 || yLo >= bmaxY - 0.02) continue;         // sin solape vertical en el barrido
-      const bminO = b.pos[otro] - b.half[otro], bmaxO = b.pos[otro] + b.half[otro];
-      if (oHi <= bminO || oLo >= bmaxO) continue;                       // sin solape en el otro eje
-      const eMin = b.pos[eje] - b.half[eje], eMax = b.pos[eje] + b.half[eje];
-      if (hi <= eMin || lo >= eMax) continue;                            // el barrido no cruza la caja
-      if (actor.pos.y >= bmaxY - 0.12) continue;                         // caja justo bajo los pies: no bloquea
-      // Si el actor YA solapaba la caja al empezar y sale por el lado hacia el
-      // que se mueve, la caja no bloquea: antes se elegía la cara "de delante"
-      // por la dirección y una plataforma recién dejada lo devolvía atrás.
-      const solapaba = cur + r > eMin && cur - r < eMax;
-      const centro = (eMin + eMax) / 2;
-      if (solapaba && ((vel > 0 && cur >= centro) || (vel < 0 && cur <= centro))) continue;
-      let c;
-      if (vel > 0) c = eMin - r;              // avanzando +: primera cara por delante
-      else if (vel < 0) c = eMax + r;         // avanzando -: primera cara por detrás
-      else c = (cur < centro) ? eMin - r : eMax + r;   // empujado sin velocidad
-      if (clamp === null ||
-          (vel > 0 && c < clamp) ||
-          (vel < 0 && c > clamp) ||
-          (vel === 0 && Math.abs(c - cur) < Math.abs(clamp - cur))) { clamp = c; hitBox = b; }
-    }
-    if (clamp !== null) {
-      if (clamp !== actor.pos[eje]) actor.pos[eje] = clamp;
-      actor.vel[eje] = 0;
-      contacto = true;
-      if (onHitWall) onHitWall(hitBox);
-    } else {
-      actor.pos[eje] = prox;
-    }
-  }
-
-  // ---- Depenetración residual del subpaso: si tras resolver sigue dentro de
-  // algo (esquina con dos sólidos, plataforma que se materializa encima), sale
-  // por la cara válida más cercana. Solo se paga cuando hubo contacto.
-  if (contacto && insideAny(world, actor.pos.x, actor.pos.y, actor.pos.z, r, h)) depenetrate(actor, world, r, h);
-
-  return { grounded, groundBox };
-}
-
 export function resolveActor(actor, world, dt, { onLand = null, onHitWall = null } = {}) {
   const r = actor.radius, h = actor.height;
   const prevGround = actor.grounded;
@@ -356,25 +213,96 @@ export function resolveActor(actor, world, dt, { onLand = null, onHitWall = null
   //    (DESPUÉS del arrastre: así la plataforma que te sostiene no cuenta dos veces)
   depenetrate(actor, world, r, h);
 
-  // ---- movimiento por subpasos (endurecimiento contra el atravesamiento) ----
-  // El número de subpasos depende de la velocidad HORIZONTAL: los ejes X/Z se
-  // resuelven por solape y sí pueden saltarse un sólido delgado con un paso
-  // grande, mientras que el eje Y es una prueba de CRUCE (todo cruce de la cara
-  // superior/inferior queda atrapado sea cual sea el paso), así que una caída
-  // vertical rápida no necesita subdividirse.
-  const maxH = Math.max(Math.abs(actor.vel.x), Math.abs(actor.vel.z));
-  const n = Math.max(1, Math.min(SUBPASO_TOPE, Math.ceil((maxH * dt) / SUBPASO_MAX)));
-  const sdt = dt / n;
+  const feetY = actor.pos.y;
+  const aabb = {
+    minX: actor.pos.x - r, maxX: actor.pos.x + r,
+    minZ: actor.pos.z - r, maxZ: actor.pos.z + r,
+    minY: feetY, maxY: feetY + h
+  };
+
+  // ---- Eje Y: subir/bajar ---- (elige el techo MÁS ALTO al aterrizar: con
+  // pilas de cajas y plataformas superpuestas el orden no debe importar)
   let grounded = false, groundBox = null;
-  for (let i = 0; i < n; i++) {
-    const res = pasoActor(actor, world, sdt, onHitWall);
-    grounded = res.grounded; groundBox = res.groundBox;
-    if (actor.vel.x === 0 && actor.vel.y === 0 && actor.vel.z === 0) break;   // ya no queda movimiento
+  const dy = actor.vel.y * dt;
+  const nextY = feetY + dy;
+  const yBox = { ...aabb, minY: nextY, maxY: nextY + h };
+  let landTop = -Infinity, ceilBase = Infinity, ceilBox = null;
+  for (const b of world.boxes) {
+    if (!collides(b)) continue;
+    const mn = b.min, mx = b.max;
+    if (yBox.maxX <= mn.x || yBox.minX >= mx.x || yBox.maxZ <= mn.z || yBox.minZ >= mx.z) continue;
+    if (dy <= 0 && feetY >= mx.y - 0.02 && nextY <= mx.y) {
+      // aterrizaje encima (se guarda el más alto)
+      if (mx.y > landTop) { landTop = mx.y; groundBox = b; }
+      grounded = true;
+    } else if (dy > 0 && feetY + h <= mn.y + 0.02 && nextY + h >= mn.y) {
+      // cabezazo (se guarda el techo más bajo)
+      if (mn.y < ceilBase) { ceilBase = mn.y; ceilBox = b; }
+    }
+  }
+  if (grounded) { actor.pos.y = landTop; actor.vel.y = 0; }
+  else if (ceilBox) { actor.pos.y = ceilBase - h; actor.vel.y = Math.min(0, actor.vel.y); actor.hitCeiling = true; }
+  else {
+    actor.pos.y = nextY;
+    if (actor.pos.y <= world.killY) actor.fell = true;
   }
 
-  // ---- red final: nada debería quedar dentro, pero una caja móvil o un
-  // teleport de QA pueden dejar al actor empotrado; sale por la cara válida
-  if (insideAny(world, actor.pos.x, actor.pos.y, actor.pos.z, r, h)) depenetrate(actor, world, r, h);
+  // ---- Eje X ---- (clamp a la cara MÁS restrictiva: con dos sólidos pisando
+  // el mismo barrido, resolver solo contra el primero de world.boxes dejaba al
+  // actor dentro del segundo)
+  actor.pos.x += actor.vel.x * dt;
+  const xAabb = { minX: actor.pos.x - r, maxX: actor.pos.x + r, minZ: actor.pos.z - r, maxZ: actor.pos.z + r, minY: actor.pos.y, maxY: actor.pos.y + h };
+  {
+    let clampX = null, hitBox = null;
+    for (const b of world.boxes) {
+      if (!collides(b)) continue;
+      const mn = b.min, mx = b.max;
+      if (xAabb.maxY <= mn.y + 0.02 || xAabb.minY >= mx.y - 0.02) continue;
+      if (xAabb.maxZ <= mn.z || xAabb.minZ >= mx.z) continue;
+      if (xAabb.maxX <= mn.x || xAabb.minX >= mx.x) continue;
+      if (actor.pos.y >= mx.y - 0.12) continue;      // caja justo bajo los pies: no bloquea
+      let c;
+      if (actor.vel.x > 0) c = mn.x - r;             // avanzando +X: primera cara por delante
+      else if (actor.vel.x < 0) c = mx.x + r;        // avanzando -X: primera cara por detrás
+      else c = (actor.pos.x < (mn.x + mx.x) / 2) ? mn.x - r : mx.x + r;   // empujado sin velocidad
+      if (clampX === null ||
+          (actor.vel.x > 0 && c < clampX) ||
+          (actor.vel.x < 0 && c > clampX) ||
+          (actor.vel.x === 0 && Math.abs(c - actor.pos.x) < Math.abs(clampX - actor.pos.x))) { clampX = c; hitBox = b; }
+    }
+    if (clampX !== null) {
+      if (clampX !== actor.pos.x) actor.pos.x = clampX;
+      actor.vel.x = 0;
+      if (onHitWall) onHitWall(hitBox);
+    }
+  }
+  // ---- Eje Z ---- (igual: cara más restrictiva)
+  actor.pos.z += actor.vel.z * dt;
+  const zAabb = { minX: actor.pos.x - r, maxX: actor.pos.x + r, minZ: actor.pos.z - r, maxZ: actor.pos.z + r, minY: actor.pos.y, maxY: actor.pos.y + h };
+  {
+    let clampZ = null, hitBox = null;
+    for (const b of world.boxes) {
+      if (!collides(b)) continue;
+      const mn = b.min, mx = b.max;
+      if (zAabb.maxY <= mn.y + 0.02 || zAabb.minY >= mx.y - 0.02) continue;
+      if (zAabb.maxX <= mn.x || zAabb.minX >= mx.x) continue;
+      if (zAabb.maxZ <= mn.z || zAabb.minZ >= mx.z) continue;
+      if (actor.pos.y >= mx.y - 0.12) continue;
+      let c;
+      if (actor.vel.z > 0) c = mn.z - r;
+      else if (actor.vel.z < 0) c = mx.z + r;
+      else c = (actor.pos.z < (mn.z + mx.z) / 2) ? mn.z - r : mx.z + r;
+      if (clampZ === null ||
+          (actor.vel.z > 0 && c < clampZ) ||
+          (actor.vel.z < 0 && c > clampZ) ||
+          (actor.vel.z === 0 && Math.abs(c - actor.pos.z) < Math.abs(clampZ - actor.pos.z))) { clampZ = c; hitBox = b; }
+    }
+    if (clampZ !== null) {
+      if (clampZ !== actor.pos.z) actor.pos.z = clampZ;
+      actor.vel.z = 0;
+      if (onHitWall) onHitWall(hitBox);
+    }
+  }
 
   actor.grounded = grounded;
   actor.groundBox = groundBox;

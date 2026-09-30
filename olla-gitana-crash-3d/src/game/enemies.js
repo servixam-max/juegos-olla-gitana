@@ -1,6 +1,39 @@
-/* Enemigos: amplis patrulleros, altavoces-turret con ondas y amplis rodantes. */
+/* Enemigos v3 — bichos con bandera de España, CARA RARA, animación real
+   (patas, alas, cola, bandera), telegrafía clara ANTES de atacar, muerte con
+   efecto + sonido propio y sombra de presencia.
+
+   Tipos: patrol, roller, bee, turret, lamp, candle, barril (los clásicos)
+        + toro, globo, blindado (v3, nuevos, con contrajuego explícito).
+
+   LOS SONIDOS nuevos se sintetizan en art.js (sfxMecanicas) y se registran
+   aquí igual que hace main.js con SFX_MEC: se pide un 'ui' y se SUSTITUYE por
+   el tono propio. Regla del proyecto: nunca hit.mp3 para aciertos/muertes de
+   enemigo.
+
+   CONTRALUEGO (regla de diseño, nada injusto):
+   - Todo ataque tiene aviso visual (anillo en el suelo / luces / postura) y
+     sonoro, y un hueco de reacción ≥ 0,9 s.
+   - toro: embiste recto; esquivable de lado o saltando (p.y>1.35). Al chocar
+     con muro se ATURDE (2,2 s) y en ese estado se remata con giro o pisotón.
+   - globo: planea y suelta gotas que caen rectas; el aro rojo del suelo marca
+     EXACTAMENTE dónde cae. Remachable con giro en el aire.
+   - blindado: acorazado; el pisotón le REBOTA (CLANG, no muere) y solo lo
+     rompe el giro. Se telegrafía con las luces del casco y se lanza a
+     trompicones. Nunca ataca sin haber parpadeado en rojo antes. */
 import * as THREE from 'three';
-import { makeAmp, makeSpeaker, toonMat, PALETA, makeBarrelRodante } from './art.js';
+import {
+  toonMat, PALETA, makeSpeaker, makeBarrelRodante, sfxMecanicas,
+  makeToroBravo, makeGloboPlaneador, makeGotaFria, makeBlindado
+} from './art.js';
+
+/* Los sfx nuevos (tormenta de la huerta, toro, coraza…) no están en el set de
+   main.js: los pedimos aquí con el mismo patrón (registrar + sustituir). */
+function sfxNuevo(audio, name) {
+  try {
+    if (audio && audio.log && audio.log.push) audio.log.push(name);
+    if (audio && audio.ready && !audio.muted) sfxMecanicas(audio, name);
+  } catch (_) { /* motor de audio sin arrancar */ }
+}
 
 /* Textura del anillo de onda (compartida): banda nítida con doble línea y
    muescas radiales, para que la onda se lea como una onda de sonido. */
@@ -40,10 +73,34 @@ function waveTexture() {
   return tex;
 }
 
+/* Sombra compartida (blob) para dar PRESENCIA a los bichos: el juego no usa
+   shadow maps, así que una mancha oscura bajo cada enemigo hace mucho. */
+let SHADOW_TEX = null, SHADOW_MAT = null;
+function shadowTexture() {
+  if (SHADOW_TEX) return SHADOW_TEX;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  const grd = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+  grd.addColorStop(0, 'rgba(8,3,14,0.72)');
+  grd.addColorStop(0.6, 'rgba(8,3,14,0.38)');
+  grd.addColorStop(1, 'rgba(8,3,14,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  SHADOW_TEX = new THREE.CanvasTexture(cv);
+  return SHADOW_TEX;
+}
+function shadowMaterial() {
+  if (!SHADOW_MAT) SHADOW_MAT = new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, opacity: 0.5, depthWrite: false });
+  return SHADOW_MAT;
+}
+
 /* ---------- bicho enemigo con bandera de España ----------
    El usuario pidió enemigos que "se noten que son enemigos": bichos con la
-   bandera de España (rojo-amarillo-rojo) y cara rara. Son los "pelotas" del
-   juego: el patrullero lleva la bandera a la espalda y antenas con ojos. */
+   bandera de España (rojo-amarillo-rojo) y cara rara (boca torcida, colmillos,
+   cuernos ridículos, ojos saltones que SIGUEN al jugador).
+   v3: patas que caminan de verdad, bracitos, cola, panza que respira y
+   BANDERA que ondea; el "aviso" (barra roja sobre la cabeza) se enciende
+   cuando el bicho te ha visto. */
 function makeBicho({ color = 0x6a1f6a, escala = 1, bandera = true, cara = 'rara' } = {}) {
   const g = new THREE.Group();
   const bodyMat = toonMat(color, { emissive: new THREE.Color(color).multiplyScalar(0.16) });
@@ -52,7 +109,7 @@ function makeBicho({ color = 0x6a1f6a, escala = 1, bandera = true, cara = 'rara'
   body.scale.set(1, 0.92, 1);
   body.position.y = 0.5;
   g.add(body);
-  // panza más clara
+  // panza más clara (late al respirar: se anima en update)
   const panza = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), toonMat(0xf6e7c9));
   panza.scale.set(1, 0.8, 0.62); panza.position.set(0, 0.4, 0.28);
   g.add(panza);
@@ -60,14 +117,19 @@ function makeBicho({ color = 0x6a1f6a, escala = 1, bandera = true, cara = 'rara'
   const stemMat = toonMat(color);
   const ojoB = new THREE.MeshBasicMaterial({ color: 0xfff8e7 });
   const pupiB = new THREE.MeshBasicMaterial({ color: 0x101010 });
+  const ojos = [];
   for (const s of [-1, 1]) {
+    const tallo = new THREE.Group();
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.24, 6), stemMat);
-    stem.position.set(s * 0.19, 0.95, 0.06);
+    stem.position.y = -0.12;
     const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.135, 10, 8), ojoB);
-    ojo.position.set(s * 0.19, 1.11, 0.06);
+    ojo.position.y = 0.04;
     const pupi = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 6), pupiB);
-    pupi.position.set(s * 0.21, 1.11, 0.17);
-    g.add(stem, ojo, pupi);
+    pupi.position.set(0, 0.04, 0.1);
+    tallo.add(stem, ojo, pupi);
+    tallo.position.set(s * 0.19, 1.03, 0.06);
+    g.add(tallo);
+    ojos.push({ tallo, pupi });
   }
   // cara rara: boca torcida con colmillos
   const bocaMat = toonMat(0x2a0d2a);
@@ -87,16 +149,34 @@ function makeBicho({ color = 0x6a1f6a, escala = 1, bandera = true, cara = 'rara'
     cuerno.position.set(s * 0.3, 0.82, -0.05); cuerno.rotation.z = s * 0.5;
     g.add(cuerno);
   }
-  // patas cortas
+  // PATAS articuladas (caminan: se animan en update)
   const pataMat = toonMat(0x2a0d2a);
+  const patas = [];
   for (const s of [-1, 1]) {
+    const cadera = new THREE.Group();
     const pata = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.12, 4, 6), pataMat);
-    pata.position.set(s * 0.22, 0.12, 0.02);
-    g.add(pata);
+    pata.position.y = -0.06;
     const pie = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.24), pataMat);
-    pie.position.set(s * 0.22, 0.04, 0.08);
-    g.add(pie);
+    pie.position.set(0, -0.16, 0.08);
+    cadera.add(pata, pie);
+    cadera.position.set(s * 0.22, 0.22, 0.02);
+    g.add(cadera);
+    patas.push(cadera);
   }
+  // bracitos que se agitan al perseguirte
+  const brazos = [];
+  for (const s of [-1, 1]) {
+    const brazo = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.16, 4, 6), pataMat);
+    brazo.geometry.translate(0, -0.09, 0);
+    brazo.position.set(s * 0.4, 0.6, 0.1);
+    brazo.rotation.z = s * 0.9;
+    g.add(brazo);
+    brazos.push(brazo);
+  }
+  // cola corta
+  const cola = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.3, 6), pataMat);
+  cola.position.set(0, 0.42, -0.44); cola.rotation.x = -0.8;
+  g.add(cola);
   // BANDERA DE ESPAÑA a la espalda (rojo, amarillo, rojo) con mástil
   if (bandera) {
     const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.9, 6), toonMat(0x8a6a3a));
@@ -110,13 +190,26 @@ function makeBicho({ color = 0x6a1f6a, escala = 1, bandera = true, cara = 'rara'
     const rojo2 = new THREE.Mesh(new THREE.PlaneGeometry(0.38, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
     rojo2.position.y = -hY - hR / 2;
     tela.add(rojo1, amar, rojo2);
-    tela.position.set(0, 1.15, -0.3);
-    tela.rotation.y = 0.3;
-    g.add(tela);
-    g.userData.tela = tela;
+    const pivote = new THREE.Group();       // ondea desde el mástil
+    tela.position.x = 0.19;
+    pivote.add(tela);
+    pivote.position.set(0, 1.15, -0.3);
+    pivote.rotation.y = 0.3;
+    g.add(pivote);
+    g.userData.tela = pivote;
   }
+  // AVISO: barra roja sobre la cabeza que se enciende al verte (telegrafía)
+  const aviso = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.26, 0.09), new THREE.MeshBasicMaterial({ color: 0xff2e2e, transparent: true, opacity: 0 }));
+  aviso.position.set(0, 1.52, 0);
+  g.add(aviso);
   g.scale.setScalar(escala);
   g.userData.body = body;
+  g.userData.panza = panza;
+  g.userData.patas = patas;
+  g.userData.brazos = brazos;
+  g.userData.cola = cola;
+  g.userData.ojos = ojos;
+  g.userData.aviso = aviso;
   return g;
 }
 
@@ -129,12 +222,20 @@ export class EnemySystem {
     this.list = [];
     this.waves = [];
     this.projectiles = [];
+    this._extras = [];   // sombras y anillos de aviso (se limpian en cada carga)
   }
 
   load(defs, levelCtx = {}) {
-    // limpia los anteriores
-    for (const e of this.list) { if (e.obj) this.scene.remove(e.obj); }
+    // limpia los anteriores. OJO: main.js vacía enemies.list ANTES de llamar a
+    // load(), así que las sombras y los anillos creados aparte viven en
+    // _extras: si no los quitáramos aquí, el nivel siguiente arrastraría
+    // manchas y aros del anterior.
+    for (const e of this.list) if (e.obj) this.scene.remove(e.obj);
     for (const w of this.waves) this.scene.remove(w.mesh);
+    for (const o of this._extras) this.scene.remove(o);
+    for (const g of this.projectiles) { this.scene.remove(g.obj); if (g.anillo) this.scene.remove(g.anillo); }
+    this._extras = [];
+    this.projectiles = [];
     this.list = []; this.waves = [];
     for (const d of defs) {
       if (d.type === 'patrol') this.list.push(this.makePatrol(d));
@@ -144,13 +245,117 @@ export class EnemySystem {
       else if (d.type === 'lamp') this.list.push(this.makeLamp(d));
       else if (d.type === 'candle') this.list.push(this.makeCandle(d));
       else if (d.type === 'barril') this.list.push(this.makeBarrilRodante(d));
+      else if (d.type === 'toro') this.list.push(this.makeToro(d));
+      else if (d.type === 'globo') this.list.push(this.makeGlobo(d));
+      else if (d.type === 'blindado') this.list.push(this.makeBlindado(d));
     }
+  }
+
+  /* ---------- utilidades compartidas (sombra + anillo de aviso) ---------- */
+
+  /* Sombra bajo el bicho: da presencia y "peso" visual. Se pega al suelo. */
+  _sombra(e, size = 1.1) {
+    if (!e.sombra) {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), shadowMaterial());
+      s.rotation.x = -Math.PI / 2;
+      s.renderOrder = 2;
+      this.scene.add(s);
+      this._extras.push(s);
+      e.sombra = s;
+    }
+    const p = e.obj.position;
+    let top = 0.02;
+    const g = this.world && this.world.groundUnder({ minX: p.x - 0.4, maxX: p.x + 0.4, minZ: p.z - 0.4, maxZ: p.z + 0.4, minY: -50, maxY: 60 });
+    if (g) top = g.top + 0.02;
+    e.sombra.position.set(p.x, top, p.z);
+    const alt = Math.max(0, p.y - top);
+    const k = Math.max(0.35, 1 - alt * 0.07);
+    e.sombra.scale.setScalar(size * k);
+    e.sombra.material = shadowMaterial();
+    e.sombra.visible = e.obj.visible !== false;
+  }
+
+  /* Anillo de AVISO reutilizable (el suelo "avisa" antes de cada ataque).
+     Se crea la primera vez y se apaga poniendo opacity=0. */
+  _aviso(e, { color = 0xff5d5d, r = 1.1, opacity = 0, r0 = 0.55, r1 = 0.8, y = 0.07 } = {}) {
+    if (!e.ring) {
+      const m = new THREE.Mesh(
+        new THREE.RingGeometry(r0, r1, 22),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 4;
+      this.scene.add(m);
+      this._extras.push(m);
+      e.ring = m;
+    }
+    if (opacity <= 0) { e.ring.material.opacity = 0; return; }
+    e.ring.material.color.setHex(color);
+    e.ring.position.set(e.obj.position.x, y, e.obj.position.z);
+    e.ring.scale.setScalar(r);
+    e.ring.material.opacity = opacity;
+  }
+
+  /* muerte del bicho: efecto en su sitio + sonido propio + fuera de escena */
+  _matar(e, { colors = [0x9aa5b1, PALETA.rojo, 0xffffff], sfx = 'bicho_pop', shake = 0.14, ring = PALETA.rojo, n = 16 } = {}) {
+    const p = e.obj.position;
+    this.fx.impact({ x: p.x, y: Math.max(0.4, p.y + 0.4), z: p.z }, {
+      count: n, speed: 5.5, up: 5, life: 0.8, size: 1, colors,
+      shake, flash: colors[0], flashSize: 1.7, ring, ringSize: 2.0
+    });
+    sfxNuevo(this.audio, sfx);
+    this._despawn(e);
+  }
+
+  _despawn(e) {
+    e.alive = false;
+    if (e.obj) this.scene.remove(e.obj);
+    if (e.sombra) { this.scene.remove(e.sombra); e.sombra = null; }
+    if (e.ring) { this.scene.remove(e.ring); e.ring = null; }
+  }
+
+  /* ---------- toro bravo: embiste recto y se aturde al chocar ---------- */
+  makeToro(d) {
+    const obj = makeToroBravo({ color: d.color || 0xb31217 });
+    obj.position.set(d.x, 0, d.z);
+    this.scene.add(obj);
+    return {
+      ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 3,
+      alive: true, kind: 'toro', hp: 2,
+      estado: 'paseo', tEstado: 0, dir: { x: 0, z: 1 }, avisoSfx: 0
+    };
+  }
+
+  /* ---------- globo planeador: suelta gotas frías verticales ---------- */
+  makeGlobo(d) {
+    const obj = makeGloboPlaneador({ color: d.color || 0x1b7f79 });
+    obj.position.set(d.x, d.height || 2.7, d.z);
+    this.scene.add(obj);
+    return {
+      ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 5,
+      alive: true, kind: 'globo', hp: 1,
+      cd: (d.period || 3.6) * (0.5 + Math.random() * 0.5), apuntando: 0
+    };
+  }
+
+  /* ---------- blindado: acorazado, solo muere con el giro ---------- */
+  makeBlindado(d) {
+    const obj = makeBlindado({ color: d.color || 0x4b6b4a });
+    obj.position.set(d.x, 0, d.z);
+    this.scene.add(obj);
+    return {
+      ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 3,
+      alive: true, kind: 'blindado', hp: 3,
+      estado: 'paseo', tEstado: 0, dir: { x: 0, z: 1 }
+    };
   }
 
   /* abeja: vuela en zigzag a media altura.
      Detalle v2: cuerpo con franjas, cabeza con ojos brillantes que siguen al
      jugador, alas que baten de verdad, antenas, patas, aguijón y halo
-     luminoso. Todo lo que debe verse en la oscuridad va con MeshBasicMaterial. */
+     luminoso. Todo lo que debe verse en la oscuridad va con MeshBasicMaterial.
+     v3: PICADO avisado — cuando te tiene cerca se queda quieta, se le enciende
+     el aguijón y se lanza en picado; luego vuelve a su altura. */
   makeBee(d) {
     const g = new THREE.Group();
     const cuerpo = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), toonMat(0xffbe0b));
@@ -214,7 +419,10 @@ export class EnemySystem {
     g.userData = { alas, cabeza, halo, punta };
     g.position.set(d.x, d.height || 2.4, d.z);
     this.scene.add(g);
-    return { ...d, obj: g, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'bee', hp: 1 };
+    return {
+      ...d, obj: g, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'bee', hp: 1,
+      estado: 'ronda', tEstado: 0, avisoSfx: 0
+    };
   }
 
   /* lámpara oscilante del casino: va y viene colgada.
@@ -266,12 +474,13 @@ export class EnemySystem {
     g.userData = { bombilla, halo, cono, luzMat, pantalla };
     g.position.set(d.x, 5.0, d.z);
     this.scene.add(g);
-    return { ...d, obj: g, base: { x: d.x, y: 5.0, z: d.z }, t: Math.random() * 10, alive: true, kind: 'lamp', hp: 1 };
+    return { ...d, obj: g, base: { x: d.x, y: 5.0, z: d.z }, t: Math.random() * 10, alive: true, kind: 'lamp', hp: 1, crujido: 0 };
   }
 
   /* cirio que cae del cielo (Semana Santa): avisa con sombra y cae.
      Detalle v2: plato de latón, chorretones de cera, pabilo y llama en tres
-     capas con halo; mientras cae suelta chispas y el aviso late más rápido. */
+     capas con halo; mientras cae suelta chispas y el aviso late más rápido.
+     v3: además suelta una SOMBRA que crece al caer (se ve venir). */
   makeCandle(d) {
     const g = new THREE.Group();
     const plato = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.07, 12), toonMat(PALETA.dorado));
@@ -313,7 +522,7 @@ export class EnemySystem {
     const obj = makeBicho({ color: d.color || 0x7a2a8f, escala: 1.15, bandera: true });
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
-    return { ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'patrol', hp: 1 };
+    return { ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'patrol', hp: 1, avisoSfx: 0 };
   }
   makeTurret(d) {
     const obj = makeSpeaker({ big: true, color: 0x9d0208 });
@@ -331,14 +540,14 @@ export class EnemySystem {
     obj.userData.luz = luz;
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
-    return { ...d, obj, t: Math.random() * 2, alive: true, kind: 'turret', cd: d.period || 2.0, hp: 2 };
+    return { ...d, obj, t: Math.random() * 2, alive: true, kind: 'turret', cd: d.period || 2.0, hp: 2, carga: 0, warnSfx: 0 };
   }
   makeRoller(d) {
     // bicho gordo rodante (rojo, con bandera): el que empuja sin piedad
     const obj = makeBicho({ color: 0x8f2a2a, escala: 1.55, bandera: true });
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
-    return { ...d, obj, alive: true, kind: 'roller', vz: -(d.speed || 8), base: { x: d.x, z: d.z }, hp: 1 };
+    return { ...d, obj, alive: true, kind: 'roller', vz: -(d.speed || 8), base: { x: d.x, z: d.z }, hp: 1, dustT: 0 };
   }
 
   /* BARRIL RODANTE (mecánica Crash): barril tumbado que baja rodando por el
@@ -353,58 +562,104 @@ export class EnemySystem {
   }
 
   /* Devuelve true si el jugador recibe daño este frame */
-  update(dt, player, ctx) {
+  update(dt, player, ctx = {}) {
     let hit = false;
     const p = player.pos;
-    const playerBox = { minX: p.x - 0.4, maxX: p.x + 0.4, minZ: p.z - 0.4, maxZ: p.z + 0.4, minY: p.y + 0.05, maxY: p.y + player.hitHeight - 0.1 };
 
     for (const e of this.list) {
       if (!e.alive) continue;
+      const ud = e.obj.userData || {};
       if (e.kind === 'patrol') {
+        /* Bicho con bandera: patrulla en su eje. v3: camino de verdad (patas,
+           brazos, panza respirando), la bandera ondea, te "ve" cuando estás
+           cerca (barra roja + anillo + sonido) y su mirada te sigue. */
         e.t += dt * (e.speed || 3) * 0.5;
         const o = Math.sin(e.t) * (e.span || 6) * 0.5;
         if (e.axis === 'z') { e.obj.position.z = e.base.z + o; e.obj.position.x = e.base.x; }
         else { e.obj.position.x = e.base.x + o; e.obj.position.z = e.base.z; }
-        e.obj.rotation.y = Math.sin(e.t) * 0.5;
-        e.obj.position.y = Math.abs(Math.sin(e.t * 3)) * 0.06;
+        const mirando = Math.cos(e.t) >= 0 ? 1 : -1;      // hacia dónde patrulla
+        e.obj.rotation.y = e.axis === 'z' ? (mirando < 0 ? Math.PI : 0) : (mirando < 0 ? -Math.PI / 2 : Math.PI / 2);
+        const paso = Math.sin(e.t * (e.speed || 3) * 2.4);
+        e.obj.position.y = Math.abs(paso) * 0.05;
+        if (ud.patas) {
+          ud.patas[0].rotation.x = paso * 0.7;
+          ud.patas[1].rotation.x = -paso * 0.7;
+        }
+        if (ud.brazos) {
+          ud.brazos[0].rotation.x = Math.sin(e.t * 6) * 0.5;
+          ud.brazos[1].rotation.x = Math.sin(e.t * 6 + 1.6) * 0.5;
+        }
+        if (ud.panza) ud.panza.scale.y = 0.8 + Math.sin(e.t * 3.4) * 0.06;
+        if (ud.tela) ud.tela.rotation.y = 0.3 + Math.sin(e.t * 3.2) * 0.34;   // bandera ondeando
+        // te ha visto: avisa (barra + anillo + alerta sonora con enfriamiento)
+        const distP = Math.hypot(e.obj.position.x - p.x, e.obj.position.z - p.z);
+        const alerta = distP < 3.4 && p.y < 1.6;
+        if (ud.aviso) ud.aviso.material.opacity = alerta ? 0.55 + Math.sin(e.t * 14) * 0.45 : 0;
+        this._aviso(e, { color: 0xff5d5d, r: 1.0 + Math.sin(e.t * 8) * 0.06, opacity: alerta ? 0.5 : 0 });
+        if (ud.ojos) {
+          const gy = Math.atan2(p.x - e.obj.position.x, p.z - e.obj.position.z) - e.obj.rotation.y;
+          for (const ojo of ud.ojos) {
+            ojo.tallo.rotation.y = Math.max(-0.6, Math.min(0.6, gy)) * 0.5;
+            ojo.pupi.position.x = Math.max(-0.05, Math.min(0.05, Math.sin(gy) * 0.06));
+          }
+        }
+        e.avisoSfx -= dt;
+        if (alerta && e.avisoSfx <= 0) { e.avisoSfx = 1.4; this.audio.sfx('alert'); }
+        this._sombra(e, 1.05);
         // daño por contacto (salvo si el jugador gira)
         const dx = Math.abs(e.obj.position.x - p.x), dz = Math.abs(e.obj.position.z - p.z);
         if (dx < 0.75 && dz < 0.75 && Math.abs(p.y - 0) < 1.1) {
           if (player.spinning) {
-            e.alive = false;
-            this.fx.burst({ x: e.obj.position.x, y: 0.5, z: e.obj.position.z }, { count: 16, color: 0x9aa5b1, speed: 5, up: 5, life: 0.8, colors: [0x9aa5b1, PALETA.rojo, 0x2b2b2b] });
-            this.audio.sfx('crate');
-            this.scene.remove(e.obj);
+            this._matar(e, { colors: [0x9aa5b1, PALETA.rojo, 0x2b2b2b], sfx: 'bicho_pop' });
           } else if (player.grounded === false && p.y > 1.0) {
             // pisotón: también lo revienta
-            e.alive = false;
-            this.fx.burst({ x: e.obj.position.x, y: 0.5, z: e.obj.position.z }, { count: 12, color: 0x9aa5b1, speed: 4, up: 4, life: 0.7 });
-            this.audio.sfx('crate');
-            this.scene.remove(e.obj);
+            this._matar(e, { colors: [PALETA.rojo, PALETA.dorado, 0xffffff], sfx: 'bicho_pop', n: 12, shake: 0.1 });
           } else hit = true;
         }
       } else if (e.kind === 'turret') {
+        /* Altavoz-torreta: gira y dispara ondas. v3: TELEGRAFÍA de carga —
+           antes de disparar, la luz se hincha y un anillo rojo late en el
+           suelo medio segundo; solo entonces sale la onda. */
         e.t += dt;
         e.obj.rotation.y = Math.sin(e.t * 0.6) * 0.9;
         e.flash = Math.max(0, (e.flash || 0) - dt);
-        // la luz del altavoz late siempre y destella al disparar (se ve de noche)
         const luz = e.obj.userData.luz;
+        e.cd -= dt;
+        const cargando = e.cd <= 0.6 && e.cd > 0;
+        if (cargando && e.carga === 0) { e.carga = 1; this.audio.sfx('warn'); }
+        if (!cargando) e.carga = 0;
         if (luz) {
           const on = e.flash > 0;
-          luz.material.color.setHex(on ? 0xffffff : 0xff5d5d);
-          luz.scale.setScalar(on ? 1.9 : 1 + Math.sin(e.t * 7) * 0.16);
+          luz.material.color.setHex(on ? 0xffffff : (cargando ? 0xffb020 : 0xff5d5d));
+          luz.scale.setScalar(on ? 1.9 : (cargando ? 1 + (0.6 - e.cd) * 1.6 : 1 + Math.sin(e.t * 7) * 0.16));
         }
-        e.cd -= dt;
+        this._aviso(e, { color: 0xffb020, r: 1.2 + (0.6 - Math.max(0, e.cd)) * 0.9, opacity: cargando ? 0.55 : 0, y: 0.05 });
+        this._sombra(e, 1.6);
         if (e.cd <= 0) {
           e.cd = e.period || 2.0;
           e.flash = 0.3;
+          e.carga = 0;
           this.spawnWave(e);
         }
+        if (player.spinning) {
+          const dx = Math.abs(e.obj.position.x - p.x), dz = Math.abs(e.obj.position.z - p.z);
+          if (dx < 1.1 && dz < 1.1 && p.y < 1.8) this._matar(e, { colors: [0x9d0208, 0x151515, PALETA.dorado], sfx: 'bicho_pop' });
+        }
       } else if (e.kind === 'roller') {
+        /* Ampli rodante: baja a toda velocidad. v3: gira la bola de verdad
+           (rotación en x), levanta polvo y suelta un retumbo que se oye
+           acercarse; el giro lo repele. */
         e.obj.position.z += e.vz * dt;
         e.obj.rotation.x -= e.vz * dt * 0.4;
         if (e.obj.position.z < e.base.z - 26) { e.obj.position.z = e.base.z + 8; }
         if (e.obj.position.z < -6) { e.obj.position.z = e.base.z; }
+        if (ud.tela) ud.tela.rotation.y = 0.3 + Math.sin(e.t * 9) * 0.3;
+        this._sombra(e, 1.5);
+        e.dustT = (e.dustT || 0) - dt;
+        if (e.dustT <= 0 && Math.abs(e.obj.position.z - p.z) < 22) {
+          e.dustT = 0.09;
+          this.fx.burst({ x: e.obj.position.x, y: 0.15, z: e.obj.position.z + 0.6 }, { count: 1, speed: 0.8, up: 1.1, life: 0.45, size: 0.8, colors: [0x9aa5b1, 0x6b7280] });
+        }
         const dx = Math.abs(e.obj.position.x - p.x), dz = Math.abs(e.obj.position.z - p.z);
         if (dx < 0.9 && dz < 0.9 && p.y < 1.3) {
           if (player.spinning || (p.y > 0.9)) {
@@ -431,6 +686,7 @@ export class EnemySystem {
         }
         e.obj.position.z += e.vz * dt;
         e.obj.rotation.x -= e.vz * dt * 0.9;    // rueda de verdad
+        this._sombra(e, 1.5);
         // aviso sonoro periódico mientras rueda
         e.sfxT = (e.sfxT || 0) - dt;
         if (e.sfxT <= 0) { e.sfxT = 0.34; this.audio.sfx('rodar'); }
@@ -458,13 +714,37 @@ export class EnemySystem {
           }
         }
       } else if (e.kind === 'bee') {
-        // zigzag a media altura
+        /* Abeja: zigzag + PICADO avisado. Se queda quieta medio segundo con
+           el aguijón encendido y se lanza en picado; si no te pilla, sube. */
         e.t += dt;
-        e.obj.position.x = e.base.x + Math.sin(e.t * 1.8) * (e.span || 5);
-        e.obj.position.z = e.base.z + Math.cos(e.t * 1.1) * 1.6;
-        e.obj.position.y = (e.height || 2.4) + Math.sin(e.t * 4.2) * 0.45;
-        e.obj.rotation.y = Math.sin(e.t * 1.8) * 0.8;
-        // presentación: alas batiendo, halo latiendo y ojos que siguen al jugador
+        if (e.estado === 'pica') {
+          e.tEstado += dt;
+          e.obj.position.x += e.dirX * dt * 6.5;
+          e.obj.position.z += e.dirZ * dt * 6.5;
+          e.obj.position.y = Math.max(0.9, e.obj.position.y - dt * 3.2);
+          if (e.tEstado > 0.55) { e.estado = 'sube'; e.tEstado = 0; }
+        } else if (e.estado === 'sube') {
+          e.tEstado += dt;
+          e.obj.position.y = Math.min(e.height || 2.4, e.obj.position.y + dt * 2.6);
+          if (e.tEstado > 0.9) { e.estado = 'ronda'; e.tEstado = 0; }
+        } else {
+          e.obj.position.x = e.base.x + Math.sin(e.t * 1.8) * (e.span || 5);
+          e.obj.position.z = e.base.z + Math.cos(e.t * 1.1) * 1.6;
+          e.obj.position.y = (e.height || 2.4) + Math.sin(e.t * 4.2) * 0.45;
+          const dpx = p.x - e.obj.position.x, dpz = p.z - e.obj.position.z;
+          const dist = Math.hypot(dpx, dpz);
+          if (dist < 2.6 && p.y < 1.2) {
+            e.avisoT = (e.avisoT || 0) + dt;
+            e.obj.userData.punta.scale.setScalar(1 + Math.sin(e.t * 26) * 0.5);
+            if (e.avisoT > 0.45) {
+              e.estado = 'pica'; e.tEstado = 0; e.avisoT = 0;
+              const m = dist || 1;
+              e.dirX = dpx / m; e.dirZ = dpz / m;
+              sfxNuevo(this.audio, 'globo_dispara');
+            }
+          } else { e.avisoT = 0; e.obj.userData.punta.scale.setScalar(1); }
+        }
+        e.obj.rotation.y = Math.atan2(p.x - e.obj.position.x, p.z - e.obj.position.z);
         const ub = e.obj.userData;
         if (ub.alas) {
           const flap = Math.sin(e.t * 42) * 0.7;
@@ -479,14 +759,14 @@ export class EnemySystem {
           ub.cabeza.rotation.y = Math.max(-0.7, Math.min(0.7, gy)) * 0.6;
           ub.cabeza.rotation.x = Math.max(-0.4, Math.min(0.4, (p.y + 0.6 - e.obj.position.y) * 0.25));
         }
+        e.avisoSfx = (e.avisoSfx || 0) - dt;
+        if (e.estado === 'ronda' && e.avisoT > 0 && e.avisoSfx <= 0) { e.avisoSfx = 0.45; this.audio.sfx('alert'); }
+        this._sombra(e, 0.9);
         const d = Math.hypot(e.obj.position.x - p.x, e.obj.position.z - p.z);
         const dy = Math.abs(e.obj.position.y - (p.y + 0.6));
         if (d < 0.85 && dy < 1.3) {
           if (player.spinning) {
-            e.alive = false;
-            this.fx.burst({ x: e.obj.position.x, y: e.obj.position.y, z: e.obj.position.z }, { count: 14, speed: 5, up: 4, life: 0.7, colors: [0xffbe0b, 0x1a1a1a, 0xffffff] });
-            this.audio.sfx('crate');
-            this.scene.remove(e.obj);
+            this._matar(e, { colors: [0xffbe0b, 0x1a1a1a, 0xffffff], sfx: 'bicho_pop', n: 14 });
           } else hit = true;
         }
       } else if (e.kind === 'lamp') {
@@ -506,13 +786,16 @@ export class EnemySystem {
           ul.cono.rotation.z = -sw * 0.35;
           ul.cono.material.opacity = 0.08 + flick * 0.07;
         }
+        // crujido de la cadena al acercarse (te avisa de que está ahí arriba)
+        e.crujido = (e.crujido || 0) - dt;
+        if (e.crujido <= 0 && Math.hypot(e.obj.position.x - p.x, e.obj.position.z - p.z) < 5) {
+          e.crujido = 2.2; this.audio.sfx('crujido');
+        }
+        this._aviso(e, { color: 0xffe066, r: 1.0, opacity: 0.28 + Math.sin(e.t * 10) * 0.12, y: 0.05 });
         const d = Math.hypot(e.obj.position.x - p.x, e.obj.position.z - p.z);
         if (d < 0.75 && p.y > 1.6 && p.y < 5.4) {
           if (player.spinning) {
-            e.alive = false;
-            this.fx.burst({ x: e.obj.position.x, y: e.obj.position.y, z: e.obj.position.z }, { count: 12, speed: 4, up: 4, life: 0.7, colors: [0xd62828, 0xffe9a8] });
-            this.audio.sfx('crate');
-            this.scene.remove(e.obj);
+            this._matar(e, { colors: [0xd62828, 0xffe9a8], sfx: 'bicho_pop', n: 12, shake: 0.12 });
           } else hit = true;
         }
       } else if (e.kind === 'candle') {
@@ -559,8 +842,39 @@ export class EnemySystem {
           if (e.aviso) { e.aviso.material.opacity = 0; }
           if (fase > 0.9) e.t = 0;
         }
+      } else if (e.kind === 'toro') {
+        hit = this._updateToro(e, dt, player, hit) || hit;
+      } else if (e.kind === 'globo') {
+        hit = this._updateGlobo(e, dt, player, hit) || hit;
+      } else if (e.kind === 'blindado') {
+        hit = this._updateBlindado(e, dt, player, hit) || hit;
       }
     }
+
+    // GOTAS FRÍAS del planeador (proyectiles verticales)
+    for (const g of this.projectiles) {
+      if (!g.alive) continue;
+      g.t += dt;
+      g.obj.position.y -= g.vy * dt;
+      if (g.obj.userData.cuerpo) g.obj.userData.cuerpo.rotation.y += dt * 7;
+      if (g.anillo) {                       // el aro del suelo marca DÓNDE cae
+        g.anillo.material.opacity = 0.35 + Math.sin(g.t * 12) * 0.2;
+        g.anillo.scale.setScalar(0.9 + Math.min(1, g.t * 0.6) * 0.5);
+      }
+      if (g.obj.position.y <= 0.35) {
+        // SALPICÓN: moja en un radio pequeño; el aro ya lo avisaba
+        g.alive = false;
+        this.scene.remove(g.obj);
+        if (g.anillo) this.scene.remove(g.anillo);
+        this.fx.impact({ x: g.x, y: 0.3, z: g.z }, {
+          count: 16, speed: 5.5, up: 5.5, life: 0.7, size: 1, colors: [0x59b7e8, 0x9fe1ff, 0xffffff],
+          shake: 0.12, flash: 0x9fe1ff, flashSize: 1.6, ring: 0x59b7e8, ringSize: 2.2
+        });
+        sfxNuevo(this.audio, 'globo_pop');
+        if (Math.hypot(g.x - p.x, g.z - p.z) < 1.15 && p.y < 1.2) hit = true;
+      }
+    }
+    this.projectiles = this.projectiles.filter((g) => g.alive);
 
     // ondas sonoras
     for (const w of this.waves) {
@@ -587,6 +901,283 @@ export class EnemySystem {
       }
     }
     this.waves = this.waves.filter((w) => w.alive);
+    return hit;
+  }
+
+  /* ================= TORO BRAVO =================
+     paseo → (te ve) aviso 1,7 s con resoplido → embestida recta (hasta 26 m o
+     muro) → aturdido 2,2 s (estrellitas, rematable) → recupera. */
+  _updateToro(e, dt, player, hit) {
+    const p = player.pos;
+    const ud = e.obj.userData;
+    const pos = e.obj.position;
+    e.avisoSfx = Math.max(0, (e.avisoSfx || 0) - dt);
+    e.t += dt;
+
+    if (e.estado === 'paseo') {
+      // trota despacio en su eje, mirando hacia donde va
+      const o = Math.sin(e.t * 1.4) * (e.span || 3) * 0.5;
+      pos.x = e.base.x + (e.axis === 'z' ? 0 : o);
+      pos.z = e.base.z + (e.axis === 'z' ? o : 0);
+      e.obj.rotation.y = (e.axis === 'z' ? (Math.cos(e.t * 1.4) > 0 ? 0 : Math.PI) : (Math.cos(e.t * 1.4) > 0 ? Math.PI / 2 : -Math.PI / 2));
+      const paso = Math.sin(e.t * 6);
+      if (ud.patas) {
+        ud.patas[0].rotation.x = paso * 0.5; ud.patas[1].rotation.x = -paso * 0.5;
+        ud.patas[2].rotation.x = -paso * 0.5; ud.patas[3].rotation.x = paso * 0.5;
+      }
+      pos.y = Math.abs(paso) * 0.04;
+      const dist = Math.hypot(pos.x - p.x, pos.z - p.z);
+      if (dist < (e.rango || 11) && p.y < 2.2) {
+        e.estado = 'aviso'; e.tEstado = 0;
+        // bloquea la dirección hacia el jugador (embestida RECTA, evitable)
+        const dx = p.x - pos.x, dz = p.z - pos.z;
+        const m = Math.hypot(dx, dz) || 1;
+        e.dir = { x: dx / m, z: dz / m };
+        sfxNuevo(this.audio, 'toro_aviso');
+        this.fx.burst({ x: pos.x, y: 0.3, z: pos.z + 0.6 }, { count: 8, speed: 2.4, up: 1.6, life: 0.5, size: 0.9, colors: [0xd9cbb8, 0xffffff] });
+      }
+    } else if (e.estado === 'aviso') {
+      // TELEGRAFÍA: escarba el suelo, resopla (vaho) y el anillo rojo crece
+      e.tEstado += dt;
+      const k = Math.min(1, e.tEstado / 1.7);
+      pos.y = 0;
+      e.obj.rotation.y = Math.atan2(e.dir.x, e.dir.z);
+      if (ud.patas) { ud.patas[0].rotation.x = -1.1 - Math.sin(e.t * 22) * 0.5; }
+      if (ud.cabeza) ud.cabeza.rotation.x = 0.25 * k;
+      if (ud.vaho) ud.vaho.material.opacity = (Math.sin(e.t * 20) * 0.5 + 0.5) * 0.5;
+      if (ud.tela) ud.tela.rotation.y = 0.3 + Math.sin(e.t * 16) * 0.5;
+      this._aviso(e, { color: 0xff2e2e, r: 1.2 + k * 1.1, opacity: 0.35 + k * 0.4, r0: 0.62, r1: 0.82 });
+      if (ud.cuerpo) ud.cuerpo.scale.set(1, 0.85 - 0.1 * k, 1.5 - 0.05 * k);   // se agacha
+      this._sombra(e, 1.5);
+      if (e.tEstado >= 1.7) {
+        e.estado = 'embiste'; e.tEstado = 0; e.recorrido = 0;
+        if (ud.vaho) ud.vaho.material.opacity = 0;
+        if (ud.cuerpo) ud.cuerpo.scale.set(1, 0.85, 1.5);
+        sfxNuevo(this.audio, 'toro_embiste');
+        this.fx.burst({ x: pos.x, y: 0.4, z: pos.z }, { count: 16, speed: 4.5, up: 2, life: 0.6, colors: [0x9aa5b1, 0xd9cbb8] });
+      }
+    } else if (e.estado === 'embiste') {
+      e.tEstado += dt;
+      const V = e.speedCarga || 10.2;
+      const nx = pos.x + e.dir.x * V * dt;
+      const nz = pos.z + e.dir.z * V * dt;
+      e.recorrido += V * dt;
+      e.obj.rotation.y = Math.atan2(e.dir.x, e.dir.z);
+      const paso = Math.sin(e.tEstado * 26);
+      if (ud.patas) { ud.patas[0].rotation.x = paso * 0.9; ud.patas[1].rotation.x = -paso * 0.9; }
+      pos.y = Math.abs(paso) * 0.08;
+      if (ud.tela) ud.tela.rotation.y = 0.3 + Math.sin(e.tEstado * 14) * 0.6;
+      // ¿choque? muro o caja por delante, o vacío (no se tira por un hueco)
+      const blocker = this.world && this.world.overlap({ minX: nx - 0.45, maxX: nx + 0.45, minY: 0.15, maxY: 1.5, minZ: nz - 0.45, maxZ: nz + 0.45 },
+        (b) => b.solid !== false && b.tag !== 'mover');
+      const suelo = this.world && this.world.groundUnder({ minX: nx - 0.4, maxX: nx + 0.4, minZ: nz - 0.4, maxZ: nz + 0.4, minY: -50, maxY: 1.6 });
+      if (blocker || !suelo || e.recorrido > 26) {
+        // TROMPAZO: se aturde (estrellitas) — aquí se le puede rematar
+        e.estado = 'aturdido'; e.tEstado = 0;
+        pos.y = 0.06;
+        this.fx.impact({ x: pos.x, y: 0.7, z: pos.z }, {
+          count: 18, speed: 6, up: 6, life: 0.7, size: 1, colors: [0xfff1c0, 0xffbe0b, 0xffffff],
+          shake: 0.32, flash: 0xffe066, flashSize: 2.0, ring: 0xffbe0b, ringSize: 2.4
+        });
+        sfxNuevo(this.audio, 'toro_trompa');
+        if (ud.cabeza) ud.cabeza.rotation.x = 0;
+      } else {
+        pos.x = nx; pos.z = nz;
+        this.fx.burst({ x: pos.x, y: 0.12, z: pos.z - e.dir.z * 0.7 }, { count: 1, speed: 1.2, up: 1.6, life: 0.4, size: 0.9, colors: [0x9aa5b1, 0x6b7280] });
+      }
+    } else if (e.estado === 'aturdido') {
+      // estrellitas girando sobre la cabeza + trompa balanceándose
+      e.tEstado += dt;
+      pos.y = 0.05 + Math.sin(e.tEstado * 16) * 0.02;
+      e.obj.rotation.z = Math.sin(e.tEstado * 9) * 0.22;
+      if (ud.cabeza) ud.cabeza.rotation.x = -0.3;
+      this._aviso(e, { color: 0xffe066, r: 1.0, opacity: 0.5 + Math.sin(e.tEstado * 14) * 0.3, r0: 0.55, r1: 0.8 });
+      if (Math.random() < 0.3) {
+        const a = Math.random() * Math.PI * 2;
+        this.fx.burst({ x: pos.x + Math.cos(a) * 0.5, y: 1.7, z: pos.z + Math.sin(a) * 0.5 }, { count: 1, speed: 0.6, up: 0.4, life: 0.5, size: 0.8, colors: [0xffe066, 0xffffff] });
+      }
+      if (e.tEstado > 2.2) { e.estado = 'recover'; e.tEstado = 0; e.obj.rotation.z = 0; if (ud.cabeza) ud.cabeza.rotation.x = 0; }
+      // remate fácil: giro o pisotón mientras está aturdido
+      const dx = Math.abs(pos.x - p.x), dz = Math.abs(pos.z - p.z);
+      if (dx < 1.0 && dz < 1.0) {
+        if (player.spinning || (!player.grounded && p.y > 0.9)) {
+          this._matar(e, { colors: [0xb31217, 0xffc400, 0xffffff], sfx: 'bicho_pop', n: 20, shake: 0.2 });
+          return false;
+        }
+      }
+    } else if (e.estado === 'recover') {
+      e.tEstado += dt;
+      if (e.tEstado > 1.0) { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; }
+    }
+
+    // contacto durante paseo/embestida: hace daño si NO giras y NO vas por
+    // encima (salto). Girando en la embestida lo revientas (como en Crash).
+    if (e.estado === 'paseo' || e.estado === 'embiste') {
+      const dx = Math.abs(pos.x - p.x), dz = Math.abs(pos.z - p.z);
+      if (dx < 1.05 && dz < 1.05 && p.y < 1.35) {
+        if (player.spinning) {
+          this._matar(e, { colors: [0xb31217, 0xffc400, 0xffffff], sfx: 'bicho_pop', n: 20, shake: 0.2 });
+          return false;
+        }
+        if (e.estado === 'embiste') hit = true;
+      }
+    }
+    this._sombra(e, 1.5);
+    return hit;
+  }
+
+  /* ================= GLOBO PLANEADOR ================= */
+  _updateGlobo(e, dt, player, hit) {
+    const p = player.pos;
+    const ud = e.obj.userData;
+    const pos = e.obj.position;
+    e.t += dt;
+    const H = e.height || 2.7;
+    if (e.apuntando > 0) {
+      // TELEGRAFÍA: la vela late en rojo, el globo mira al suelo y suena el
+      // silbido; el aro de abajo marca el punto EXACTO de caída.
+      e.apuntando -= dt;
+      if (ud.vela) {
+        const k = 1 - e.apuntando / 1.15;
+        ud.vela.material.color.setRGB(1, 0.36 - 0.3 * k, 0.36 - 0.3 * k);
+        ud.globo.scale.setScalar(1 + Math.sin(e.t * 18) * 0.05);
+      }
+      const ringOp = 0.35 + Math.sin(e.t * 16) * 0.3;
+      this._aviso(e, { color: 0xff2e2e, r: 0.75, opacity: ringOp, r0: 0.2, r1: 0.95 });
+      this._sombra(e, 1.4);
+      if (e.apuntando <= 0) {
+        // suelta la GOTA FRÍA (cae recta; el aro ya avisó dónde)
+        const g = makeGotaFria();
+        g.position.set(pos.x, pos.y - 1.2, pos.z);
+        this.scene.add(g);
+        const anillo = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.0, 20), new THREE.MeshBasicMaterial({ color: 0xff2e2e, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+        anillo.rotation.x = -Math.PI / 2; anillo.position.set(pos.x, 0.07, pos.z); anillo.renderOrder = 4;
+        this.scene.add(anillo);
+        this.projectiles.push({ obj: g, x: pos.x, z: pos.z, y: pos.y, vy: 8.4, t: 0, alive: true, anillo });
+        if (ud.vela) { ud.vela.material.color.setHex(0xff5d5d); ud.globo.scale.setScalar(1); }
+        sfxNuevo(this.audio, 'globo_dispara');
+        this._aviso(e, { color: 0xff5d5d, r: 0.9, opacity: 0 });
+      }
+    } else {
+      // planeo lento + bamboleo; el globo te sigue con la mirada
+      pos.x = e.base.x + Math.sin(e.t * 0.7) * (e.span || 3);
+      pos.z = e.base.z + Math.cos(e.t * 0.9) * 1.3;
+      pos.y = H + Math.sin(e.t * 1.6) * 0.22;
+      if (ud.cabeza) {
+        let gy = Math.atan2(p.x - pos.x, p.z - pos.z) - e.obj.rotation.y;
+        while (gy > Math.PI) gy -= Math.PI * 2;
+        while (gy < -Math.PI) gy += Math.PI * 2;
+        ud.cabeza.rotation.y = Math.max(-1.1, Math.min(1.1, gy)) * 0.7;
+      }
+      if (ud.alas) {
+        ud.alas[0].rotation.z = 0.12 + Math.sin(e.t * 2.2) * 0.08;
+        ud.alas[1].rotation.z = -0.12 - Math.sin(e.t * 2.2) * 0.08;
+      }
+      if (ud.vela) ud.vela.material.color.setHex(0xff5d5d);
+      // ¿toca atacar? avisa primero (1,15 s de silbido + vela roja pulsando)
+      e.cd -= dt;
+      const dist = Math.hypot(pos.x - p.x, pos.z - p.z);
+      if (e.cd <= 0 && dist < 15 && p.y < 3.4) {
+        e.cd = (e.period || 3.6) + Math.random() * 1.2;
+        e.apuntando = 1.15;
+        sfxNuevo(this.audio, 'globo_aviso');
+      }
+      this._sombra(e, 1.3);
+    }
+    // se remata con el giro en el aire (saltas y giras) — nunca desde el suelo
+    if (player.spinning && p.y > 1.2) {
+      const d = Math.hypot(pos.x - p.x, pos.z - p.z);
+      if (d < 1.3 && Math.abs(pos.y - (p.y + 0.9)) < 2.0) {
+        this._matar(e, { colors: [0xff5d5d, 0xffc400, 0x9fe1ff], sfx: 'bicho_pop', n: 18, shake: 0.18 });
+        return false;
+      }
+    }
+    // contacto (si te quedas debajo se te cae encima): daño suave y avisado
+    const dx = Math.abs(pos.x - p.x), dz = Math.abs(pos.z - p.z);
+    if (dx < 0.9 && dz < 0.9 && Math.abs(pos.y - 1.0 - p.y) < 0.9 && e.apuntando <= 0) hit = true;
+    return hit;
+  }
+
+  /* ================= BLINDADO (solo muere con el giro) ================= */
+  _updateBlindado(e, dt, player, hit) {
+    const p = player.pos;
+    const ud = e.obj.userData;
+    const pos = e.obj.position;
+    e.t += dt;
+
+    if (e.estado === 'paseo') {
+      const o = Math.sin(e.t * 1.1) * (e.span || 5) * 0.5;
+      pos.x = e.base.x + (e.axis === 'z' ? 0 : o);
+      pos.z = e.base.z + (e.axis === 'z' ? o : 0);
+      const paso = Math.sin(e.t * 5);
+      pos.y = Math.abs(paso) * 0.03;
+      e.obj.rotation.y = (e.axis === 'z' ? (Math.cos(e.t * 1.1) > 0 ? 0 : Math.PI) : (Math.cos(e.t * 1.1) > 0 ? Math.PI / 2 : -Math.PI / 2));
+      if (ud.patas) { ud.patas[0].rotation.x = paso * 0.5; ud.patas[1].rotation.x = -paso * 0.5; }
+      if (ud.luces) for (const l of ud.luces) l.material.color.setHex(0x66ff88);
+      const dist = Math.hypot(pos.x - p.x, pos.z - p.z);
+      if (dist < 6.5 && p.y < 2.0) {
+        e.estado = 'carga'; e.tEstado = 0;
+        const dx = p.x - pos.x, dz = p.z - pos.z;
+        const m = Math.hypot(dx, dz) || 1;
+        e.dir = { x: dx / m, z: dz / m };
+      }
+    } else if (e.estado === 'carga') {
+      // TELEGRAFÍA: las luces del casco parpadean en ROJO y se agacha
+      e.tEstado += dt;
+      const k = e.tEstado / 0.85;
+      e.obj.rotation.y = Math.atan2(e.dir.x, e.dir.z);
+      pos.y = -0.06 * Math.min(1, k);           // se agacha (aviso de embestida)
+      if (ud.luces) {
+        const on = Math.floor(e.tEstado * 10) % 2 === 0;
+        for (const l of ud.luces) l.material.color.setHex(on ? 0xff2e2e : 0x5a1a1a);
+      }
+      this._aviso(e, { color: 0xff2e2e, r: 1.0 + k * 0.5, opacity: 0.4 + k * 0.35, r0: 0.62, r1: 0.85 });
+      if (e.tEstado >= 0.85) { e.estado = 'lanzado'; e.tEstado = 0; e.recorrido = 0; sfxNuevo(this.audio, 'coraza'); }
+    } else if (e.estado === 'lanzado') {
+      // saltitos hacia delante (trompicones) durante ~1,6 s
+      e.tEstado += dt;
+      const V = e.speedLanzado || 4.4;
+      const nx = pos.x + e.dir.x * V * dt;
+      const nz = pos.z + e.dir.z * V * dt;
+      e.recorrido += V * dt;
+      e.obj.rotation.y = Math.atan2(e.dir.x, e.dir.z);
+      const hop = Math.abs(Math.sin(e.tEstado * 13));
+      pos.y = hop * 0.25;
+      if (ud.patas) { ud.patas[0].rotation.x = Math.sin(e.tEstado * 26) * 0.7; ud.patas[1].rotation.x = -Math.sin(e.tEstado * 26) * 0.7; }
+      if (ud.luces) for (const l of ud.luces) l.material.color.setHex(0xff2e2e);
+      const suelo = this.world && this.world.groundUnder({ minX: nx - 0.4, maxX: nx + 0.4, minZ: nz - 0.4, maxZ: nz + 0.4, minY: -50, maxY: 1.6 });
+      if (suelo && e.recorrido < 6.5) { pos.x = nx; pos.z = nz; }
+      else { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; pos.y = 0; }
+      if (e.tEstado > 1.6) { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; pos.y = 0; }
+      // daño del envite
+      const dxx = Math.abs(pos.x - p.x), dzz = Math.abs(pos.z - p.z);
+      if (dxx < 0.98 && dzz < 0.98 && p.y < 1.2 && !player.spinning) hit = true;
+    }
+    // PISOTÓN: le REBOTA (CLANG) — el acorazado NO se muere pisándolo, en
+    // ningún estado (contrajuego claro: hay que girarle encima)
+    {
+      const dx = Math.abs(pos.x - p.x), dz = Math.abs(pos.z - p.z);
+      if (dx < 1.05 && dz < 1.05 && !player.grounded && p.y > 1.0 && player.vel.y < -1.0) {
+        player.vel.y = 7.6;
+        player.grounded = false;
+        this.fx.impact({ x: pos.x, y: 0.6, z: pos.z }, {
+          count: 10, speed: 4.5, up: 4, life: 0.5, colors: [0xdfe6ee, 0x9aa5b1, 0xffffff],
+          shake: 0.14, flash: 0xdfe6ee, flashSize: 1.4, ring: 0x9aa5b1, ringSize: 1.7
+        });
+        sfxNuevo(this.audio, 'coraza');
+      }
+    }
+    // contacto general (paseo/carga/lanzado): daño salvo giro
+    const dx = Math.abs(pos.x - p.x), dz = Math.abs(pos.z - p.z);
+    if (dx < 0.95 && dz < 0.95 && p.y < 1.15 && Math.abs(pos.y) < 0.6) {
+      if (player.spinning) {
+        // EL GIRO LO DESTROZA (única forma): chapa volando + chispas
+        this._matar(e, { colors: [0xdfe6ee, PALETA.rojo, 0xffbe0b], sfx: 'coraza_rota', n: 22, shake: 0.25, ring: 0xffbe0b });
+        return false;
+      }
+      if (e.estado === 'lanzado') hit = true;
+    }
+    this._sombra(e, 1.35);
     return hit;
   }
 

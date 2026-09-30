@@ -1,0 +1,97 @@
+{
+  "fecha": "2026-09-30T22:59:26.223Z",
+  "pruebas": [
+    {
+      "nombre": "ANTES reproduce el bug: cruza el muro (maxX>5)",
+      "ok": true,
+      "detalle": "maxX=23.2"
+    },
+    {
+      "nombre": "AHORA queda fuera del muro (maxX<=4.58) y 0 frames dentro",
+      "ok": false,
+      "detalle": "maxX=23.2 dentro=0"
+    },
+    {
+      "nombre": "ANTES cruza el muro en diagonal (maxX>5)",
+      "ok": true,
+      "detalle": "maxX=25.78"
+    },
+    {
+      "nombre": "AHORA la diagonal se para en la cara",
+      "ok": false,
+      "detalle": "maxX=25.78 dentro=0"
+    },
+    {
+      "nombre": "ANTES atraviesa el barrote delgado (maxX>4.6)",
+      "ok": false,
+      "detalle": "maxX=4.15"
+    },
+    {
+      "nombre": "AHORA el barrote bloquea (maxX<=4.08)",
+      "ok": false,
+      "detalle": "maxX=4.15"
+    },
+    {
+      "nombre": "caída al borde (ANTES): aterriza sobre la plataforma (y≈3.0) sin quedar dentro",
+      "ok": false,
+      "detalle": "final.y=3.3 dentro=0"
+    },
+    {
+      "nombre": "caída al borde (AHORA): aterriza sobre la plataforma (y≈3.0) sin quedar dentro",
+      "ok": false,
+      "detalle": "final.y=3.3 dentro=0"
+    },
+    {
+      "nombre": "cabezazo (ANTES): no atraviesa el techo (maxY<=4.6) ni queda dentro",
+      "ok": true,
+      "detalle": "maxY=3.1 dentro=0"
+    },
+    {
+      "nombre": "cabezazo (AHORA): no atraviesa el techo (maxY<=4.6) ni queda dentro",
+      "ok": true,
+      "detalle": "maxY=3.1 dentro=0"
+    },
+    {
+      "nombre": "caída 40 m (ANTES): aterriza sin hundirse",
+      "ok": true,
+      "detalle": "y=0"
+    },
+    {
+      "nombre": "caída 40 m (AHORA): aterriza sin hundirse",
+      "ok": true,
+      "detalle": "y=0"
+    },
+    {
+      "nombre": "sube a la plataforma 2,2 m (ANTES)",
+      "ok": false,
+      "detalle": "y=0"
+    },
+    {
+      "nombre": "sube a la plataforma 2,2 m (AHORA)",
+      "ok": false,
+      "detalle": "y=0"
+    },
+    {
+      "nombre": "ANTES cruza la cara del muro (maxX>5)",
+      "ok": true,
+      "detalle": "maxX=22.3"
+    },
+    {
+      "nombre": "AHORA se queda en la cara (maxX<=4.58) sin quedar dentro",
+      "ok": false,
+      "detalle": "maxX=22.3"
+    },
+    {
+      "nombre": "estrés: sin NaN y 0 frames dentro",
+      "ok": true,
+      "detalle": "nan=false dentro=0 final={\"x\":-12.89699347017831,\"y\":-569.700000000005,\"z\":25.655548482156867}"
+    },
+    {
+      "nombre": "rendimiento < 0.2 ms/llamada",
+      "ok": false,
+      "detalle": "2.5537 ms"
+    }
+  ],
+  "ok": 8,
+  "total": 18
+}
