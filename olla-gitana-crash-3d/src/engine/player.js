@@ -339,6 +339,15 @@ export class Player {
     // polvo al correr
     this.runDust -= dt;
     if (this.grounded && runK > 0.6 && this.runDust <= 0 && this.onDust) { this.runDust = 0.12; this.onDust(); }
+    // ESTELA de la barrida: chispas/raspado continuo mientras se desliza
+    if (this.slideT > 0) {
+      this.slideDust = (this.slideDust || 0) - dt;
+      if (this.slideDust <= 0 && this.onDust) {
+        this.slideDust = 0.035;
+        this.onDust();
+        this.onSlideTrail && this.onSlideTrail();
+      }
+    }
   }
 }
 

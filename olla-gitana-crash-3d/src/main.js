@@ -623,6 +623,14 @@ function startLevel(index, { keepLives = false } = {}) {
     dialog.play([{ t: pick(FRASES.aura), tone: 'grito', tail: 'down', hold: 1.6 }]);
   };
   player.onFall = () => { if (!dialog.active) { dialog.speaker = player.obj; dialog.play([{ t: pick(FRASES.dano), tone: 'grito', tail: 'down', hold: 0.9 }]); } };
+  // polvo al correr y estela de la barrida (sparks a ras de suelo)
+  player.onDust = () => {
+    if (player.sliding) {
+      fx.burst({ x: player.pos.x, y: player.pos.y + 0.12, z: player.pos.z }, { count: 2, speed: 2.2, up: 2.0, life: 0.32, size: 0.8, colors: [0xffbe0b, 0xffe9a8, 0xcbb9a0] });
+    } else {
+      fx.burst({ x: player.pos.x, y: player.pos.y + 0.08, z: player.pos.z }, { count: 1, speed: 1.1, up: 1.2, life: 0.4, size: 0.75, colors: [0x9a9aa8, 0xcbb9a0] });
+    }
+  };
   // AL SALTAR: el guiso salpica (la olla va llena y en movimiento)
   player.onJump = () => {
     const n = 5 + Math.floor(Math.random() * 4);
