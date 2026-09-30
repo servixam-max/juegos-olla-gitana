@@ -1015,6 +1015,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     demoDir.update(dt);
     hud.show(false);
     if (state.mode === 'play') {
+      world.update(dt);
       const inp = botStep(dt) || input.poll();
       player.update(dt, inp, world, camState.yaw);
       crates.update(dt, player);
@@ -1035,6 +1036,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     return;
   }
   if (state.mode === 'play') {
+    world.update(dt);   // ¡las plataformas móviles deben avanzar ANTES de resolver el actor!
     const inp = botStep(dt) || input.poll();
     const slippery = inPuddle();
     const frictionSave = slippery ? (state.level.resbalon ? 0.3 : 0.55) : 1;
@@ -1198,6 +1200,22 @@ window.__qa = {
   },
   step: (dt = 1 / 30, n = 1) => { for (let i = 0; i < n; i++) tick(dt); },
   state: () => ({ mode: state.mode, level: state.level && state.level.id, lives: state.lives, pos: { ...player.pos }, notas: pickups.noteCount, cajas: crates.broken, totalCajas: crates.total, fps: state.fps, ended: state.ended, boss: state.bossActive ? { hp: boss.hp, phase: boss.phase, alive: boss.alive } : (state.ferminActive ? { hp: fermin.hp, phase: 1, alive: fermin.alive, fermin: true } : null), ferminPending: !!state.ferminPending }),
+  /* diagnóstico para los agentes de QA: estado interno del motor */
+  diag: () => ({
+    grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,
+    jumps: player.jumps, invuln: +player.invulnT.toFixed(2), aura: player.aura, shield: player.shield,
+    cajas: crates.items.filter((c) => !c.dead).length, tnts: crates.tnts.length,
+    enemigos: enemies.list.filter((e) => e.alive).length,
+    cajas_moviles: world.boxes.filter((b) => b.moving).length,
+    solidas: world.boxes.filter((b) => b.solid).length
+  }),
+  /* posiciones de las plataformas móviles (para detectar si están congeladas) */
+  moviles: () => world.boxes.filter((b) => b.moving).map((b) => ({ tag: b.tag, pos: { ...b.pos }, moving: b.moving })),
+  /* sonda de colisión: ¿qué sólido hay en ese punto? */
+  sonda: (x, y, z) => {
+    const b = world.overlap({ minX: x - 0.2, maxX: x + 0.2, minY: y - 0.2, maxY: y + 0.2, minZ: z - 0.2, maxZ: z + 0.2 });
+    return b ? { tag: b.tag, pos: { ...b.pos }, half: { ...b.half } } : null;
+  },
   start: (i) => startLevel(i),
   teleport: (x, y, z) => player.reset(x, y, z),
   enableBot: () => { state.bot = { t: 0, jumpCd: 0, spinCd: 0, stuckT: 0, lastZ: null, log: () => {} }; },

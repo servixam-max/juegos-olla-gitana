@@ -42,10 +42,19 @@ export class Director {
     if (!fd) {
       fd = document.createElement('div');
       fd.id = 'fadeOverlay';
-      fd.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:16;transition:opacity .35s linear';
+      fd.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:16;transition:opacity .35s linear;display:grid;place-items:center';
+      // título del juego que aparece DENTRO del fundido negro (cierre de la intro)
+      fd.innerHTML = '<div id="fadeTitulo" style="opacity:0;transition:opacity .6s linear;text-align:center">' +
+        '<div style="font-family:\'Luckiest Guy\',\'Nunito\',sans-serif;font-size:clamp(30px,9vw,64px);' +
+        'letter-spacing:2px;color:#ffbe0b;text-shadow:0 4px 0 #7a3c00,0 8px 24px rgba(255,190,11,.35)">OLLA GITANA</div>' +
+        '<div style="font-family:\'Luckiest Guy\',\'Nunito\',sans-serif;font-size:clamp(16px,4.5vw,30px);' +
+        'letter-spacing:6px;color:#fff5e1;margin-top:6px">GIRA MUNDIAL</div>' +
+        '<div style="font-family:Nunito,sans-serif;font-size:clamp(11px,2.6vw,15px);color:rgba(255,245,225,.72);margin-top:14px">' +
+        '🥘 La olla rumbera contra El Cacharro 🎸</div></div>';
       document.getElementById('app').appendChild(fd);
     }
     this.fadeEl = fd;
+    this.fadeTitle = fd.querySelector('#fadeTitulo');
 
     let sk = document.getElementById('skipIntro');
     if (!sk) {
@@ -65,6 +74,21 @@ export class Director {
   fade(to, ms = 350) {
     this.fadeEl.style.transition = `opacity ${ms}ms linear`;
     this.fadeEl.style.opacity = String(to);
+    // el título vive DENTRO del fundido: aparece al fundir a negro y se va al fundir a claro
+    if (this.fadeTitle) {
+      this.fadeTitle.style.transition = `opacity ${Math.round(ms * 1.6)}ms linear`;
+      this.fadeTitle.style.opacity = to >= 0.9 ? '1' : '0';
+    }
+  }
+
+  /* fundido a negro con el título del juego dentro (cierre de la intro) */
+  fadeTitulo(on = true, ms = 900, dur = 2000) {
+    if (on) {
+      this.fade(1, ms);
+    } else {
+      this.fade(0, ms);
+    }
+    return new Promise((res) => setTimeout(res, dur));
   }
 
   letterboxOn() { this.letterbox.style.display = 'block'; }

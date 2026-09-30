@@ -185,7 +185,12 @@ export class IntroScene {
         this.activa = false;
         this.grupo.visible = false;
         this.audio.stopGenerative();
-        if (onEnd) onEnd();
+        // cierre: fundido a negro CON el título del juego dentro, y fuera
+        this.director.fadeTitulo(true, 900, 1500);
+        setTimeout(() => {
+          this.director.fadeTitulo(false, 800, 300);
+          if (onEnd) onEnd();
+        }, 1500);
       }
     });
   }
