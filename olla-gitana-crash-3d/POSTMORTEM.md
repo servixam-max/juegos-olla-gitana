@@ -205,7 +205,7 @@ habría sabido que el nivel 6 fallaba por abejas o que el bot moría contra caja
 | FPS (rAF real, bot corriendo) | **60 avg / 56 min** |
 | Intro cinemática completa + saltables | ✅ |
 | Bocadillos con texto (intro, jefes, entre niveles) | ✅ |
-| Vídeo `presentacion-olla-gitana-3d.mp4` | ✅ 1280×720, 30 fps, ~92 s, H.264+AAC |
+| Vídeo `presentacion-olla-gitana-3d.mp4` | ✅ 1280×720, 30 fps, 116,5 s (3495 frames), H.264+AAC |
 
 ---
 

@@ -253,6 +253,7 @@ if (window.matchMedia('(display-mode: standalone)').matches) ib.style.display = 
 // ---------- Compartir por WhatsApp ----------
 const shareBtn = document.getElementById('shareBtn');
 const SHARE_TEXTO = '¡Mira los juegos de la banda Olla Gitana! 🥘🎸🎴\n\n' +
+  '· Aventura 3D "Gira Mundial" 🎮 (7 mundos y 2 jefes)\n' +
   '· El Juego clásico 🥘\n' +
   '· El Ritmo, con nuestra canción 🎵\n' +
   '· La Huerta Runner 🏃\n' +
@@ -289,7 +290,9 @@ shareBtn.addEventListener('click', compartirJuegos);
     const game = card.dataset.game;
     const box = card.querySelector('.topScores');
     try {
-      const res = await fetch(`api/top?game=${encodeURIComponent(game)}&limit=3`, { cache: 'no-store' });
+      // el 3D guarda cada nivel con su diff (n1..n8): su global es diff=*
+      const q = game === 'crash3d' ? 'diff=*&' : '';
+      const res = await fetch(`api/top?game=${encodeURIComponent(game)}&${q}limit=3`, { cache: 'no-store' });
       if (!res.ok) throw new Error('api');
       const data = await res.json();
       const rows = (data.scores || []).slice(0, 3);

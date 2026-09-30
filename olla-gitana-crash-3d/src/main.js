@@ -55,7 +55,8 @@ const state = {
   vanCatchT: 0,
   cratesBrokenAtEnd: 0,
   pending: [],
-  god: false
+  god: false,
+  pendingScore: null
 };
 
 const records = loadRecords();
@@ -249,7 +250,8 @@ function showMenu() {
   $('btnMute2').textContent = prefs.muted ? '🔇 Sonido' : '🔊 Sonido';
 }
 function hideOverlays() {
-  ['menuPanel', 'helpPanel', 'pausePanel', 'endPanel', 'overPanel', 'rankPanel'].forEach((id) => $(id).classList.add('hidden'));
+  ['menuPanel', 'helpPanel', 'pausePanel', 'endPanel', 'overPanel', 'rankPanel', 'videoPanel'].forEach((id) => $(id).classList.add('hidden'));
+  if ($('presentacion')) $('presentacion').pause();
 }
 
 /* ================= arrancar nivel ================= */
@@ -468,22 +470,41 @@ function endLevel(win, extra = {}) {
     const hasNext = state.levelIndex < LEVELS.length - 1;
     $('btnNext').classList.toggle('hidden', !hasNext);
     if (better) hud.toast('¡RÉCORD NUEVO! 🏆', 'record');
+    // campo de nombre: se rellena con el guardado y "Guardar" lo envía al ranking
+    $('playerName').value = loadPrefs().name || '';
+    state.pendingScore = { id: lv.id, score: earnedNotes, stars, time };
     $('endPanel').classList.remove('hidden');
-    postScore(lv.id, earnedNotes, stars, time);
+    // si ya había nombre guardado, se sube igualmente (el botón lo actualiza si lo cambian)
+    if (loadPrefs().name) postScore(lv.id, earnedNotes, stars, time, loadPrefs().name);
     // diálogo al ganar el mundo (se lanza al pulsar Siguiente/Repetir)
     state.postWin = ENTRE_NIVELES[lv.id] || null; if (extra.boss) state.postWin = FINAL;
   } else {
+    $('overBest').textContent = prevForBest && prevForBest.tiempo ? `${Math.floor(prevForBest.tiempo / 60)}:${String(prevForBest.tiempo % 60).padStart(2, '0')}` : '—';
+    $('overNotes').textContent = `${earnedNotes}/${totalNotes}`;
+    $('overCrates').textContent = `${crates.broken}/${crates.total}`;
+    state.pendingScore = { id: lv.id, score: earnedNotes, stars: 0, time };
+    $('playerNameOver').value = loadPrefs().name || '';
     $('overPanel').classList.remove('hidden');
+    // la puntuación también se guarda al perder (puntuación en TODOS los finales)
+    if (loadPrefs().name) postScore(lv.id, earnedNotes, 0, time, loadPrefs().name);
   }
 }
 
-function postScore(levelId, score, stars, time) {
+function apiBase() {
+  // La API vive en /ollagitana/api (o /juegos-olla/api) — NO dentro de la carpeta del juego.
+  const p = location.pathname;
+  if (p.startsWith('/ollagitana/')) return '/ollagitana/api';
+  if (p.startsWith('/champi/')) return '/champi/api';
+  if (p.startsWith('/juegos-olla/')) return '/juegos-olla/api';
+  return 'api';
+}
+
+function postScore(levelId, score, stars, time, name) {
   // Ranking propio del juego (separado de los otros juegos por el nombre "crash3d")
   try {
-    const base = location.pathname.includes('/ollagitana') || location.pathname.includes('/juegos-olla') ? (location.pathname.split('/').slice(0, 3).join('/') + '/api') : '/api';
-    fetch(`${base}/score`, {
+    fetch(`${apiBase()}/score`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ game: 'crash3d', diff: `n${levelId}`, name: (loadPrefs().name || 'Zagal').slice(0, 12), score, stars, time })
+      body: JSON.stringify({ game: 'crash3d', diff: `n${levelId}`, name: String(name || loadPrefs().name || 'Zagal').slice(0, 12), score, stars, time })
     }).catch(() => {});
   } catch (_) {}
 }
@@ -1068,6 +1089,34 @@ $('btnMute').onclick = () => toggleMute();
 $('btnMute2').onclick = () => toggleMute();
 $('btnRank').onclick = () => showRank();
 $('btnRankBack').onclick = () => { $('rankPanel').classList.add('hidden'); $('menuPanel').classList.remove('hidden'); };
+/* vídeo de presentación */
+$('btnVideo').onclick = () => {
+  Audio.sfx('ui');
+  $('menuPanel').classList.add('hidden');
+  $('videoPanel').classList.remove('hidden');
+  const v = $('presentacion');
+  v.currentTime = 0;
+  v.play().catch(() => {});   // si el navegador lo bloquea, se queda en pausa con controles
+};
+$('btnVideoBack').onclick = () => {
+  $('presentacion').pause();
+  $('videoPanel').classList.add('hidden');
+  $('menuPanel').classList.remove('hidden');
+};
+
+/* Guardar puntuación con el nombre puesto a mano (patrón de los demás juegos) */
+function guardarPuntuacion(inputId) {
+  const nombre = ($(inputId).value || '').trim().slice(0, 14) || 'Zagal';
+  savePrefs({ name: nombre });
+  const ps = state.pendingScore;
+  if (ps) postScore(ps.id, ps.score, ps.stars, ps.time, nombre);
+  hud.toast('¡Puntuación guardada! 🏆', 'record');
+  Audio.sfx('levelup');
+}
+$('btnSaveScore').onclick = () => guardarPuntuacion('playerName');
+$('btnSaveScoreOver').onclick = () => guardarPuntuacion('playerNameOver');
+$('playerName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSaveScore').click(); });
+$('playerNameOver').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSaveScoreOver').click(); });
 
 function toggleMute() {
   const prefs = loadPrefs();
@@ -1084,14 +1133,21 @@ function showRank() {
   const box = $('rankBody');
   box.innerHTML = '<p class="small">Cargando…</p>';
   $('rankPanel').classList.remove('hidden');
-  const base = location.pathname.includes('/ollagitana') || location.pathname.includes('/juegos-olla') ? (location.pathname.split('/').slice(0, 3).join('/') + '/api') : '/api';
-  fetch(`${base}/top?game=crash3d&limit=12`).then((r) => r.json()).then((data) => {
+  // diff=* → todas las dificultades/niveles del juego (cada nivel guarda su diff nX)
+  fetch(`${apiBase()}/top?game=crash3d&diff=*&limit=15`, { cache: 'no-store' }).then((r) => r.json()).then((data) => {
     const rows = (data.scores || data.top || data || []);
     if (!Array.isArray(rows) || !rows.length) { box.innerHTML = '<p class="small">Todavía no hay puntuaciones. ¡Sé el primero!</p>'; return; }
-    box.innerHTML = '<ol>' + rows.map((r) => `<li><b>${escapeHtml(r.name || '?')}</b> — ${r.score ?? r.puntos ?? 0} notas · nivel ${r.diff || ''}</li>`).join('') + '</ol>';
+    box.innerHTML = '<ol>' + rows.map((r) => {
+      const lvl = LEVELS[Number(String(r.diff || '').replace('n', '')) - 1];
+      const nom = lvl ? lvl.nombre : (r.diff || '');
+      return `<li><b>${escapeHtml(r.name || '?')}</b> — ${r.score ?? 0} notas · ${escapeHtml(nom)}</li>`;
+    }).join('') + '</ol>';
   }).catch(() => {
-    const local = Object.entries(records).map(([k, v]) => ({ name: 'Tú', score: v.notas, diff: 'n' + k }));
-    box.innerHTML = local.length ? '<ol>' + local.map((r) => `<li><b>${r.name}</b> — ${r.score} notas (nivel ${r.diff.replace('n', '')})</li>`).join('') + '</ol><p class="small">Sin conexión: mostrando tus récords de este dispositivo.</p>' : '<p class="small">Sin conexión y sin récords aún.</p>';
+    const local = Object.entries(records).map(([k, v]) => ({ name: loadPrefs().name || 'Tú', score: v.notas, diff: k }));
+    box.innerHTML = local.length ? '<ol>' + local.map((r) => {
+      const lvl = LEVELS[Number(r.diff) - 1];
+      return `<li><b>${escapeHtml(r.name)}</b> — ${r.score} notas · ${escapeHtml(lvl ? lvl.nombre : 'nivel ' + r.diff)}</li>`;
+    }).join('') + '</ol><p class="small">Sin conexión: mostrando tus récords de este dispositivo.</p>' : '<p class="small">Sin conexión y sin récords aún.</p>';
   });
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
