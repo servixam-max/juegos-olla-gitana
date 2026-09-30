@@ -24,7 +24,8 @@ export class SpeechBubble {
     this.material = new THREE.SpriteMaterial({ map: this.tex, transparent: true, depthWrite: false, depthTest: false });
     this.sprite = new THREE.Sprite(this.material);
     this.sprite.renderOrder = 999;
-    this.sprite.scale.set(5.6, 2.8, 1);
+    this.baseW = 5.6;         // ancho en el mundo (DialogQueue lo adapta al viewport)
+    this.sprite.scale.set(this.baseW, this.baseW * 0.5, 1);
     this.sprite.visible = false;
     this.tone = 'normal';
     this.tail = 'none';
@@ -42,7 +43,7 @@ export class SpeechBubble {
     this.state = 'in';
     this.holdT = hold != null ? hold : Math.max(1.4, text.length / 21);
     this.sprite.visible = true;
-    this.sprite.scale.set(0.1, 0.05, 1);
+    this.sprite.scale.set(this.baseW * 0.02, this.baseW * 0.01, 1);
     this._blip = 0;
     this._draw();
   }
@@ -58,7 +59,7 @@ export class SpeechBubble {
       const k = Math.min(1, this.t / 0.28);
       const e = 1 - Math.pow(1 - k, 3);
       const s = 0.35 + 0.65 * e;
-      this.sprite.scale.set(5.6 * s, 2.8 * s, 1);
+      this.sprite.scale.set(this.baseW * s, this.baseW * 0.5 * s, 1);
       if (k >= 1) { this.state = 'hold'; this.t = 0; }
     } else if (this.state === 'hold') {
       const prev = this.shown;
@@ -73,7 +74,7 @@ export class SpeechBubble {
     } else if (this.state === 'out') {
       const k = Math.min(1, this.t / 0.22);
       const s = Math.max(0.05, 1 - k);
-      this.sprite.scale.set(5.6 * s, 2.8 * s, 1);
+      this.sprite.scale.set(this.baseW * s, this.baseW * 0.5 * s, 1);
       this.sprite.position.y += dt * 0.6;
       if (k >= 1) { this.sprite.visible = false; this.sprite.position.y -= 0.6 * 0.22 / 0.22 * 0.22; }
     }
@@ -220,6 +221,16 @@ export class DialogQueue {
   update(dt) {
     if (!this.active && !this.bubble.sprite.visible) return;
     this.bubble.update(dt);
+    if (this.camera) {
+      // El bocadillo se dimensiona según el VIEWPORT: en vertical hay que
+      // encogerlo o se sale de la pantalla (el bug de los diálogos cortados).
+      const cam = this.camera;
+      const dist = this.speaker ? 2.4 : (this.screenDist || 5.2);   // distancia aproximada de dibujo
+      const vh = 2 * dist * Math.tan((cam.fov * Math.PI / 180) / 2);
+      const vw = vh * cam.aspect;
+      const fit = Math.min(1, (vw * 0.94) / 5.6);
+      this.bubble.baseW = 5.6 * Math.max(0.42, fit);
+    }
     if (this.speaker) {
       const y = (this.speaker.userData && this.speaker.userData.headY) || 3.2;
       this.bubble.sprite.position.set(this.speaker.position.x, this.speaker.position.y + y, this.speaker.position.z);

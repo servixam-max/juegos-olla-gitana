@@ -125,9 +125,18 @@ export class Input {
       out.jump = out.jump || this.touch.jump;
       out.spin = out.spin || this.touch.spin;
       out.slide = out.slide || this.touch.slide;
-      out.x += this.touch.x;
-      out.z += -this.touch.y;   // arrastrar hacia arriba en pantalla = avanzar
-      out.stick = Math.hypot(this.touch.x, this.touch.y);
+      // pad: zona muerta + curva (control fino cerca del centro, tope en el borde)
+      let tx = this.touch.x, ty = this.touch.y;
+      const tm = Math.hypot(tx, ty);
+      const DZ = 0.14;
+      if (tm <= DZ) { tx = 0; ty = 0; }
+      else {
+        const c = Math.pow(Math.min(1, (tm - DZ) / (1 - DZ)), 1.25);
+        tx = (tx / tm) * c; ty = (ty / tm) * c;
+      }
+      out.x += tx;
+      out.z += -ty;   // arrastrar hacia arriba en pantalla = avanzar
+      out.stick = tm;
     }
     const len = Math.hypot(out.x, out.z);
     if (len > 1) { out.x /= len; out.z /= len; }

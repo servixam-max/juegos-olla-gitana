@@ -618,14 +618,16 @@ function updateCamera(dt) {
   const lv = state.level;
   const p = player.pos;
   if (lv && lv.arena) {
-    // arena: cámara alta y alejada siguiendo al jugador
+    // arena: cámara alta y alejada siguiendo al jugador.
+    // La cámara mira hacia -Z (está en el lado +Z), así que el yaw para el
+    // movimiento relativo es π: pantalla-arriba = -Z (hacia el jefe).
     const tx = p.x * 0.55, tz = p.z + 12.5;
     camState.x += (tx - camState.x) * Math.min(1, dt * 3);
     camState.z += (tz - camState.z) * Math.min(1, dt * 3);
     camState.y += (10.5 - camState.y) * Math.min(1, dt * 3);
     camera.position.set(camState.x, camState.y, camState.z);
     camera.lookAt(p.x * 0.4, 1.4, p.z * 0.35);
-    camState.yaw = 0;
+    camState.yaw = Math.PI;
   } else if (lv && lv.chase) {
     // persecución: cámara detrás pero más alta y atrás (la furgo asoma por abajo)
     const tz = p.z - 10.2;
@@ -833,6 +835,17 @@ function updateVan(dt) {
 }
 
 /* ---------- bot de QA: recorre el nivel automáticamente ---------- */
+/* El bot piensa en coordenadas de MUNDO (persigue notas, la meta, esquiva);
+   el input de player.update va en coordenadas de PANTALLA, así que se hace la
+   transformación inversa de la cámara antes de devolverlo. */
+function botToScreen(out) {
+  const c = Math.cos(camState.yaw), s = Math.sin(camState.yaw);
+  const ix = -out.x * c + out.z * s;
+  const iz = out.x * s + out.z * c;
+  out.x = Math.max(-1, Math.min(1, ix));
+  out.z = Math.max(-1, Math.min(1, iz));
+  return out;
+}
 function botStep(dt) {
   if (!state.bot) return null;
   const b = state.bot;
@@ -931,7 +944,7 @@ function botStep(dt) {
     out.z = Math.max(-1, Math.min(1, fz2 * 0.5));
     if (dF < 4.6 && player.grounded && b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.55; }
     if (b.spinCd <= 0) { out.spinP = true; b.spinCd = 0.5; }
-    return out;
+    return botToScreen(out);
   }
 
   // ¿hay que saltar? cajas, muros o huecos justo delante
@@ -955,7 +968,7 @@ function botStep(dt) {
     }
     if (b.spinCd <= 0 && (crateAhead || b.stuckT > 0.7)) { out.spinP = true; b.spinCd = 0.55; }
   }
-  return out;
+  return botToScreen(out);
 }
 
 function loop(now) {
@@ -970,8 +983,7 @@ function loop(now) {
 }
 
 /* un paso de simulación (separado de rAF para poder testear en headless) */
-function tick(dt) {
-  // tareas diferidas (sin setTimeout: deben correr también en simulación)
+function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también en simulación)
   for (let i = state.pending.length - 1; i >= 0; i--) {
     const p = state.pending[i];
     p.after -= dt;

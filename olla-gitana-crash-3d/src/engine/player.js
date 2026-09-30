@@ -134,8 +134,11 @@ export class Player {
     }
 
     // ---- movimiento (relativo a la cámara) ----
+    // Con yaw=0 la cámara mira hacia +Z y la derecha de la PANTALLA es -X,
+    // así que input.x (derecha en pantalla) debe mapear a -X. Antes iba al revés
+    // y los controles izquierda/derecha salían invertidos en el juego.
     const cos = Math.cos(camYaw), sin = Math.sin(camYaw);
-    let wx = input.x * cos - input.z * sin;
+    let wx = -input.x * cos + input.z * sin;
     let wz = input.x * sin + input.z * cos;
     const wlen = Math.hypot(wx, wz);
     const boost = this.speedBoost * (this.aura ? 1.22 : 1);
