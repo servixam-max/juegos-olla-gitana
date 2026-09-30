@@ -1062,6 +1062,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     checkGoal();
     fx.update(dt);
     updateCamera(dt);
+    fx.ambient(null, dt, camera, state.level);   // partículas ambientales del mundo
     hud.tick();
     state.t += dt;
     if (dialog.sprite?.visible || dialog.active) dialog.update(dt);

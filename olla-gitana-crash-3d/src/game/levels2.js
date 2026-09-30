@@ -11,6 +11,10 @@ import {
   makeBarrel, makeLampPost, makeFloodlight, makePlanter, makePuddle, makeCone, makeTree,
   toonMat, makeStage, makeOlla
 } from './art.js';
+import { matSuperficie, claseDeTag } from '../engine/surfaces.js';
+
+/* mundo activo (lo fija cada buildLevelN): elige la textura de cada superficie */
+let MUNDO2 = 4;
 
 const R = (seed) => {
   let s = seed;
@@ -21,7 +25,10 @@ function solid(world, scene, { x, y, z, w, h, d, color = PALETA.asfalto, tag = '
   const b = world.add(new Box({ x, y: y + h / 2, z, w, h, d, tag }));
   if (moving) b.moving = moving;
   if (visible) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toonMat(color));
+    // textura procedural según el mundo y el tipo de bloque (si hay receta)
+    const clase = claseDeTag(tag);
+    const matTex = clase ? matSuperficie(MUNDO2, clase) : null;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matTex || toonMat(color));
     m.position.set(x, y + h / 2, z);
     scene.add(m);
     b.mesh = m;
@@ -62,6 +69,7 @@ const enemy = (type, opts) => ({ type, ...opts });
    Plataformas que se mueven en horizontal + cirios que caen del cielo.
    ========================================================= */
 export function buildLevel4(world, scene, fx) {
+  MUNDO2 = 4;
   const rnd = R(4821);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
   const L = 172;
@@ -179,6 +187,7 @@ export function buildLevel4(world, scene, fx) {
    Desfile nocturno: antorchas, humo que empuja, y Fermín al final.
    ========================================================= */
 export function buildLevel5(world, scene, fx) {
+  MUNDO2 = 5;
   const rnd = R(7733);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
   const L = 96;
@@ -260,6 +269,7 @@ export function buildLevel5(world, scene, fx) {
    MUNDO 6 — "LA HUERTA PERDIDA" (agua que frena, árboles, abejas)
    ========================================================= */
 export function buildLevel6(world, scene, fx) {
+  MUNDO2 = 6;
   const rnd = R(9166);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
   const L = 180;
@@ -379,6 +389,7 @@ export function buildLevel6(world, scene, fx) {
    (plataformas que solo se ven cuando estás cerca).
    ========================================================= */
 export function buildLevel7(world, scene, fx) {
+  MUNDO2 = 7;
   const rnd = R(1207);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
   const L = 168;

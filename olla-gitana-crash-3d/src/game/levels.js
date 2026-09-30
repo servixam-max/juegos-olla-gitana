@@ -9,6 +9,11 @@ import {
   makeTree, makeStage, toonMat, makeOlla
 } from './art.js';
 import { buildLevel4, buildLevel5, buildLevel6, buildLevel7 } from './levels2.js';
+import { matSuperficie, claseDeTag } from '../engine/surfaces.js';
+
+/* mundo activo: cada buildLevelN lo fija al empezar; los helpers de geometría
+   lo usan para elegir la textura de cada superficie (suelo/muro/plataforma…). */
+let MUNDO = 1;
 
 const R = (seed) => {
   let s = seed;
@@ -20,7 +25,10 @@ function solid(world, scene, { x, y, z, w, h, d, color = PALETA.asfalto, tag = '
   const b = world.add(new Box({ x, y: y + h / 2, z, w, h, d, tag }));
   if (moving) b.moving = moving;
   if (visible) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toonMat(color));
+    // textura procedural según el mundo y el tipo de bloque (si hay receta)
+    const clase = claseDeTag(tag);
+    const matTex = mat && mat.isMaterial ? null : (clase ? matSuperficie(MUNDO, clase) : null);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matTex || toonMat(color));
     m.position.set(x, y + h / 2, z);
     m.receiveShadow = false;
     scene.add(m);
@@ -71,6 +79,7 @@ function enemy(type, opts) {
    NIVEL 1 — "El Ensayo Callejero"
    ========================================================= */
 export function buildLevel1(world, scene, fx) {
+  MUNDO = 1;
   const rnd = R(1337);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], lamps = [], switches = [], deco = [];
   const L = 150; // longitud total
@@ -208,6 +217,7 @@ export function buildLevel1(world, scene, fx) {
    NIVEL 2 — "Ruta al Festi" (andamios verticales)
    ========================================================= */
 export function buildLevel2(world, scene, fx) {
+  MUNDO = 2;
   const rnd = R(2451);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], lamps = [], switches = [], deco = [];
   const L = 165;
@@ -360,6 +370,7 @@ export function buildLevel2(world, scene, fx) {
    NIVEL 3 — "Furgoneta Desbocada" (persecución)
    ========================================================= */
 export function buildLevel3(world, scene, fx) {
+  MUNDO = 3;
   const rnd = R(777);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
   const L = 210;
@@ -451,6 +462,7 @@ export function buildLevel3(world, scene, fx) {
    ARENA DEL JEFE — "Duelo en el Escenario Principal"
    ========================================================= */
 export function buildBossArena(world, scene, fx) {
+  MUNDO = 8;
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
 
   // plataforma circular (cuadrada con bordes) + escenario

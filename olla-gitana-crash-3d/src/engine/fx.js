@@ -2,11 +2,28 @@
 import * as THREE from 'three';
 import confetti from 'canvas-confetti';
 
+/* Partículas ambientales por mundo (colores de la paleta del juego).
+   Ritmo lentísimo: máx. 1 partícula cada ~0.35-0.6 s, reutilizando el pool de burst().
+   grav/drag son opcionales y suaves: hojas/pétalos caen flotando, chispas suben, polvo se posa.
+   (El polvo "de baja opacidad" se emula con color apagado + tamaño pequeño: el InstancedMesh no admite alpha por instancia.) */
+const AMBIENT = {
+  hojas:   { colors: [0x38b000, 0x2d8a00], speed: 0.5,  up: -0.8, life: 3.0, size: 1.15, grav: 0.9,  drag: 1.4 }, // huerta: caen flotando
+  petalos: { colors: [0xfff5e1, 0xffd6a5], speed: 0.4,  up: -0.55, life: 3.2, size: 1.05, grav: 0.7,  drag: 1.8 }, // procesión: pétalos claros
+  confeti: { colors: [0xe63946, 0xffbe0b, 0x38b000, 0x8338ec], speed: 0.9, up: 0.35, life: 2.2, size: 1.0, grav: 1.6, drag: 1.0 }, // festi
+  chispas: { colors: [0xffbe0b, 0xff8800], speed: 0.4,  up: 3.4,  life: 1.1, size: 0.7,  grav: 0.5,  drag: 0.4 }, // entierro/casino: ascienden
+  polvo:   { colors: [0xcbb9a0],           speed: 0.25, up: -0.1, life: 3.6, size: 0.7,  grav: 0.18, drag: 2.2 }  // calle: motas suaves
+};
+
+/* kind ambiental por defecto según el mundo (si el llamador no pasa kind) */
+const WORLD_KIND = { 1: 'polvo', 2: 'confeti', 3: 'polvo', 4: 'petalos', 5: 'chispas', 6: 'hojas', 7: 'chispas' };
+
 export class FX {
   constructor(scene, { pool = 260 } = {}) {
     this.scene = scene;
     this.shake = 0;
     this.items = [];
+    this._ambT = 0;          // acumulador del emisor ambiental
+    this._ambNext = 0.4;     // segundos hasta la siguiente partícula ambiental (0.35-0.6)
     this.geo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
     const mat = new THREE.MeshToonMaterial({ color: 0xffffff, vertexColors: true });
     this.mesh = new THREE.InstancedMesh(this.geo, mat, pool);
@@ -35,11 +52,14 @@ export class FX {
 
   burst(pos, { count = 10, color = 0xffffff, speed = 4, up = 4, size = 1, life = 0.8, colors = null } = {}) {
     const c = new THREE.Color();
+    let last = -1;
     for (let n = 0; n < count; n++) {
       const i = this._free();
-      if (i < 0) return;
+      if (i < 0) return last;
       const it = this.items[i];
+      last = i;
       it.alive = true;
+      it.grav = undefined; it.drag = 0;   // física estándar (la usan los bursts de juego)
       it.x = pos.x + (Math.random() - 0.5) * 0.4;
       it.y = pos.y + Math.random() * 0.4;
       it.z = pos.z + (Math.random() - 0.5) * 0.4;
@@ -54,12 +74,35 @@ export class FX {
       this.mesh.setColorAt(i, c);
     }
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    return last;
   }
 
   confettiBurst() {
     try {
       confetti({ particleCount: 90, spread: 78, origin: { y: 0.72 }, colors: ['#ffbe0b', '#e63946', '#38b000', '#8338ec', '#4cc9f0'] });
     } catch (_) {}
+  }
+
+  /* Emisor ambiental: como máximo 1 partícula cada ~0.35-0.6 s, reutilizando el pool.
+     kind: 'hojas' | 'petalos' | 'confeti' | 'chispas' | 'polvo' (si falta, se deduce del level).
+     Posición: dentro del frustum aproximado de la cámara (x ±8, z +2..+14, y 3..8).
+     Devuelve 1 si emitió, 0 si aún no toca (barato: sin loops). */
+  ambient(kind, dt, camera, level) {
+    this._ambT += dt;
+    if (this._ambT < this._ambNext) return 0;
+    this._ambT = 0;
+    this._ambNext = 0.35 + Math.random() * 0.25;   // 0.35-0.6 s hasta la siguiente
+    if (!kind) kind = (level && level.arena) ? 'chispas' : ((level && WORLD_KIND[level.id]) || 'polvo');
+    const cfg = AMBIENT[kind] || AMBIENT.polvo;
+    const cam = (camera && camera.position) || { x: 0, z: 0 };
+    const idx = this.burst(
+      { x: cam.x + (Math.random() - 0.5) * 16, y: 3 + Math.random() * 5, z: cam.z + 2 + Math.random() * 12 },
+      { count: 1, colors: cfg.colors, speed: cfg.speed, up: cfg.up, life: cfg.life, size: cfg.size }
+    );
+    if (idx < 0) return 0;                          // pool lleno: reintenta en la próxima
+    const it = this.items[idx];
+    it.grav = cfg.grav; it.drag = cfg.drag;         // física suave propia de cada kind
+    return 1;
   }
 
   addShake(amount) { this.shake = Math.min(1.6, this.shake + amount); }
@@ -73,8 +116,9 @@ export class FX {
       any = true;
       it.life -= dt;
       if (it.life <= 0) { it.alive = false; continue; }
-      it.vy -= 16 * dt;
+      it.vy -= (it.grav === undefined ? 16 : it.grav) * dt;   // gravedad por partícula (ambientales suaves)
       it.x += it.vx * dt; it.y += it.vy * dt; it.z += it.vz * dt;
+      if (it.drag) { const f = Math.max(0, 1 - it.drag * dt); it.vx *= f; it.vz *= f; }  // frenado de hojas/pétalos
       if (it.y < 0.05) { it.y = 0.05; it.vy = Math.abs(it.vy) * 0.3; it.vx *= 0.7; it.vz *= 0.7; }
       const k = Math.max(0.001, it.life / it.max);
       d.position.set(it.x, it.y, it.z);
