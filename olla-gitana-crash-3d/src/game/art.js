@@ -205,6 +205,18 @@ export function makeCrate(type = 'normal') {
     spark.position.set(0.28, 0.76, 0);
     g.add(fuse, spark);
     g.userData.spark = spark;
+    // contador de cuenta atrás (sprite sobre la caja): 3·2·1 visible al encenderse
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const tex = new THREE.CanvasTexture(cv);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(0.85, 0.85, 1);
+    spr.position.set(0, 1.15, 0);
+    spr.visible = false;
+    spr.renderOrder = 998;
+    g.add(spr);
+    g.userData.countdown = { spr, cv, tex };
   }
   g.userData.type = type;
   return g;

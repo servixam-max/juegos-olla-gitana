@@ -1238,6 +1238,17 @@ window.__qa = {
     const b = world.overlap({ minX: x - 0.2, maxX: x + 0.2, minY: y - 0.2, maxY: y + 0.2, minZ: z - 0.2, maxZ: z + 0.2 });
     return b ? { tag: b.tag, pos: { ...b.pos }, half: { ...b.half } } : null;
   },
+  /* estado de las TNT encendidas (para QA del contador) */
+  tnts: () => crates.tnts.map((t) => {
+    const cd = t.mesh && t.mesh.userData.countdown;
+    return {
+      fuse: +t.fuse.toFixed(2),
+      spriteVisible: !!(cd && cd.spr.visible),
+      spriteWorldY: cd ? +(t.mesh.position.y + cd.spr.position.y).toFixed(2) : null,
+      spriteScale: cd ? +cd.spr.scale.x.toFixed(2) : null,
+      canvasPainted: !!(cd && cd.cv.width)
+    };
+  }),
   start: (i) => startLevel(i),
   teleport: (x, y, z) => player.reset(x, y, z),
   enableBot: () => { state.bot = { t: 0, jumpCd: 0, spinCd: 0, stuckT: 0, lastZ: null, log: () => {} }; },

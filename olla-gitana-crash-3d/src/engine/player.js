@@ -304,8 +304,10 @@ export class Player {
       this.obj.traverse((c) => { if (c.isMesh && c.material && c.material.emissive) c.material.emissiveIntensity = glow * 0.35; });
     }
 
-    // sombra proyectada
-    const g2 = world.groundUnder({ minX: this.pos.x - 0.3, maxX: this.pos.x + 0.3, minZ: this.pos.z - 0.3, maxZ: this.pos.z + 0.3, minY: -50, maxY: 0 });
+    // sombra proyectada: el sólido más alto a los pies del jugador (la
+    // referencia es la altura de los pies, no maxY:0 como antes, que dejaba la
+    // sombra siempre a nivel del suelo aunque estuvieras sobre un andamio)
+    const g2 = world.groundUnder({ minX: this.pos.x - 0.3, maxX: this.pos.x + 0.3, minZ: this.pos.z - 0.3, maxZ: this.pos.z + 0.3, minY: -50, maxY: this.pos.y + 0.05 });
     let sy = 0.02;
     if (g2) sy = g2.top + 0.02;
     const height = Math.max(0, this.pos.y - sy);

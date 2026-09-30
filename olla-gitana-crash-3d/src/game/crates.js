@@ -154,8 +154,39 @@ export class CrateSystem {
     crate.fuse = 3.0;
     const spark = crate.mesh && crate.mesh.userData.spark;
     if (spark) spark.visible = true;
+    const cd = crate.mesh && crate.mesh.userData.countdown;
+    if (cd) cd.spr.visible = true;
     this.tnts.push(crate);
     this.audio.sfx('tnt');
+  }
+
+  /* dibuja la cuenta atrás de la TNT (3·2·1) en su sprite */
+  _drawCountdown(crate) {
+    const cd = crate.mesh && crate.mesh.userData.countdown;
+    if (!cd) return;
+    const n = Math.max(1, Math.ceil(crate.fuse));
+    const g = cd.cv.getContext('2d');
+    const W = cd.cv.width, H = cd.cv.height;
+    g.clearRect(0, 0, W, H);
+    // pompa de fondo para que el número se lea sobre cualquier fondo
+    g.beginPath(); g.arc(W / 2, H / 2, 54, 0, Math.PI * 2);
+    g.fillStyle = n <= 1 ? 'rgba(230,57,70,.92)' : 'rgba(20,10,30,.85)';
+    g.fill();
+    g.lineWidth = 7; g.strokeStyle = '#ffbe0b'; g.stroke();
+    // número con "pop" según lo cerca que esté del cambio
+    const frac = crate.fuse - Math.floor(crate.fuse);
+    const scale = 1 + (1 - frac) * 0.18;
+    g.save();
+    g.translate(W / 2, H / 2 + 4);
+    g.scale(scale, scale);
+    g.font = '900 76px "Luckiest Guy", Nunito, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 10; g.strokeStyle = 'rgba(0,0,0,.6)';
+    g.strokeText(String(n), 0, 0);
+    g.fillStyle = '#fff5e1';
+    g.fillText(String(n), 0, 0);
+    g.restore();
+    cd.tex.needsUpdate = true;
   }
 
   update(dt, player) {
@@ -163,11 +194,19 @@ export class CrateSystem {
     // TNT encendidas
     for (const t of this.tnts) {
       if (t.dead) continue;
+      const prevN = Math.ceil(t.fuse);
       t.fuse -= dt;
       if (t.mesh) {
         const k = Math.max(0, t.fuse);
         t.mesh.visible = Math.floor(k * 8) % 2 === 0 || k > 0.6;
         t.mesh.position.x += Math.sin(this.time * 60) * 0.012;
+        // contador 3·2·1 (se redibuja al cambiar el número o a 10 fps)
+        if (Math.ceil(k) !== prevN || (this.time * 10 | 0) !== ((this.time * 10 - 1) | 0)) this._drawCountdown(t);
+        const cd = t.mesh.userData.countdown;
+        if (cd) {
+          // el contador es hijo de la caja: hereda su posición; solo escala con la urgencia
+          cd.spr.scale.setScalar(0.85 + (1 - Math.min(1, k / 3)) * 0.5);
+        }
       }
       if (t.fuse <= 0) this.explode(t);
     }
