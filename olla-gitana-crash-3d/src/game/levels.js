@@ -21,7 +21,7 @@ import { Box } from '../engine/physics.js';
 import {
   PALETA, makeCrate, makeNote, makeMask, makeSpeaker, makeAmp, makeGuitar, makeMicStand,
   makeBarrel, makeLampPost, makeFloodlight, makePlanter, makePuddle, makeCone, makeVan,
-  makeTree, makeStage, toonMat, makeOlla
+  makeTree, makeStage, toonMat, makeOlla, makeArrowCrate, makeOutlineCrate
 } from './art.js';
 import { buildLevel4, buildLevel5, buildLevel6, buildLevel7 } from './levels2.js';
 import { matSuperficie, claseDeTag } from '../engine/surfaces.js';
@@ -62,13 +62,14 @@ function wall(world, scene, { x, z, w = 1, h = 3, d = 10, y = 0, color = 0x5b4b8
 }
 
 function buildCrate(world, scene, { x, y = 0, z, type = 'normal' }) {
-  const g = makeCrate(type);
+  const g = type === 'outline' ? makeOutlineCrate() : (type === 'arrow' ? makeArrowCrate() : makeCrate(type));
   g.position.set(x, y + 0.46, z);
   scene.add(g);
-  const b = world.add(new Box({ x, y: y + 0.46, z, w: 0.92, h: 0.92, d: 0.92, tag: 'crate' }));
+  const b = world.add(new Box({ x, y: y + 0.46, z, w: 0.92, h: 0.92, d: 0.92, tag: 'crate', solid: type !== 'outline' }));
   b.mesh = g;
   b.crateType = type;
   b.hp = (type === 'steel' || type === 'iron') ? 2 : 1;
+  if (type === 'outline') b.contorno = { materializada: false };
   return b;
 }
 
@@ -88,6 +89,114 @@ function buildMask(world, scene, { x, y = 1.0, z }) {
 
 function enemy(type, opts) {
   return { type, ...opts };
+}
+
+/* ---------- MECÁNICAS CRASH (v4): secretos, ruinas y barriles ---------- */
+
+/* ¿hay suelo FIRME bajo esta huella? Las notas atraen al bot: colocar una
+   pieza (o una pista) sobre un agujero es una trampa que se paga con la vida. */
+function haySuelo(world, { x, z, w = 1, d = 1, techoMin = -0.7, techoMax = 2.6 }) {
+  const pts = [];
+  for (const dx of [-w / 2, 0, w / 2]) for (const dz of [-d / 2, 0, d / 2]) pts.push([dx, dz]);
+  for (const [dx, dz] of pts) {
+    const g = world.groundUnder({
+      minX: x + dx - 0.3, maxX: x + dx + 0.3, minZ: z + dz - 0.3, maxZ: z + dz + 0.3, minY: -50, maxY: 14
+    });
+    if (!g || g.top > techoMax || g.top < techoMin) return false;
+  }
+  return true;
+}
+/* Busca un z cercano al pedido donde la huella tenga suelo firme. */
+function zConSuelo(world, { x, z, w, d, desde = -8, hasta = 12 }) {
+  const max = Math.max(Math.abs(desde), Math.abs(hasta));
+  for (let k = 0; k <= max; k++) {
+    for (const s of (k === 0 ? [0] : [k, -k])) {
+      const zz = z + s;
+      if (zz < z + desde || zz > z + hasta) continue;
+      if (haySuelo(world, { x, z: zz, w, d })) return zz;
+    }
+  }
+  return null;
+}
+/* Nota de PISTA solo si el suelo bajo ella es firme (si no, el bot la
+   perseguiría hasta el vacío). */
+function notaSegura(notes, world, scene, { x, y = 0.95, z }) {
+  if (!haySuelo(world, { x, z, w: 0.8, d: 0.8, techoMax: 8 })) return false;
+  notes.push(buildNote(world, scene, { x, y, z }));
+  return true;
+}
+
+/* BARRIL RODANTE con recorrido SEGURO: el barril baja rodando `largo` metros
+   desde su base. Se coloca SOLO si todo el recorrido tiene suelo firme a los
+   lados: si el tramo es de bloques sobre el vacío, un barril que empuja al
+   jugador a un lado lo tira al agujero (livelock del bot: caía y volvía al
+   checkpoint en bucle). Devuelve {x, z, speed, span} o null. */
+function barrilSeguro(world, { x = 0, z, speed = 7, largo = 22, desde = -14, hasta = 16 }) {
+  const max = Math.max(Math.abs(desde), Math.abs(hasta));
+  for (let k = 0; k <= max; k++) {
+    for (const s of (k === 0 ? [0] : [k, -k])) {
+      const zz = z + s;
+      if (zz < z + desde || zz > z + hasta) continue;
+      // el recorrido [zz - largo, zz] debe ser firme en x y en los laterales de escape
+      let ok = true;
+      for (let zc = zz - largo; zc <= zz && ok; zc += 1) {
+        for (const xc of [x, x - 1.6, x + 1.6]) {
+          if (!haySuelo(world, { x: xc, z: zc, w: 0.7, d: 0.7 })) { ok = false; break; }
+        }
+      }
+      if (ok) return { x, z: zz, speed, span: largo };
+    }
+  }
+  return null;
+}
+
+/* Caja que SE DESMORONA al pisarla: tiembla ~0,75 s, se agrieta más y se
+   desploma (deja de ser sólida). El sistema la revuelve en main.js. */
+function ruina(world, scene, { x = 0, z, w = 3.0, d = 3.0, y = 0, color = 0x8a6a3f }) {
+  const zz = zConSuelo(world, { x, z, w, d });
+  if (zz == null) return null;
+  const b = solid(world, scene, { x, y: y - 0.4, z: zz, w, h: 0.4, d, color, tag: 'ruina' });
+  b.ruina = { t: 0, caida: false, baseY: y - 0.4 };
+  return b;
+}
+/* Cornisa de tablas que se desmoronan, con su nota encima (la nota va donde
+   la tabla exista de verdad: si no hay suelo, no se pone ninguna de las dos). */
+function cornisaRuina(world, scene, notes, { x = 0, z, w = 3.0, d = 3.2, y = 2.2, color = 0x8a6a3f, notaY = null }) {
+  const b = ruina(world, scene, { x, z, w, d, y, color });
+  if (!b) return null;
+  notaSegura(notes, world, scene, { x, y: notaY == null ? y + 1.0 : notaY, z: b.pos.z });
+  return b;
+}
+
+/* Zona SECRETA: plataforma alta con premio, marcada con una fila de NOTAS
+   DORADAS que suben en diagonal (la pista visual que en Crash te dice "por
+   aquí hay algo"). Coloca la plataforma y devuelve dónde poner el premio. */
+function zonaSecreta(world, scene, {
+  x, y, z, w = 4.0, d = 4.4, color = 0xd4c6a6, pistaDesde = null, notasPista = 3, notas = null
+}) {
+  const zz = zConSuelo(world, { x, z, w, d, desde: -6, hasta: 10 });
+  if (zz == null) return null;
+  floorSeg(world, scene, { x, y, z: zz, w, d, color, tag: 'platform' });
+  const listaNotas = notas || [];
+  // remate: caja de madera alrededor (se lee como "premio", no como suelo suelto)
+  const borde = toonMat(PALETA.dorado);
+  for (const [bx, bz, bw, bd] of [[-w / 2, 0, 0.16, d], [w / 2, 0, 0.16, d], [0, -d / 2, w, 0.16], [0, d / 2, w, 0.16]]) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.09, bd), borde);
+    m.position.set(x + bx, y + 0.045, zz + bz);
+    scene.add(m);
+  }
+  // pista de notas doradas subiendo hacia la plataforma (solo sobre firme)
+  if (pistaDesde) {
+    for (let i = 1; i <= notasPista; i++) {
+      const t = i / (notasPista + 1);
+      notaSegura(listaNotas, world, scene, {
+        x: pistaDesde.x + (x - pistaDesde.x) * t,
+        y: pistaDesde.y + (y + 0.95 - pistaDesde.y) * t,
+        z: pistaDesde.z + (zz - pistaDesde.z) * t
+      });
+    }
+  }
+  return { x, y, z: zz, w, d };
 }
 
 /* ---------- patrones de plataformas (saltos con riesgo real) ---------- */
@@ -223,12 +332,41 @@ export function buildLevel1(world, scene, fx) {
   crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
   masks.push(buildMask(world, scene, { x: esc.x, y: esc.cima + 1.2, z: esc.z }));
 
+  /* ---- RUTA SECRETA 1: buhardilla del ensayo --------------
+     CAJA FLECHA en la esquina de la plaza: al pisarla rebotas muy alto y te
+     sube al andamio secreto (notas + caja de rebote). Las notas doradas en
+     diagonal son la pista. */
+  crates.push(buildCrate(world, scene, { x: 4.3, y: 0, z: C.fin + 40, type: 'arrow' }));
+  zonaSecreta(world, scene, {
+    x: 4.3, y: 3.5, z: C.fin + 44.2, w: 4.4, d: 4.4, color: 0xd4c6a6,
+    pistaDesde: { x: 4.3, y: 1.6, z: C.fin + 40 }, notasPista: 3, notas: notes
+  });
+  crates.push(buildCrate(world, scene, { x: 4.3, y: 3.5, z: C.fin + 44.2, type: 'bounce' }));
+  crates.push(buildCrate(world, scene, { x: 3.2, y: 3.5, z: C.fin + 43.2, type: 'normal' }));
+
+  /* PLATAFORMAS QUE SE DESMORONAN: la cornisa del callejón se cae al pisarla
+     (el atajo por arriba es rápido, pero no puedes quedarte parado). */
+  for (const [rx, rz] of [[-3.6, C.fin + 22], [-3.6, C.fin + 25.6], [-3.6, C.fin + 29.2]]) {
+    cornisaRuina(world, scene, notes, { x: rx, z: rz, w: 3.0, d: 3.2, y: 2.2, notaY: 3.2 });
+  }
+  // caja flecha que abre la cornisa
+  crates.push(buildCrate(world, scene, { x: -4.2, y: 0, z: C.fin + 19.5, type: 'arrow' }));
+
   // ---- E: SOLO BLOQUES 2 · cinco losas sobre el vacío ----
   const E = islas(world, scene, { z0: D.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   E.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 3) crates.push(buildCrate(world, scene, { x: l.x, y: l.y, z: l.z, type: 'steel' }));
   });
+
+  /* BARRILES RODANTES (mecánica Crash): bajan rodando por la calle. Se
+     esquivan saltando o apartándose; al chocar estallan. Solo se colocan
+     donde TODO el recorrido tiene suelo firme (si no, el barril empuja al
+     jugador al vacío). */
+  for (const bd of [{ x: -1.6, z: 176, speed: 7.0 }, { x: 2.4, z: 212, speed: 7.6 }, { x: 0.6, z: 236, speed: 6.4 }]) {
+    const b = barrilSeguro(world, { ...bd, largo: 20 });
+    if (b) enemies.push(enemy('barril', b));
+  }
 
   // ---- F: recta final ----
   const F = calzada(world, scene, { z0: E.fin, z1: 240, rnd });
@@ -333,7 +471,7 @@ export function buildLevel1(world, scene, fx) {
 
   return {
     id: 1, nombre: 'El Ensayo Callejero',
-    tip: '¡Ojo: los huecos del suelo son de verdad! Salta los baches y busca la ruta alta.',
+    tip: 'Salta los baches y busca las cajas flecha ▲: suben a la cornisa y al andamio secreto.',
     length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal, crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: false, arena: false, bg: 1, colorTecho: 0x2a1b40,
     lampIntensity: 1.0
@@ -410,6 +548,30 @@ export function buildLevel2(world, scene, fx) {
   notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z + 3.2 }));
   masks.push(buildMask(world, scene, { x: esc.x, y: esc.cima + 1.3, z: esc.z + 3.2 }));
   crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
+
+  /* ---- RUTA SECRETA 2: el andamio invisible --------------
+     CAJA DE CONTORNO (outline crate): al principio es solo un dibujo, NO se
+     puede pisar. La caja '!' de al lado la MATERIALIZA y entonces sí aguanta
+     (es el atajo que cruza el foso sin bajar a los tablones). */
+  crates.push(buildCrate(world, scene, { x: 0, y: 0, z: E.fin + 1.2, type: 'switch' }));
+  for (const oz of [E.fin + 3.4, E.fin + 6.6, E.fin + 9.8]) {
+    const fantasma = buildCrate(world, scene, { x: 0, y: 0.6, z: oz, type: 'outline' });
+    crates.push(fantasma);
+  }
+  for (const oz of [E.fin + 3.4, E.fin + 6.6, E.fin + 9.8]) notaSegura(notes, world, scene, { x: 0, y: 2.1, z: oz });
+  // premio del atajo: una máscara al final del andamio invisible
+  masks.push(buildMask(world, scene, { x: 0, y: 2.4, z: E.fin + 12.4 }));
+
+  /* CAJA FLECHA de la recta de tránsito: sube a la viga con las notas. */
+  crates.push(buildCrate(world, scene, { x: -4.2, y: 0, z: D.fin + 12, type: 'arrow' }));
+  floorSeg(world, scene, { x: -4.2, y: 3.4, z: D.fin + 16, w: 3.2, d: 3.4, color: 0x6b5b9a, tag: 'platform' });
+  notaSegura(notes, world, scene, { x: -4.2, y: 4.4, z: D.fin + 16 });
+
+  /* BARRILES RODANTES por los andamios y la recta final (recorrido firme). */
+  for (const bd of [{ x: 2.2, z: 132, speed: 6.6 }, { x: -2.2, z: 222, speed: 7.4 }]) {
+    const b = barrilSeguro(world, { ...bd, largo: 18 });
+    if (b) enemies.push(enemy('barril', b));
+  }
 
   // ---- F: SOLO BLOQUES 2 · seis tablones sobre el vacío ----
   const F = islas(world, scene, { z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.7, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
@@ -501,7 +663,7 @@ export function buildLevel2(world, scene, fx) {
 
   return {
     id: 2, nombre: 'Ruta al Festi',
-    tip: 'Salta de tablón en tablón sobre el vacío y sube a los andamios: arriba están los premios.',
+    tip: 'Cajas flecha ▲ para volar alto. La caja ! materializa el andamio invisible: ahí va el atajo.',
     length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal: { z: 249, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: false, arena: false, bg: 2, colorTecho: 0x1c0f2e, lampIntensity: 1.25
@@ -562,6 +724,13 @@ export function buildLevel3(world, scene, fx) {
     { z: D.fin + 30, w: 3.4, plataforma: { axis: 'x', w: 4.2, amp: 1.5, speed: 1.0 } }
   ] });
   tramosFirmes.push(...E.tramos);
+
+  /* BARRILES RODANTES EN LA CARRETERA: bajan a toda velocidad por el arcén.
+     Van alternando carril, así que hay que LEERLOS y apartarse o saltar. */
+  for (const bd of [{ x: -1.0, z: D.fin + 40, speed: 9.0 }, { x: 2.2, z: D.fin + 42, speed: 9.6 }]) {
+    const b = barrilSeguro(world, { ...bd, largo: 18 });
+    if (b) enemies.push(enemy('barril', b));
+  }
 
   // ---- F: OBRAS 3: cinco pilares más (el tramo más exigente) ----
   const F = islas(world, scene, { z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
@@ -634,6 +803,22 @@ export function buildLevel3(world, scene, fx) {
   masks.push(buildMask(world, scene, { x: -2.8, y: 1.2, z: 244 }));
   masks.push(buildMask(world, scene, { x: 2.6, y: 1.2, z: 292 }));
 
+  /* ---- RUTA SECRETA 3: el andamio de las obras --------------
+     CAJA FLECHA junto al arcén: rebote alto al andamio con la máscara y las
+     notas doradas. Es la recompensa de explorar en mitad de la carrera. */
+  crates.push(buildCrate(world, scene, { x: -4.2, y: 0, z: 186, type: 'arrow' }));
+  zonaSecreta(world, scene, {
+    x: -4.2, y: 3.4, z: 190.4, w: 4.0, d: 4.0, color: 0x9aa5b1,
+    pistaDesde: { x: -4.2, y: 1.6, z: 186 }, notasPista: 3, notas: notes
+  });
+  masks.push(buildMask(world, scene, { x: -4.2, y: 4.4, z: 190.4 }));
+
+  // cajas flecha extra en la recta final (atajo a la cornisa de las obras)
+  crates.push(buildCrate(world, scene, { x: 4.0, y: 0, z: 262, type: 'arrow' }));
+  for (const [rx, rz] of [[4.0, 265.6], [4.0, 269.2]]) {
+    cornisaRuina(world, scene, notes, { x: rx, z: rz, w: 3.0, d: 3.2, y: 2.4, notaY: 3.4 });
+  }
+
   [66, 148, 240].forEach((cz) => {
     crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
     checkpoints.push({ z: cz });
@@ -641,7 +826,7 @@ export function buildLevel3(world, scene, fx) {
 
   return {
     id: 3, nombre: 'Furgoneta Desbocada',
-    tip: '¡Corre hacia la cámara! La furgoneta no frena: salta los huecos de las obras sin pararte.',
+    tip: '¡Corre hacia la cámara! Esquiva los barriles que ruedan y usa las cajas flecha ▲ para ir por lo alto.',
     length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: 299, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: true, arena: false, bg: 3, colorTecho: 0x101a2e, lampIntensity: 0.9,

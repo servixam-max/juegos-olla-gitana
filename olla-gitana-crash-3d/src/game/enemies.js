@@ -1,6 +1,6 @@
 /* Enemigos: amplis patrulleros, altavoces-turret con ondas y amplis rodantes. */
 import * as THREE from 'three';
-import { makeAmp, makeSpeaker, toonMat, PALETA } from './art.js';
+import { makeAmp, makeSpeaker, toonMat, PALETA, makeBarrelRodante } from './art.js';
 
 /* Textura del anillo de onda (compartida): banda nítida con doble línea y
    muescas radiales, para que la onda se lea como una onda de sonido. */
@@ -143,6 +143,7 @@ export class EnemySystem {
       else if (d.type === 'bee') this.list.push(this.makeBee(d));
       else if (d.type === 'lamp') this.list.push(this.makeLamp(d));
       else if (d.type === 'candle') this.list.push(this.makeCandle(d));
+      else if (d.type === 'barril') this.list.push(this.makeBarrilRodante(d));
     }
   }
 
@@ -340,6 +341,17 @@ export class EnemySystem {
     return { ...d, obj, alive: true, kind: 'roller', vz: -(d.speed || 8), base: { x: d.x, z: d.z }, hp: 1 };
   }
 
+  /* BARRIL RODANTE (mecánica Crash): barril tumbado que baja rodando por el
+     pasillo hacia el jugador. Se esquiva saltando (o apartándose); no se
+     destruye con el giro, hay que LEERLO y dejarle pasar. Al estrellarse
+     contra el jugador estalla y vuelve a su sitio. */
+  makeBarrilRodante(d) {
+    const obj = makeBarrelRodante({ color: d.color || PALETA.madera });
+    obj.position.set(d.x, 0, d.z);
+    this.scene.add(obj);
+    return { ...d, obj, alive: true, kind: 'barril', vz: -(d.speed || 7), base: { x: d.x, z: d.z }, hitCd: 0, rollT: 0 };
+  }
+
   /* Devuelve true si el jugador recibe daño este frame */
   update(dt, player, ctx) {
     let hit = false;
@@ -398,6 +410,47 @@ export class EnemySystem {
           if (player.spinning || (p.y > 0.9)) {
             e.obj.position.z = e.base.z;
           } else hit = true;
+        }
+      } else if (e.kind === 'barril') {
+        /* BARRIL RODANTE: baja por el pasillo hacia el jugador, girando.
+           Esquiva = saltar (p.y > 1.0) o apartarse. Al tocarte, daña y
+           estalla: vuelve a su sitio (así el tramo se puede reintentar). */
+        e.rollT += dt;
+        e.hitCd = Math.max(0, (e.hitCd || 0) - dt);
+        if (e.stunned > 0) {
+          e.stunned -= dt;
+          e.obj.rotation.z += dt * 9;
+          e.obj.position.y = Math.max(0.05, e.obj.position.y - dt * 2.2);
+          if (e.stunned <= 0) {
+            this.fx.burst({ x: e.obj.position.x, y: 0.3, z: e.obj.position.z }, { count: 14, speed: 5, up: 4.5, life: 0.8, colors: [PALETA.madera, PALETA.maderaOsc, 0xffffff] });
+            this.audio.sfx('barril');
+            e.obj.position.set(e.base.x, 0, e.base.z);
+            e.obj.rotation.set(0, 0, 0);
+          }
+          continue;
+        }
+        e.obj.position.z += e.vz * dt;
+        e.obj.rotation.x -= e.vz * dt * 0.9;    // rueda de verdad
+        // aviso sonoro periódico mientras rueda
+        e.sfxT = (e.sfxT || 0) - dt;
+        if (e.sfxT <= 0) { e.sfxT = 0.34; this.audio.sfx('rodar'); }
+        // el tramo es largo: al llegar al final vuelve arriba a empezar
+        if (e.obj.position.z < e.base.z - 30) e.obj.position.z = e.base.z + 6;
+        const dxB = Math.abs(e.obj.position.x - p.x), dzB = Math.abs(e.obj.position.z - p.z);
+        if (dxB < 1.0 && dzB < 0.9 && p.y < 1.05) {
+          if (e.hitCd <= 0) {
+            e.hitCd = 1.6;
+            if (player.spinning) {
+              // el giro lo manda a la porra: se estrella y vuelve a su sitio
+              e.stunned = 0.55;
+              this.fx.burst({ x: e.obj.position.x, y: 0.4, z: e.obj.position.z }, { count: 12, speed: 5, up: 4, life: 0.6, colors: [PALETA.madera, 0xffffff] });
+            } else {
+              hit = true;
+              this.fx.burst({ x: e.obj.position.x, y: 0.5, z: e.obj.position.z }, { count: 16, speed: 6, up: 5, life: 0.8, colors: [PALETA.madera, PALETA.rojo, 0xffffff] });
+              this.audio.sfx('barril');
+              e.obj.position.set(e.base.x, 0, e.base.z);   // vuelve arriba
+            }
+          }
         }
       } else if (e.kind === 'bee') {
         // zigzag a media altura

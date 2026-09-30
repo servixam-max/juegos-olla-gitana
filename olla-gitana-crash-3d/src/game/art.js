@@ -278,6 +278,8 @@ export function makeCrate(type = 'normal') {
   else if (type === 'switch') { faceColor = 0x4cc9f0; edgeColor = 0x1c6b86; label = '!'; }
   else if (type === 'checkpoint') { faceColor = 0xb5e48c; edgeColor = 0x4f772d; label = '✔'; }
   else if (type === 'iron') { faceColor = 0xc9a227; edgeColor = 0x7a5c00; metal = true; }
+  else if (type === 'arrow') { faceColor = 0xfff5e1; edgeColor = PALETA.maderaOsc; label = '▲'; }
+  else if (type === 'outline') { faceColor = 0xfff5e1; edgeColor = 0xa89b7a; }
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.92, 0.92), toonMat(faceColor));
   g.add(body);
@@ -474,6 +476,44 @@ export function makeBarrel({ color = PALETA.rojo } = {}) {
   g.add(b);
   return g;
 }
+
+/* ---------- sonidos nuevos de las mecánicas Crash (van aquí para no tocar
+   audio.js: se registran con el sfx('ui') del motor y se REEMPLAZAN por un
+   tono propio). Regla del proyecto: los aciertos NUNCA usan hit.mp3. ---------- */
+function pito(engine, { type = 'triangle', f0 = 660, f1 = f0, dur = 0.12, vol = 0.14, delay = 0 }) {
+  try { engine.tone({ type, f0, f1, dur, vol, delay }); } catch (_) { /* motor sin audio listo */ }
+}
+export function sfxMecanicas(engine, name) {
+  switch (name) {
+    /* MUELLE de la caja flecha: \"boing\" ascendente largo (rebote MUY alto) */
+    case 'arrow':
+      pito(engine, { type: 'triangle', f0: 420, f1: 1500, dur: 0.24, vol: 0.2 });
+      pito(engine, { type: 'sine', f0: 1500, f1: 640, dur: 0.3, vol: 0.13, delay: 0.14 });
+      break;
+    /* la plataforma se agrieta al pisarla */
+    case 'crujido': pito(engine, { type: 'sawtooth', f0: 220, f1: 90, dur: 0.16, vol: 0.12 }); break;
+    /* la plataforma se desploma */
+    case 'derrumb': {
+      pito(engine, { type: 'sine', f0: 170, f1: 52, dur: 0.42, vol: 0.24 });
+      pito(engine, { type: 'square', f0: 120, f1: 46, dur: 0.3, vol: 0.12, delay: 0.04 });
+      break;
+    }
+    /* barril rodando: retumbo grave mientras avanza */
+    case 'rodar': pito(engine, { type: 'sawtooth', f0: 92, f1: 148, dur: 0.22, vol: 0.1, delay: 0.02 }); break;
+    /* el barril se estrella */
+    case 'barril': {
+      pito(engine, { type: 'sine', f0: 130, f1: 60, dur: 0.3, vol: 0.2 });
+      pito(engine, { type: 'triangle', f0: 520, f1: 170, dur: 0.22, vol: 0.11, delay: 0.03 });
+      break;
+    }
+    /* ¡SORPRESA! la zona secreta se revela */
+    case 'secreto': [659, 880, 1046, 1319].forEach((f, i) => pito(engine, { type: 'triangle', f0: f, dur: 0.2, vol: 0.15, delay: i * 0.075 })); break;
+    /* la caja de contorno se materializa */
+    case 'materializa': pito(engine, { type: 'triangle', f0: 300, f1: 1200, dur: 0.2, vol: 0.14 }); pito(engine, { type: 'sine', f0: 1760, dur: 0.3, vol: 0.08, delay: 0.16 }); break;
+    default: break;
+  }
+}
+
 
 /* Barril RODANTE (mecánica Crash): barril tumbado que rueda por el pasillo
    hacia el jugador. Se lee como peligro a primera vista: duelas de madera,

@@ -29,6 +29,13 @@ export class CrateSystem {
     for (const c of crates) {
       c.dead = false;
       c.hp = (c.crateType === 'steel' || c.crateType === 'iron') ? 2 : 1;
+      c.materializada = false;
+      c.disabled = false;
+      if (c.crateType === 'outline') {
+        c.bouncing = false;
+        if (c.worldBox) c.worldBox.solid = false;      // vuelve a ser fantasma
+        if (c.mesh && c.mesh.userData.ghostMat) { c.mesh.userData.ghostMat.opacity = 0.3; c.mesh.scale.setScalar(1); }
+      }
       if (c.mesh) {
         c.mesh.rotation.set(0, 0, 0);
         const spark = c.mesh.userData.spark;
@@ -46,6 +53,15 @@ export class CrateSystem {
   hit(crate, { fromSpin = false, fromStomp = false, power = 1 } = {}) {
     if (!crate || crate.dead) return false;
     const esMetal = crate.crateType === 'iron' || crate.crateType === 'steel';
+    /* CAJA DE CONTORNO: mientras no se materialice no se puede golpear (es un
+       dibujo). Al materializarse ya es madera normal. */
+    if (crate.crateType === 'outline' && !crate.materializada) return false;
+    /* CAJA FLECHA (arrow crate): el pisotón NO la rompe — te lanza MUY alto
+       (el impulso lo aplica main.js al jugador). Sí se rompe con el giro. */
+    if (crate.crateType === 'arrow' && fromStomp && !fromSpin) {
+      if (crate.mesh) crate.mesh.userData.hitT = 0.22;   // muelle: se hunde y vuelve
+      return false;
+    }
     if (crate.crateType === 'iron') {
       // el hierro solo se rompe con el pisotón en el aire o con el aura
       if (!fromStomp && power < 2) { this.audio.sfx('land'); this.audio.sfx('clank'); return false; }

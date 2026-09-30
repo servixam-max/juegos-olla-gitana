@@ -18,7 +18,21 @@ import { LEVELS } from './game/levels.js';
 import { MaskCompanion } from './game/mask.js';
 import { Progreso, VIDAS_NIVEL, SUPER_VIDAS_INICIAL, CONTINUES } from './game/progreso.js';
 import { logros3d } from './game/logros3d.js';
-import { toonMat, makeOlla, makeVan, PALETA, makeNote } from './game/art.js';
+import { toonMat, makeOlla, makeVan, PALETA, makeNote, sfxMecanicas } from './game/art.js';
+/* sonidos de las mecánicas Crash (ruinas, barriles, secretos): tono propio
+   sintetizado — nunca hit.mp3 para aciertos (regla del proyecto). El motor
+   no tiene estos casos, así que se registra un 'ui' y se sustituye el sonido. */
+const SFX_MEC = new Set(['arrow', 'crujido', 'derrumb', 'rodar', 'barril', 'secreto', 'materializa']);
+const _sfxOriginal = Audio.sfx.bind(Audio);
+Audio.sfx = (name) => {
+  if (SFX_MEC.has(name)) {
+    _sfxOriginal('ui');
+    if (Audio.log.length) Audio.log[Audio.log.length - 1] = name;   // el registro de QA muestra el nombre real
+    if (Audio.ready && !Audio.muted) sfxMecanicas(Audio, name);
+    return;
+  }
+  _sfxOriginal(name);
+};
 /* atrezzo ambiental en su propio módulo (decoración de escena, sin colisión) */
 import {
   makeSignPost, makeBin, makeStreetLamp, makeAwning, makeBunting,
@@ -653,7 +667,11 @@ function startLevel(index, { keepLives = false } = {}) {
       }));
       b.mesh = c.mesh;
       b.crateRef = c;
+      // la caja de CONTORNO es un dibujo: no es sólida hasta materializarse
+      if (c.crateType === 'outline') b.solid = false;
       c.worldBox = b;
+    } else if (c.worldBox && c.crateType === 'outline') {
+      c.worldBox.solid = false;   // al reiniciar el nivel vuelve a ser fantasma
     }
     if (c.mesh) { c.mesh.visible = true; }
   }
@@ -814,6 +832,8 @@ function startLevel(index, { keepLives = false } = {}) {
   crates.onSwitch = () => {
     hud.toast('🔔 ¡MECANISMO! La salida se desbloquea', 'good');
     Audio.sfx('gate');
+    // la onda también MATERIALIZA las cajas de contorno del tramo (atajo secreto)
+    materializarContornos(player.pos.z);
     // onda azul en el sitio del mecanismo (feedback inmediato)
     fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: PALETA.azul, r0: 0.4, r1: 3.4, life: 0.6 });
     fx.flash({ x: player.pos.x, y: player.pos.y + 0.8, z: player.pos.z }, { color: 0x4cc9f0, size: 2.2, life: 0.35 });
@@ -1231,6 +1251,94 @@ function updateEspejos() {
   }
 }
 
+/* ---------- MECÁNICAS CRASH (v4) en el motor ---------- */
+
+/* PLATAFORMAS QUE SE DESMORONAN: al pisarlas tiemblan, se agrietan más y a
+   los ~0,75 s se desploman (dejan de ser sólidas y caen al vacío). */
+function updateRuinas(dt) {
+  for (const b of world.boxes) {
+    if (!b.ruina || b.ruina.caida) continue;
+    const r = b.ruina;
+    const pisada = player.grounded && player.groundBox === b;
+    if (pisada || r.t > 0) {
+      r.t += dt;
+      // tiembla (cada vez más): el jugador LEE que se va a caer
+      const amp = Math.min(0.06, 0.012 + r.t * 0.05);
+      b.pos.x = b.base.x + Math.sin(state.t * 45) * amp;
+      b.pos.z = b.base.z + Math.cos(state.t * 51) * amp;
+      if (b.mesh) { b.mesh.position.x = b.pos.x; b.mesh.position.z = b.pos.z; }
+      if (r.t < 0.1) Audio.sfx('crujido');
+      // la marca de aviso ya está en el arte; se oscurece la tabla al ceder
+      if (b.mesh && r.t > 0.5) b.mesh.scale.setScalar(1 - (r.t - 0.5) * 0.12);
+      if (r.t >= 0.75) {
+        r.caida = true;
+        b.solid = false;
+        Audio.sfx('derrumb');
+        fx.burst({ x: b.pos.x, y: b.pos.y, z: b.pos.z }, { count: 18, speed: 5, up: 3, life: 0.9, colors: [0x8a6a3f, PALETA.maderaOsc, 0xffffff] });
+        fx.addShake(0.22);
+        if (b.mesh) {
+          // se hunde fuera de la escena (sin colisión)
+          b.mesh.userData.cayendo = true;
+        }
+      }
+    }
+  }
+  // animación de la caída (los que ya cedieron)
+  for (const b of world.boxes) {
+    if (!b.ruina || !b.ruina.caida || !b.mesh || !b.mesh.userData.cayendo) continue;
+    b.mesh.position.y -= dt * 9;
+    b.mesh.rotation.z += dt * 1.6;
+    if (b.mesh.position.y < -14) { b.mesh.visible = false; b.mesh.userData.cayendo = false; }
+  }
+}
+
+/* CAJAS DE CONTORNO: no son sólidas hasta que una caja '!' cercana las
+   materializa (mecánica crash: la caja fantasma). Se materializan también
+   todas a la vez si el jugador pulsa cualquier interruptor del nivel. */
+function materializarContornos(zona) {
+  let n = 0;
+  for (const c of crates.items) {
+    if (c.crateType !== 'outline' || c.materializada) continue;
+    if (zona != null && Math.abs(c.mesh.position.z - zona) > 26) continue;
+    c.materializada = true;
+    c.worldBox && (c.worldBox.solid = true);
+    if (c.mesh) {
+      c.mesh.userData.ghostMat.opacity = 0.95;
+      c.mesh.scale.setScalar(1.25);
+      c.mesh.userData.hitT = 0.3;
+      for (const h of c.mesh.children) if (h.material && h.material.color && h.material !== c.mesh.userData.ghostMat) h.material.opacity = 1;
+    }
+    // chispas doradas: ¡la caja aparece!
+    fx.burst({ x: c.mesh.position.x, y: c.mesh.position.y, z: c.mesh.position.z }, { count: 14, speed: 4, up: 4, life: 0.7, colors: [0xffe9a8, PALETA.dorado, 0xffffff] });
+    n++;
+  }
+  if (n) Audio.sfx('materializa');
+  return n;
+}
+function updateContornos() {
+  for (const c of crates.items) {
+    if (c.crateType !== 'outline' || !c.mesh) continue;
+    // respira: se nota que es una caja fantasma esperando su interruptor
+    const p = 0.24 + Math.sin(state.t * 3 + c.mesh.position.z) * 0.12;
+    if (c.mesh.userData.ghostMat) c.mesh.userData.ghostMat.opacity = c.materializada ? 0.95 : p;
+  }
+}
+
+/* CAJA FLECHA bajo los pies: chequeo CILÍNDRICO (no la esfera de
+   crates.nearest: al caer en vertical la caja queda por DEBAJO del jugador y
+   el hipotenuso 3D se la comía). Devuelve la más cercana en horizontal. */
+function cajaFlecha() {
+  let best = null, bd = 1.05;
+  for (const c of crates.items) {
+    if (c.crateType !== 'arrow' || c.dead || c.disabled || !c.mesh || !c.mesh.visible) continue;
+    if (c.mesh.position.y > player.pos.y + 0.2) continue;          // por debajo de los pies
+    if (c.mesh.position.y < player.pos.y - 1.6) continue;          // demasiado abajo
+    const d = Math.hypot(c.mesh.position.x - player.pos.x, c.mesh.position.z - player.pos.z);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+
 /* humo del Entierro: frena y empuja al jugador */
 function applyHumo(dt) {
   const lv = state.level;
@@ -1432,14 +1540,41 @@ function collectCrateHits() {
     const c = crates.nearest(player.pos, 0.95, (cr) => !cr.dead && !cr.disabled && cr.crateType !== 'checkpoint');
     if (c && Math.abs(c.mesh.position.y - (player.pos.y - player.hitHeight * 0.5)) < 0.8) {
       crates.hit(c, { fromStomp: true, power: 2 });
-      player.vel.y = 7.6; // rebotar como en Crash
-      Audio.sfx('bounce');
+      if (c.crateType === 'arrow') {
+        /* CAJA FLECHA: lanzamiento MUY alto (llega a los 5,5 m de las zonas
+           secretas) — el sello de Crash para alcanzar lo inalcanzable. */
+        player.vel.y = 17.2;
+        Audio.sfx('arrow');
+        hud.toast('▲ ¡MUELLE! Al aparato de arriba', 'good');
+      } else {
+        player.vel.y = 7.6; // rebotar como en Crash
+        Audio.sfx('bounce');
+      }
       // golpe seco al pisar: anillo dorado + chispas + micro-shake
       const sp = { x: c.mesh.position.x, y: c.mesh.position.y + 0.3, z: c.mesh.position.z };
-      fx.ring(sp, { color: PALETA.dorado, r0: 0.3, r1: 1.9, life: 0.38, y: Math.max(0.06, c.mesh.position.y + 0.5) });
-      fx.flash(sp, { color: 0xffe9a8, size: 1.8, life: 0.22 });
-      fx.burst(sp, { count: 8, speed: 3.4, up: 3.2, life: 0.5, size: 0.9, colors: [PALETA.dorado, PALETA.crema] });
-      fx.addShake(0.16);
+      fx.ring(sp, { color: PALETA.dorado, r0: 0.3, r1: c.crateType === 'arrow' ? 2.6 : 1.9, life: 0.38, y: Math.max(0.06, c.mesh.position.y + 0.5) });
+      fx.flash(sp, { color: 0xffe9a8, size: c.crateType === 'arrow' ? 2.4 : 1.8, life: 0.22 });
+      fx.burst(sp, { count: c.crateType === 'arrow' ? 14 : 8, speed: 3.4, up: c.crateType === 'arrow' ? 6 : 3.2, life: 0.5, size: 0.9, colors: [PALETA.dorado, PALETA.crema] });
+      fx.addShake(c.crateType === 'arrow' ? 0.3 : 0.16);
+    }
+    /* CAJA FLECHA (segunda pasada, a propósito): si caes justo encima de una,
+       el lanzamiento sale SIEMPRE. El chequeo de arriba solo pilla el roce en
+       el aire: al aterrizar sobre la caja el resolutor ya te deja grounded y
+       este bloque es el que da el rebote (como el pisotón clásico de Crash). */
+    const fa = cajaFlecha();
+    if (fa && player.vel.y <= 0.5 && Math.abs(player.pos.y - fa.mesh.position.y) < 1.35
+        && Math.hypot(fa.mesh.position.x - player.pos.x, fa.mesh.position.z - player.pos.z) < 1.05) {
+      crates.hit(fa, { fromStomp: true, power: 2 });
+      player.vel.y = 17.2;
+      player.grounded = false;
+      player.jumps = 1;
+      Audio.sfx('arrow');
+      hud.toast('▲ ¡MUELLE! Al aparato de arriba', 'good');
+      const sp = { x: fa.mesh.position.x, y: fa.mesh.position.y + 0.3, z: fa.mesh.position.z };
+      fx.ring(sp, { color: PALETA.dorado, r0: 0.3, r1: 2.6, life: 0.4, y: Math.max(0.06, fa.mesh.position.y + 0.5) });
+      fx.flash(sp, { color: 0xffe9a8, size: 2.4, life: 0.24 });
+      fx.burst(sp, { count: 14, speed: 3.6, up: 6, life: 0.5, size: 1, colors: [PALETA.dorado, PALETA.crema] });
+      fx.addShake(0.3);
     }
   }
 }
@@ -1829,6 +1964,8 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     updateVan(dt);
     updateCombos(dt);
     updateEspejos();
+    updateRuinas(dt);
+    updateContornos();
     applyHumo(dt);
     checkFerminAppear();
     checkGoal();
@@ -2094,6 +2231,30 @@ window.__qa = {
     };
   }),
   start: (i) => startLevel(i),
+  /* QA: recorrido del SUELO del nivel por columnas de x (para colocar la
+     geometría nueva donde el bot puede pisar y no sobre el vacío) */
+  mapa: (x = 0, z0 = 0, z1 = 300, paso = 1) => {
+    const out = [];
+    for (let z = z0; z <= z1; z += paso) {
+      const g = world.groundUnder({ minX: x - 0.35, maxX: x + 0.35, minZ: z - 0.4, maxZ: z + 0.4, minY: -50, maxY: 6.5 });
+      out.push(g ? [z, +g.top.toFixed(2), g.box.tag] : [z, null, null]);
+    }
+    return out;
+  },
+  /* QA: cajas vivas por tipo (para verificar materialización/rotura) */
+  cajasTipo: () => crates.items.map((c) => ({
+    t: c.crateType, x: +c.mesh.position.x.toFixed(1), y: +c.mesh.position.y.toFixed(1), z: +c.mesh.position.z.toFixed(1),
+    dead: !!c.dead, mat: !!c.materializada
+  })),
+  /* QA: piezas de las mecánicas Crash (ruinas y estado de los contornos) */
+  mecanicas: () => ({
+    ruinas: world.boxes.filter((b) => b.ruina).map((b) => ({ x: +b.pos.x.toFixed(1), z: +b.pos.z.toFixed(1), y: +b.pos.y.toFixed(2), caida: b.ruina.caida, t: +b.ruina.t.toFixed(2), solida: !!b.solid })),
+    barriles: enemies.list.filter((e) => e.kind === 'barril').map((e) => ({ x: +e.obj.position.x.toFixed(1), z: +e.obj.position.z.toFixed(1), vz: +e.vz.toFixed(1), alive: e.alive })),
+    contornos: crates.items.filter((c) => c.crateType === 'outline').map((c) => ({ z: +c.mesh.position.z.toFixed(1), mat: !!c.materializada, solido: !!(c.worldBox && c.worldBox.solid) })),
+    flechas: crates.items.filter((c) => c.crateType === 'arrow').length,
+    secretos: world.boxes.filter((b) => b.tag === 'platform' && b.pos.y > 3.0 && b.pos.y < 4.2).map((b) => ({ x: +b.pos.x.toFixed(1), z: +b.pos.z.toFixed(1), y: +b.pos.y.toFixed(2) })),
+    notasSeguras: 0
+  }),
   /* foto de QA: congela la cámara en un punto para inspeccionar detalle */
   foto: (px, py, pz, lx, ly, lz) => {
     state.mode = '_foto';
