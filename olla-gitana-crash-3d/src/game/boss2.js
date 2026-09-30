@@ -398,7 +398,7 @@ export class BossFermin {
     /* ---- anillos de legibilidad (solo presentación: no colisionan) ----
        dorado = VULNERABLE (salta encima) · rojo = todavía no se le toca */
     if (this.vulnRing) {
-      const vul = this.vulnerable > 0;
+      const vul = this.vulnerable > 0 && !this.vulnRingOff;
       this.vulnRing.visible = vul;
       if (vul) {
         this.vulnRing.position.set(this.pos.x, 0.07, this.pos.z);
@@ -411,7 +411,7 @@ export class BossFermin {
       }
     }
     if (this.duelRing) {
-      const peligro = this.vulnerable <= 0 && this.alive;
+      const peligro = this.vulnerable <= 0 && this.alive && !this.duelRingOff;
       this.duelRing.visible = peligro;
       if (peligro) {
         this.duelRing.position.set(this.pos.x, 0.06, this.pos.z);

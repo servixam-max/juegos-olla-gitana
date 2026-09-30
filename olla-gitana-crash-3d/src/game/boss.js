@@ -147,7 +147,7 @@ export class Boss {
       ud.armL.rotation.z = 0.5 + alza;
       ud.armR.rotation.z = -0.5 - alza;
       if (!this._golpeHecho) { this._golpeHecho = true; this.fx.addShake(0.22); this.audio.sfx('warn'); }
-      if (this.tell) {
+      if (this.tell && !this.tellOff) {
         this.tell.visible = true;
         this.tell.position.set(this.pos.x, 0.06, this.pos.z);
         const k = (0.42 - this.cd) / 0.42;              // 0 → 1 conforme carga

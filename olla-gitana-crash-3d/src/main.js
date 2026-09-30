@@ -989,7 +989,8 @@ function damagePlayer(reason) {
 
 /* el jugador pierde las 3 vidas del nivel: transición SUAVE de ~3 s
    (pantalla a negro lento + cartel "SUPER-VIDA") y luego se reanuda.
-   El usuario pidió que no fuera tan brusco. */
+   El usuario pidió que no fuera tan brusco. Va con el reloj DEL JUEGO
+   (state.pending) para que sea determinista y el QA pueda verificarlo. */
 function perderVidasNivel() {
   player.dead = true;
   const sv = progreso.superVidas;
@@ -997,12 +998,12 @@ function perderVidasNivel() {
     progreso.gastarSuperVida();
     hud.toast(`💛 ¡Super-vida! Te quedan ${progreso.superVidas}`, 'bad');
     Audio.sfx('death');
-    // fundido lento a negro con cartel, y después vuelta a la carga
-    director.fade(1, 900);
+    hud.show(false);
     state.mode = 'cine';
-    setTimeout(() => { cineTitle(true, 'SUPER-VIDA', `Te quedan ${progreso.superVidas} 💛`, 'Aguanta, rumbero'); }, 500);
-    setTimeout(() => { cineTitle(false); }, 1900);
-    setTimeout(() => {
+    director.fade(1, 900);
+    state.pending.push({ after: 0.5, fn: () => cineTitle(true, 'SUPER-VIDA', `Te quedan ${progreso.superVidas} 💛`, 'Aguanta, rumbero') });
+    state.pending.push({ after: 1.9, fn: () => cineTitle(false) });
+    state.pending.push({ after: 2.6, fn: () => {
       director.fade(0, 800);
       player.dead = false;
       state.lives = VIDAS_NIVEL;
@@ -1010,7 +1011,7 @@ function perderVidasNivel() {
       respawnAtCheckpoint();
       state.mode = 'play';
       hud.show(true);
-    }, 2600);
+    } });
     return;
   }
   // sin super-vidas → continue
@@ -1018,16 +1019,17 @@ function perderVidasNivel() {
     const cont = progreso.gastarContinue();
     hud.toast(`⏩ ¡CONTINUE! Te quedan ${cont}`, 'record');
     Audio.sfx('continue');
-    director.fade(1, 1000);
+    hud.show(false);
     state.mode = 'cine';
-    setTimeout(() => { cineTitle(true, '¡CONTINUE!', `Te quedan ${cont} ⏩`, 'La rumba sigue'); }, 500);
-    setTimeout(() => { cineTitle(false); }, 2100);
-    setTimeout(() => {
+    director.fade(1, 1000);
+    state.pending.push({ after: 0.5, fn: () => cineTitle(true, '¡CONTINUE!', `Te quedan ${cont} ⏩`, 'La rumba sigue') });
+    state.pending.push({ after: 2.1, fn: () => cineTitle(false) });
+    state.pending.push({ after: 2.9, fn: () => {
       director.fade(0, 800);
       player.dead = false;
       progreso.addSuperVida(SUPER_VIDAS_INICIAL);   // el continue rellena las super-vidas
       startLevel(state.levelIndex, { keepLives: false });
-    }, 2900);
+    } });
     return;
   }
   // sin continues → GAME OVER de verdad: se borra el progreso guardado
@@ -1214,8 +1216,11 @@ function updateVan(dt) {
   // acelera para recuperarte, si te acercas no te embiste de golpe.
   const objetivo = Math.max(2.5, player.pos.z - 6);   // 6 m por detrás
   const dObjetivo = objetivo - van.position.z;
-  const base = Math.min(6.2, lv.van.speed + player.pos.z * 0.004);
-  const speed = base + Math.max(-2.5, Math.min(3.2, dObjetivo * 0.8));
+  // "más lenta" (tope 7.6 < 8.4 del jugador) pero SIEMPRE te sigue: si se
+  // queda atrás de más (12 m), acelera para recuperar y nunca desaparece
+  const cap = Math.abs(dObjetivo) > 12 ? 9.6 : 7.6;
+  const base = Math.min(cap, lv.van.speed + player.pos.z * 0.004);
+  const speed = Math.max(1.2, base + Math.max(-3.2, Math.min(4.2, dObjetivo * 1.05)));
   van.position.z += speed * dt;
   van.userData.wheels.forEach((w) => { w.rotation.x += speed * dt * 1.2; });
   van.position.x += (player.pos.x * 0.62 - van.position.x) * Math.min(1, dt * 1.0);
@@ -1661,6 +1666,8 @@ window.__qa = {
   sonidosReset: () => { Audio.log.length = 0; return true; },
   /* posiciones de las plataformas móviles (para detectar si están congeladas) */
   moviles: () => world.boxes.filter((b) => b.moving).map((b) => ({ tag: b.tag, pos: { ...b.pos }, moving: b.moving })),
+  /* estado de la furgo del nivel 3 (para QA: debe seguir al jugador todo el nivel) */
+  van: () => (van ? { x: +van.position.x.toFixed(2), z: +van.position.z.toFixed(1), dist: +(player.pos.z - van.position.z).toFixed(1) } : null),
   /* sonda de colisión: ¿qué sólido hay en ese punto? */
   sonda: (x, y, z) => {
     const b = world.overlap({ minX: x - 0.2, maxX: x + 0.2, minY: y - 0.2, maxY: y + 0.2, minZ: z - 0.2, maxZ: z + 0.2 });
@@ -1692,6 +1699,14 @@ window.__qa = {
     state.decoOff = !!off;
     if (state.level) buildAmbientDecor(state.level);
     return ambientDecor.length;
+  },
+  /* QA: enciende/apaga las mejoras visuales de los jefes para aislar su efecto */
+  jefesVisual: (on = true) => {
+    const v = !!on;
+    if (boss.tell) { boss.tell.visible = false; boss.tellOff = !v; }
+    if (fermin.vulnRing) fermin.vulnRingOff = !v;
+    if (fermin.duelRing) fermin.duelRingOff = !v;
+    return { bossTell: !boss.tellOff, ferminRing: !fermin.vulnRingOff };
   },
   /* QA: estado de los anillos de legibilidad de los jefes (telegrafía/aviso) */
   anillos: () => ({
