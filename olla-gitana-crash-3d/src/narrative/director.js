@@ -204,10 +204,11 @@ export class Director {
       }
       case 'jefe': {
         // si la cutscene trae foco (x,z), se encuadra sobre el jefe que la
-        // protagoniza (Fermín aparece en mitad del nivel, no en el escenario
-        // de la intro: con coordenadas fijas la cámara salía en negro)
+        // protagoniza. La cámara se aleja a ~11 m: antes se ponía a 6.5 m y el
+        // jefe (3.4 m de ancho, ~6 m de alto) llenaba la pantalla y se veía como
+        // una masa enorme (el usuario lo describía como "pantalla negra").
         const f = this.foco || { x: 0, z: -6, y: 3.4 };
-        cam.position.set(f.x + Math.sin(k * 0.5) * 0.8, 5.6, f.z + 6.5 - k * 1.5);
+        cam.position.set(f.x + Math.sin(k * 0.6) * 1.6, 4.6 + Math.sin(k * Math.PI) * 0.5, f.z + 11 - k * 1.2);
         cam.lookAt(f.x, f.y != null ? f.y : 3.4, f.z);
         break;
       }

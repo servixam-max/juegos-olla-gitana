@@ -79,7 +79,7 @@ export class BossFermin {
     };
 
     // ---- cuerpo: ampli gigante ----
-    const cuerpo = mk(new THREE.BoxGeometry(3.4, 4.2, 2.2), toonMat(0x2b2b2b), 0, 2.6, 0);
+    const cuerpo = mk(new THREE.BoxGeometry(3.4, 4.2, 2.2), toonMat(0x4a4a52), 0, 2.6, 0);
     // esquinas metálicas del mueble (más "cacharro de verdad")
     const cornerMat = toonMat(PALETA.metal);
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [1, -1]) {
@@ -151,7 +151,7 @@ export class BossFermin {
     }
 
     // ---- cabeza: pantalla con bigote (la altura NO se toca: 5.3) ----
-    const cabeza = mk(new THREE.BoxGeometry(2.0, 1.3, 1.4), toonMat(0x353535), 0, 5.3, 0);
+    const cabeza = mk(new THREE.BoxGeometry(2.0, 1.3, 1.4), toonMat(0x5a5a62), 0, 5.3, 0);
     const ojoMat = new THREE.MeshBasicMaterial({ color: 0xffbe0b });
     const ojoL = mk(new THREE.CircleGeometry(0.26, 14), ojoMat, -0.44, 5.5, 0.72);
     const ojoR = mk(new THREE.CircleGeometry(0.26, 14), ojoMat, 0.44, 5.5, 0.72);
@@ -167,10 +167,10 @@ export class BossFermin {
     const cejaR = mk(new THREE.BoxGeometry(0.5, 0.11, 0.09), cejaMat, 0.44, 5.82, 0.72);
     cejaL.rotation.z = 0.12; cejaR.rotation.z = -0.12;
     // bigote de cascabel (+ puntas)
-    const bigote = mk(new THREE.BoxGeometry(1.5, 0.22, 0.14), toonMat(0x1a1a1a), 0, 5.0, 0.72);
-    const puntaL = mk(new THREE.ConeGeometry(0.11, 0.34, 8), toonMat(0x1a1a1a), -0.82, 5.05, 0.7);
+    const bigote = mk(new THREE.BoxGeometry(1.5, 0.22, 0.14), toonMat(0x333333), 0, 5.0, 0.72);
+    const puntaL = mk(new THREE.ConeGeometry(0.11, 0.34, 8), toonMat(0x333333), -0.82, 5.05, 0.7);
     puntaL.rotation.z = 1.15;
-    const puntaR = mk(new THREE.ConeGeometry(0.11, 0.34, 8), toonMat(0x1a1a1a), 0.82, 5.05, 0.7);
+    const puntaR = mk(new THREE.ConeGeometry(0.11, 0.34, 8), toonMat(0x333333), 0.82, 5.05, 0.7);
     puntaR.rotation.z = -1.15;
     // pelo con entradas: tufos en las sienes, nuca y copete atrás (la calva se ve arriba)
     const peloMat = toonMat(0x241a12);

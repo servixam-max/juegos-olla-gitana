@@ -6,7 +6,11 @@ import * as THREE from 'three';
 let GRAD = null;
 export function toonGradient() {
   if (GRAD) return GRAD;
-  const steps = new Uint8Array([90, 150, 205, 255]);
+  // Antes [90,150,205,255]: el primer escalón dejaba las zonas en sombra
+  // casi NEGRAS, y en los niveles oscuros (Procesión, Casino) los enemigos y
+  // jefes se veían como bloques negros (queja del usuario). Con el suelo en
+  // 140 todas las caras conservan color y forma.
+  const steps = new Uint8Array([140, 190, 225, 255]);
   const tex = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
   tex.minFilter = THREE.NearestFilter; tex.magFilter = THREE.NearestFilter;
   tex.needsUpdate = true;
