@@ -2,6 +2,34 @@
    flujo de la intro/cutscenes sin depender de setTimeout (todo por tiempo). */
 import * as THREE from 'three';
 
+/* ---------- recorrido COMPARTIDO de la olla en el plano 'huida' ----------
+   Lo usan a la vez el personaje (intro.js) y la cámara ('seguimientoOlla'):
+   antes cada uno iba por su lado y la cámara se colocaba POR DELANTE de la
+   olla, así que el plano de la huida enseñaba explanada vacía y la olla se
+   quedaba fuera de encuadre. k ∈ [0,1] es el avance dentro del plano. */
+export const HUIDA = {
+  x0: -1.4, x1: 1.0,             // deriva lateral (serpenteo rumbero)
+  z0: -9.6, z1: 7.0,             // del escenario a primera fila del público
+  saltoK: 0.05, saltoDur: 0.17,  // ventana (en k) en la que salta del escenario
+  yEscenario: 1.4,               // altura de la tarima
+  zigzag: 0.85                   // amplitud del serpenteo
+};
+export function huidaPos(k) {
+  const kk = Math.min(1, Math.max(0, k));
+  return {
+    x: HUIDA.x0 + (HUIDA.x1 - HUIDA.x0) * kk + Math.sin(kk * 5.6) * HUIDA.zigzag,
+    z: HUIDA.z0 + (HUIDA.z1 - HUIDA.z0) * kk
+  };
+}
+/* altura de la olla: corre por la tarima, salta al vacío y cae a la explanada */
+export function huidaY(k) {
+  const kk = Math.min(1, Math.max(0, k));
+  if (kk <= HUIDA.saltoK) return HUIDA.yEscenario;
+  const p = Math.min(1, (kk - HUIDA.saltoK) / HUIDA.saltoDur);
+  if (p >= 1) return 0;
+  return HUIDA.yEscenario * (1 - p) * (1 - p) + Math.sin(Math.PI * p) * 0.5;
+}
+
 export class Director {
   constructor({ camera, scene, audio, fx, dialog, hud }) {
     this.camera = camera;
@@ -23,6 +51,8 @@ export class Director {
     this.skipCb = null;
     this.onEnd = null;
     this.cutscene = false;
+    this.kick = 0;             // golpe de cámara (pisotón, grito del villano…)
+    this._cierreTimers = [];
     this._createOverlays();
   }
 
@@ -44,7 +74,7 @@ export class Director {
       fd.id = 'fadeOverlay';
       fd.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:16;transition:opacity .35s linear;display:grid;place-items:center';
       // título del juego que aparece DENTRO del fundido negro (cierre de la intro)
-      fd.innerHTML = '<div id="fadeTitulo" style="opacity:0;transition:opacity .6s linear;text-align:center">' +
+      fd.innerHTML = '<div id="fadeTitulo" style="opacity:0;transform:scale(.94);transition:opacity .2s linear,transform .2s ease-out;text-align:center">' +
         '<div style="font-family:\'Luckiest Guy\',\'Nunito\',sans-serif;font-size:clamp(30px,9vw,64px);' +
         'letter-spacing:2px;color:#ffbe0b;text-shadow:0 4px 0 #7a3c00,0 8px 24px rgba(255,190,11,.35)">OLLA GITANA</div>' +
         '<div style="font-family:\'Luckiest Guy\',\'Nunito\',sans-serif;font-size:clamp(16px,4.5vw,30px);' +
@@ -71,28 +101,42 @@ export class Director {
     this.skipBtn = sk;
   }
 
-  fade(to, ms = 350) {
+  /* Fundido de pantalla: 0 = claro, 1 = negro.
+     `titulo` (opcional) saca/retira el rótulo del juego que vive DENTRO del
+     negro: solo lo pide el cierre de la intro. Al aclarar, el rótulo se retira
+     SIEMPRE (aunque nadie lo pida) para que no quede pegado sobre el menú.
+     `msTitulo` (opcional) es la duración propia del rótulo. */
+  fade(to, ms = 350, titulo = null, msTitulo = null) {
     this.fadeEl.style.transition = `opacity ${ms}ms linear`;
     this.fadeEl.style.opacity = String(to);
-    // el título vive DENTRO del fundido: aparece al fundir a negro y se va al fundir a claro
-    if (this.fadeTitle) {
-      this.fadeTitle.style.transition = `opacity ${Math.round(ms * 1.6)}ms linear`;
-      this.fadeTitle.style.opacity = to >= 0.9 ? '1' : '0';
+    if (!this.fadeTitle) return;
+    if (to < 0.9) {
+      // fuera: rápida y siempre (evita el rótulo fantasma sobre el menú)
+      this._tituloFade(msTitulo != null ? msTitulo : Math.max(120, Math.min(260, Math.round(ms * 0.55))), false);
+    } else if (titulo) {
+      this._tituloFade(msTitulo != null ? msTitulo : Math.max(150, Math.min(380, Math.round(ms * 0.5))), true);
     }
   }
 
-  /* fundido a negro con el título del juego dentro (cierre de la intro) */
-  fadeTitulo(on = true, ms = 900, dur = 2000) {
-    if (on) {
-      this.fade(1, ms);
-    } else {
-      this.fade(0, ms);
-    }
+  _tituloFade(ms, on) {
+    this.fadeTitle.style.transition = `opacity ${ms}ms linear, transform ${ms}ms cubic-bezier(.2,.9,.3,1.15)`;
+    this.fadeTitle.style.opacity = on ? '1' : '0';
+    this.fadeTitle.style.transform = on ? 'scale(1)' : 'scale(.94)';
+  }
+
+  /* fundido a negro con el título del juego dentro (cierre de la intro).
+     Mantiene la firma antigua (on, ms, dur) y ahora es rápido por defecto. */
+  fadeTitulo(on = true, ms = 420, dur = 480) {
+    this.fade(on ? 1 : 0, ms, !!on);
     return new Promise((res) => setTimeout(res, dur));
   }
 
   letterboxOn() { this.letterbox.style.display = 'block'; }
   letterboxOff() { this.letterbox.style.display = 'none'; }
+
+  /* golpe de cámara: sacudida corta que usan los planos de la intro
+     (pisotón de la olla, grito del Cacharro) */
+  addKick(a) { this.kick = Math.min(1.4, this.kick + a); }
 
   /* planos: [{ camara, t, lookAt?, dialogos? }] */
   start(planos, { skipCb = null, onEnd = null, cutscene = false, foco = null } = {}) {
@@ -100,6 +144,7 @@ export class Director {
     this.i = -1;
     this.t = 0;
     this.activo = true;
+    this.kick = 0;
     this.cutscene = cutscene;
     this.skipCb = skipCb;
     this.onEnd = onEnd;
@@ -133,15 +178,24 @@ export class Director {
     this.finish();
   }
 
-  /* fundido con el título del juego (cierre de la intro, natural o saltada) */
+  /* fundido con el título del juego (cierre de la intro, natural o saltada).
+     Medido con getComputedStyle: ~1,5 s desde que empieza a oscurecer hasta que
+     vuelve a verse el juego; negro pleno ~0,66 s con el rótulo dentro.
+     Antes: ~3,9 s en negro (se hacía eterno). */
   cierreConTitulo(onEnd = null) {
     this._cierre = true;                        // finish() no debe pisar este fundido
-    this.fade(1, 900);                          // a negro + título
-    setTimeout(() => {
-      this.fade(0, 800);                        // fuera el negro (el título se va solo)
-      this._cierre = false;
-      setTimeout(() => { if (onEnd) onEnd(); }, 700);
-    }, 1500);
+    this._limpiarCierre();
+    const T = this._cierreTimers;
+    this.fade(1, 420, true, 280);                                // a negro + rótulo
+    T.push(setTimeout(() => this._tituloFade(200, true), 210));  // rótulo a plena luz
+    T.push(setTimeout(() => {
+      this.fade(0, 420);                                         // fuera el negro (el rótulo se va solo)
+      T.push(setTimeout(() => { this._cierre = false; if (onEnd) onEnd(); }, 440));
+    }, 1080));
+  }
+
+  _limpiarCierre() {
+    if (this._cierreTimers) { this._cierreTimers.forEach(clearTimeout); this._cierreTimers = []; }
   }
 
   finish() {
@@ -159,47 +213,61 @@ export class Director {
     if (!this.activo) return;
     this.t += dt;
     this.planoT += dt;
+    this.kick = Math.max(0, this.kick - dt * 2.4);
     const p = this.planos[this.i];
     if (!p) return;
 
     const k = Math.min(1, this.planoT / this.dur);
     const cam = this.camera;
     const ease = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    // jitter de cámara cuando hay un golpe (kick): se nota en los planos vivos
+    const kx = Math.sin(this.t * 31) * 0.055 * this.kick;
+    const ky = Math.sin(this.t * 47) * 0.05 * this.kick;
 
     switch (this.camara) {
       case 'paneoEscenario': {
-        const a = -0.7 + k * 1.4;
-        cam.position.set(Math.sin(a) * 22, 7.5 + Math.sin(k * Math.PI) * 1.5, 16 + Math.cos(a) * 10);
-        cam.lookAt(0, 2.2, -10);
+        // panorámica amplia: entra por la izquierda, cruza el escenario y se
+        // eleva al final (balanceo de steadicam, no un carril muerto)
+        const a = -0.75 + k * 1.55;
+        const r = 21.5 + Math.sin(k * Math.PI) * 2.6;
+        cam.position.set(Math.sin(a) * r + kx, 7.2 + Math.sin(k * Math.PI) * 2.0 + ky, 15 + Math.cos(a) * 10.5);
+        cam.lookAt(Math.sin(k * 0.9) * 0.8, 2.4 + Math.sin(k * Math.PI) * 0.5, -10.5);
         break;
       }
       case 'lateralEscenario': {
-        cam.position.set(-16 + k * 4, 4.2, 4 - k * 2);
-        cam.lookAt(0, 3.0, -12);
+        // travelling lateral que se acerca a la banda mientras sube un poco
+        cam.position.set(-15.5 + k * 5.5 + kx, 4.0 + Math.sin(k * Math.PI) * 1.3 + ky, 4.5 - k * 6.5);
+        cam.lookAt(0, 2.8 + k * 0.9, -11.8);
         break;
       }
       case 'zoomPantalla': {
-        // primer plano de la pantalla del Cacharro (con sus ojos rojos)
-        const z = 4.5 - ease(k) * 2.5;
-        cam.position.set(0, 5.4, z);
-        cam.lookAt(0, 5.2, -14);
+        // el encuadre se cierra sobre la pantalla APAGADA del Cacharro
+        const e = ease(k);
+        cam.position.set(Math.sin(k * 3.4) * 0.28 + kx, 4.15 + e * 1.25 + ky, 7.2 - e * 5.6);
+        cam.lookAt(0, 3.1 + e * 2.1, -14);
         break;
       }
       case 'frenteCacharro': {
-        // el villano da su discurso: encuadre centrado en la pantalla
-        cam.position.set(Math.sin(k * 0.7) * 1.2, 5.4 + Math.sin(k * 1.4) * 0.2, 2.6 - k * 0.8);
-        cam.lookAt(0, 5.2, -14);
+        // el villano da su discurso: presión lenta hacia la pantalla
+        const e = ease(k);
+        cam.position.set(Math.sin(k * 0.7) * 0.9 + kx, 5.35 + Math.sin(k * 1.4) * 0.18 + ky, 5.0 - e * 6.6);
+        cam.lookAt(0, 5.15, -14);
         break;
       }
       case 'seguimientoOlla': {
-        const z = -2 + ease(k) * 22;
-        cam.position.set(Math.sin(k * 3) * 1.4, 3.4, z - 6);
-        cam.lookAt(Math.sin(k * 3) * 1.4, 1.4, z + 4);
+        // retro-dolly DELANTE de la olla: la protagonista corre HACIA la cámara
+        // con el escenario de fondo y la cámara se eleva en el tramo final
+        const ph = huidaPos(k);
+        const e = ease(k);
+        cam.position.set(ph.x * 0.5 + Math.sin(k * 7.2) * 0.5 + kx, 2.05 + Math.sin(k * Math.PI) * 0.35 + e * 2.3 + ky, ph.z + 6.4 + e * 1.6);
+        cam.lookAt(ph.x * 0.82, 1.15, ph.z - 1.2);
         break;
       }
       case 'titulo': {
-        cam.position.set(0, 6.5, 22 - k * 5);
-        cam.lookAt(0, 3.2, -6);
+        // plano final: la olla celebra en primera fila con el escenario detrás
+        // (con la cámara anterior la heroína caía al borde inferior del cuadro)
+        cam.position.set(Math.sin(k * 5) * 0.35 + kx, 5.2 + ease(k) * 0.5 + ky, 19 - ease(k) * 3.0);
+        cam.lookAt(Math.sin(k * 5) * 0.2, 2.2, -2);
         break;
       }
       case 'jefe': {
@@ -245,7 +313,8 @@ export function crearEscenarioIntro(scene, { makeOlla, makeStage, makeSpeaker, m
   stage.position.set(0, 0, -12);
   g.add(stage);
 
-  // banda: 4 ollas con instrumentos, animadas
+  // banda: 4 ollas con instrumentos, animadas (de cara al público: la cara de
+  // makeOlla está en +Z, no hay que girarlas)
   const banda = [];
   const posiciones = [[-5.4, 1.3, -11.4, 0xe63946], [-1.8, 1.3, -11.8, 0x4cc9f0], [1.8, 1.3, -11.8, 0xffbe0b], [5.4, 1.3, -11.4, 0x38b000]];
   for (const [x, y, z, col] of posiciones) {

@@ -15,16 +15,16 @@ export const INTRO = {
   // (Antes 62,5 s: los planos arrastraban con 3-4 s de relleno al final.)
   duracion: 49,
   planos: [
-    { id: 'luces', t: 6.5, camara: 'paneoEscenario' },
+    { id: 'luces', t: 6.0, camara: 'paneoEscenario' },
     { id: 'concierto', t: 8.5, camara: 'lateralEscenario' },
     { id: 'silencio', t: 6.0, camara: 'zoomPantalla' },
-    { id: 'cacharro', t: 14.8, camara: 'frenteCacharro' },
-    { id: 'huida', t: 9.0, camara: 'seguimientoOlla' },
+    { id: 'cacharro', t: 15.2, camara: 'frenteCacharro' },
+    { id: 'huida', t: 8.6, camara: 'seguimientoOlla' },
     { id: 'titulo', t: 4.0, camara: 'titulo' }
   ],
   dialogos: {
     luces: [
-      { t: 'Murcia. Sábado noche. El escenario está montao.', tone: 'normal', hold: 1.9 }
+      { t: 'Murcia. Sábado noche. El escenario está montao.', tone: 'normal', hold: 2.0 }
     ],
     concierto: [
       { t: '¡La banda suena que se sale!', tone: 'grito', hold: 1.6 },

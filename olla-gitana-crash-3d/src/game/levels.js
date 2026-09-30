@@ -379,12 +379,12 @@ export function buildLevel2(world, scene, fx) {
       const x = s.side * (2.6 + i * 0.5);
       floorSeg(world, scene, { x, y: h, z: s.z, w: 3.2, d: 3.4, color: PALETA.madera, tag: 'platform' });
       // barrotes
-      solid(world, scene, { x: x + s.side * 1.6, y: h, z: s.z, w: 0.14, h: 1.1, d: 3.4, color: 0x8a5a2b, tag: 'rail' });
+      solid(world, scene, { x: x + s.side * 2.0, y: h, z: s.z, w: 0.14, h: 1.1, d: 3.4, color: 0x8a5a2b, tag: 'rail' });
       // notas sobre las plataformas (premio por subir)
       if (i % 2 === 0) notes.push(buildNote(world, scene, { x, y: h + 0.9, z: s.z }));
     });
-    // poste del andamio
-    solid(world, scene, { x: s.side * 2.2, y: 0, z: s.z, w: 0.18, h: 5.6, d: 0.18, color: 0x6f6f7a, tag: 'pole' });
+    // poste del andamio (retirado a x=±3.4: en ±2.2 bloqueaba el paso del jugador)
+    solid(world, scene, { x: s.side * 3.4, y: 0, z: s.z, w: 0.18, h: 5.6, d: 0.18, color: 0x6f6f7a, tag: 'pole' });
   }
 
   // ---- C: SOLO BLOQUES 1 · cinco tablones sobre el vacío ----
@@ -411,7 +411,7 @@ export function buildLevel2(world, scene, fx) {
   crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
 
   // ---- F: SOLO BLOQUES 2 · seis tablones sobre el vacío ----
-  const F = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const F = islas(world, scene, { z0: E.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.7, w: 4.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   F.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -494,12 +494,9 @@ export function buildLevel2(world, scene, fx) {
 
   enemies.push(enemy('patrol', { x: -2.6, z: 22, span: 5, speed: 3.0, axis: 'x' }));
   enemies.push(enemy('patrol', { x: 2.6, z: 52, span: 6, speed: 3.4, axis: 'x' }));
-  enemies.push(enemy('turret', { x: 4.2, z: 104, period: 3.6 }));
   enemies.push(enemy('patrol', { x: 0, z: 60, span: 6, speed: 3.0, axis: 'z' }));
-  enemies.push(enemy('turret', { x: -4.2, z: 166, period: 3.6 }));
-  enemies.push(enemy('patrol', { x: 2.4, z: 154, span: 5, speed: 3.2, axis: 'x' }));
-  enemies.push(enemy('turret', { x: 4.4, z: 250, period: 3.2 }));
-  enemies.push(enemy('patrol', { x: -2.4, z: 244, span: 5, speed: 3.0, axis: 'x' }));
+  enemies.push(enemy('patrol', { x: 2.4, z: 168, span: 5, speed: 3.2, axis: 'x' }));
+  enemies.push(enemy('patrol', { x: -2.4, z: 248, span: 4, speed: 3.0, axis: 'x' }));
 
   return {
     id: 2, nombre: 'Ruta al Festi',

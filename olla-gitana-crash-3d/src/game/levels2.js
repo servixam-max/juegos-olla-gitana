@@ -186,7 +186,7 @@ export function buildLevel4(world, scene, fx) {
   }
 
   // ---- C: SOLO BLOQUES 1 · cinco losas sobre el vacío ----
-  const C = islas(world, scene, { z0: 90, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x8b5a2b });
+  const C = islas(world, scene, { z0: 90, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x8b5a2b });
   C.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -213,7 +213,7 @@ export function buildLevel4(world, scene, fx) {
   masks.push(buildMask(world, scene, { x: esc.x, y: esc.cima + 1.3, z: esc.z + 3.2 }));
 
   // ---- F: SOLO BLOQUES 2 · seis losas + dos huecos con tranvía ----
-  const F1 = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0x8b5a2b });
+  const F1 = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0x8b5a2b });
   F1.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -337,7 +337,7 @@ export function buildLevel5(world, scene, fx) {
   tramosFirmes.push(...A.tramos);
 
   // ---- B: SOLO BLOQUES · cinco losas sobre el vacío ----
-  const B = islas(world, scene, { z0: 44, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x5a3a1a });
+  const B = islas(world, scene, { z0: 44, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x5a3a1a });
   B.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -452,7 +452,7 @@ export function buildLevel6(world, scene, fx) {
   tramosFirmes.push(...A.tramos);
 
   // ---- B: SOLO BLOQUES 1 · cinco losas ----
-  const B = islas(world, scene, { z0: 46, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x8b6b3a });
+  const B = islas(world, scene, { z0: 46, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x8b6b3a });
   B.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -482,7 +482,7 @@ export function buildLevel6(world, scene, fx) {
   tramosFirmes.push(...D.tramos);
 
   // ---- E: SOLO BLOQUES 2 · seis losas + hueco ----
-  const E1 = islas(world, scene, { z0: D.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0x8b6b3a });
+  const E1 = islas(world, scene, { z0: D.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0x8b6b3a });
   E1.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -631,7 +631,7 @@ export function buildLevel7(world, scene, fx) {
   tramosFirmes.push(...B.tramos);
 
   // ---- C: SOLO BLOQUES 1 · cinco losas ----
-  const C = islas(world, scene, { z0: 100, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0xd4c6a6 });
+  const C = islas(world, scene, { z0: 100, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0xd4c6a6 });
   C.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -655,7 +655,7 @@ export function buildLevel7(world, scene, fx) {
   masks.push(buildMask(world, scene, { x: esc.x, y: esc.cima + 1.3, z: esc.z + 3.2 }));
 
   // ---- F: SOLO BLOQUES 2 · seis losas + hueco con plataforma ----
-  const F1 = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0xd4c6a6 });
+  const F1 = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.7, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0xd4c6a6 });
   F1.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
