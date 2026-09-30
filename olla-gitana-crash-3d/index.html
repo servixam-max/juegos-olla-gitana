@@ -23,6 +23,7 @@
       <div class="chip" id="comboChip" title="Combo rumbero">🔥 <span class="num" id="comboNum">x1.0</span></div>
       <div class="chip" id="timerChip" title="Tiempo">⏱ <span class="num" id="timerNum">0:00</span></div>
     </div>
+    <button id="muteBtn" title="Sonido" aria-label="Sonido">🔊</button>
     <button id="pauseBtn" title="Pausa (P)" aria-label="Pausa">⏸</button>
   </div>
   <div id="powerRow">
@@ -79,6 +80,7 @@
       <button class="btn ghost" id="btnHelp">❓ Controles</button>
       <button class="btn ghost" id="btnMute2">🔊 Sonido</button>
       <button class="btn ghost" id="btnRank">🏆 Ranking</button>
+      <button class="btn ghost" id="btnLogros">🏅 Logros</button>
     </div>
     <div class="keys small" id="gamepadHint"></div>
   </div>
@@ -140,6 +142,7 @@
       <button class="btn" id="btnNext">▶ Siguiente</button>
       <button class="btn alt" id="btnRetry">⟲ Repetir</button>
       <button class="btn ghost" id="btnLevels2">🗺️ Niveles</button>
+      <button class="btn ghost" id="btnMute3">🔊 Sonido</button>
     </div>
   </div>
 </div>
@@ -163,6 +166,7 @@
     <div class="row">
       <button class="btn" id="btnOverRetry">⟲ Otra vez</button>
       <button class="btn ghost" id="btnOverLevels">🗺️ Niveles</button>
+      <button class="btn ghost" id="btnMute4">🔊 Sonido</button>
     </div>
   </div>
 </div>
@@ -184,6 +188,19 @@
     <h2>🏆 Ranking</h2>
     <div id="rankBody" class="small"></div>
     <div class="row"><button class="btn" id="btnRankBack">Volver</button></div>
+  </div>
+</div>
+
+<!-- ================= Logros ================= -->
+<div class="overlay hidden" id="logrosPanel">
+  <div class="panel">
+    <h2>🏅 Logros</h2>
+    <div class="logrosHead">
+      <div class="logrosBarWrap"><i id="logrosBar"></i></div>
+      <div class="small" id="logrosCount">0 de 16 logros conseguidos</div>
+    </div>
+    <div id="logrosBody"></div>
+    <div class="row"><button class="btn" id="btnLogrosBack">¡A por ellos!</button></div>
   </div>
 </div>
 

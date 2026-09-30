@@ -2,9 +2,34 @@
    Reglas del proyecto:
    - hit.mp3  -> SOLO golpes / pérdida de vida.
    - levelup_special.mp3 -> subidas de nivel, victoria.
-   - recoger cosas -> pitido leve sintetizado (nunca un fichero de fallo). */
+   - recoger cosas -> pitido leve sintetizado (nunca un fichero de fallo).
+
+   DECISIÓN DE MÚSICA (v3):
+   - music.mp3 = la canción REAL de la banda ("Los Olla Gitana", 178 s): suena en
+     el MENÚ, en la INTRO (plano del concierto) y en el CONCIERTO FINAL. Carga
+     diferida (no bloquea el arranque), en bucle y con volumen bajo, por DEBAJO
+     de los efectos (menú 0.32 · final 0.35 del bus de música).
+   - Durante la PARTIDA manda la RUMBA GENERATIVA: es corta (32 pasos ≈ 9 s),
+     no cansa al repetirse y responde al juego (intensidad 1/2 y modo aura).
+     La canción real no se usa en los niveles justo por eso: perdería la
+     dinámica de intensidad, y su mezcla original competiría con los sfx.
+
+   MEZCLA (ganancias relativas, antes del master del usuario):
+     master 0.7 · bus música 0.5 · bus sfx 0.9
+     canción efectiva ≈ 0.32·0.5·0.7 = 0.112 (bien bajo la de un golpe: 0.3·0.9·0.7)
+     duck (muerte/continue): el bus de música baja a 0.14 mientras dura la cinemática. */
 
 const NOTES = { D2: 73.42, F2: 87.31, A2: 110.0, G2: 98.0, Bb2: 116.54, C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, A3: 220.0, C4: 261.63, D4: 293.66, F4: 349.23, A4: 440.0 };
+
+/* niveles de mezcla (un solo sitio para equilibrar música vs efectos) */
+const MIX = {
+  music: 0.5,       // bus de música (generativa + canción)
+  sfx: 0.9,         // bus de efectos
+  songMenu: 0.32,   // la canción de la banda en el menú / intro
+  songFinal: 0.35,  // la canción en el concierto final
+  songBajo: 0.20,   // canción de fondo bajo la despedida
+  duck: 0.14        // bus de música agachado durante muerte/continue
+};
 
 export class AudioEngine {
   constructor() {
@@ -14,10 +39,18 @@ export class AudioEngine {
     this.volume = 0.7;
     this.buffers = {};
     this.music = { playing: false, timer: null, next: 0, step: 0, intensity: 0, aura: false, tempo: 104 };
+    /* canción real de la banda (menuAudio se mantiene por compatibilidad interna) */
+    this.song = { playing: false, src: null, vol: 0 };
     this.menuAudio = null;
+    this.ducked = false;
+    this._concertOn = false;     // modo concierto: suena LA CANCIÓN REAL (final del juego)
+    this._wantSong = false;      // ¿alguien quiere la canción sonando? (carga diferida)
+    this._songPendiente = null;
+    this._prevSrc = null;        // copia anterior de la canción en fase de fundido de salida
     this._noise = null;
     this._lastSfx = {};
-    this.log = [];          // historial corto de efectos reproducidos (lo lee QA)
+    this._stepN = 0;             // alterna el tono de los pasos
+    this.log = [];               // historial corto de efectos reproducidos (lo lee QA)
   }
 
   init() {
@@ -28,29 +61,53 @@ export class AudioEngine {
     this.master.gain.value = this.muted ? 0 : this.volume;
     this.master.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.5;
+    this.musicGain.gain.value = MIX.music;
     this.musicGain.connect(this.master);
     this.sfxGain = this.ctx.createGain();
-    this.sfxGain.gain.value = 0.9;
+    this.sfxGain.gain.value = MIX.sfx;
     this.sfxGain.connect(this.master);
+    /* bus propio de la canción: permite fundidos y bajar el volumen sin tocar
+       la rumba generativa (nunca suenan a la vez, pero así cada uno se regula solo) */
+    this.songGain = this.ctx.createGain();
+    this.songGain.gain.value = 0.0001;
+    this.songGain.connect(this.musicGain);
     this.ready = true;
     return this.ctx;
   }
 
   resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); }
-  setMuted(m) { this.muted = !!m; if (this.master) this.master.gain.value = this.muted ? 0 : this.volume; }
+  setMuted(m) {
+    this.muted = !!m;
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+    // al quitar el mute, re-sincroniza el planificador para no soltar un racimo de notas
+    if (!this.muted && this.ctx && this.music.playing) this.music.next = this.ctx.currentTime + 0.08;
+  }
   setVolume(v) { this.volume = Math.max(0, Math.min(1, v)); if (this.master && !this.muted) this.master.gain.value = this.volume; }
 
   async loadSamples(map) {
     this.init();
     const entries = Object.entries(map);
-    await Promise.all(entries.map(async ([key, url]) => {
-      try {
-        const res = await fetch(url);
-        const arr = await res.arrayBuffer();
-        this.buffers[key] = await this.ctx.decodeAudioData(arr);
-      } catch (err) { console.warn('audio no cargado:', key, err); }
-    }));
+    await Promise.all(entries.map(([key, url]) => this.loadSample(key, url)));
+  }
+
+  /* carga de UN sample (la canción de la banda la usa en diferido) */
+  async loadSample(key, url) {
+    this.init();
+    try {
+      const res = await fetch(url);
+      const arr = await res.arrayBuffer();
+      this.buffers[key] = await this.ctx.decodeAudioData(arr);
+      // la canción de la banda: si alguien la pidió antes de terminar la descarga
+      // (menú/intro/concierto), arranca ahora y retira el respaldo rumbero
+      if (key === 'music') {
+        if (typeof this.song.onLista === 'function') { try { this.song.onLista(); } catch (_) {} }
+        if (this._wantSong && !this.song.playing) {
+          this.playSong(this._songPendiente || {});
+          this._songPendiente = null;
+        }
+      }
+      return this.buffers[key];
+    } catch (err) { console.warn('audio no cargado:', key, err); return null; }
   }
 
   _playBuffer(key, { vol = 1, rate = 1, loop = false, dest = null } = {}) {
@@ -64,22 +121,119 @@ export class AudioEngine {
     return { src, g };
   }
 
+  /* ---------- LA CANCIÓN REAL DE LA BANDA (menú, intro y concierto final) ---------- */
+  get songPlaying() { return !!(this.song && this.song.playing); }
+
+  /* arranca (o reajusta) la canción en bucle. Devuelve false si aún no está cargada. */
+  playSong({ volume = MIX.songMenu, fade = 0.8, offset = 0 } = {}) {
+    this.init();
+    this._wantSong = true;
+    if (!this.buffers.music) { this._songPendiente = { volume, fade, offset }; return false; }
+    this._songPendiente = null;
+    const t = this.ctx.currentTime;
+    const g = this.songGain.gain;
+    if (this.song.playing) {                  // ya suena: solo ajusta el volumen (sin cortes)
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(Math.max(0.0001, g.value), t);
+      g.linearRampToValueAtTime(Math.max(0.0001, volume), t + fade);
+      this.song.vol = volume;
+      return true;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.buffers.music;
+    src.loop = true;
+    src.connect(this.songGain);
+    // si había una copia anterior con parada programada, se corta ya (evita
+    // medio segundo con dos copias de la canción sonando a la vez)
+    if (this._prevSrc) { try { this._prevSrc.stop(); } catch (_) {} this._prevSrc = null; }
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(0.0001, t);
+    g.linearRampToValueAtTime(Math.max(0.0001, volume), t + fade);
+    src.start(t, Math.max(0, offset));
+    src.onended = () => { if (this.song.src === src) { this.song.playing = false; this.song.src = null; } };
+    this.song.src = src;
+    this.song.playing = true;
+    this.song.vol = volume;
+    return true;
+  }
+
+  /* baja/sube el volumen de la canción sin pararla (despedida del final, etc.) */
+  songVolume(v, fade = 0.6) {
+    if (!this.song.playing || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const g = this.songGain.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.max(0.0001, g.value), t);
+    g.linearRampToValueAtTime(Math.max(0.0001, v), t + fade);
+    this.song.vol = v;
+  }
+
+  /* para la canción con fundido (corto: no debe chocar con el arranque de un nivel) */
+  stopSong({ fade = 0.35 } = {}) {
+    this._wantSong = false;
+    this._songPendiente = null;
+    if (!this.song.playing || !this.ctx) { this.menuAudio = null; return; }
+    const s = this.song;
+    const t = this.ctx.currentTime;
+    s.playing = false;
+    this.menuAudio = null;
+    const g = this.songGain.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.max(0.0001, g.value), t);
+    g.linearRampToValueAtTime(0.0001, t + fade);
+    try { s.src.stop(t + fade + 0.05); } catch (_) {}
+    this._prevSrc = s.src;
+    s.src = null;
+    s.vol = 0;
+  }
+
   /* ---------- música del menú: la canción real de la banda ---------- */
   playMenuMusic() {
     this.init();
-    this.stopGenerative();
-    if (!this.menuAudio && this.buffers.music) {
-      this.menuAudio = this._playBuffer('music', { vol: 0.55, loop: true, dest: this.musicGain });
-    } else if (this.menuAudio) {
-      try { this.menuAudio.src.start(); } catch (_) {}
-    }
+    this.duckMusic(false);         // el menú siempre a volumen normal
+    this._stopGenRaw();
+    this.playSong({ volume: MIX.songMenu, fade: 0.9, offset: 0 });
   }
-  stopMenuMusic() { if (this.menuAudio) { try { this.menuAudio.src.stop(); } catch (_) {} this.menuAudio = null; } }
+  stopMenuMusic() { this.stopSong({ fade: 0.35 }); }
 
   /* ---------- rumba generativa ---------- */
+  /* MODO CONCIERTO: el FINAL del juego toca LA CANCIÓN REAL DE LA BANDA.
+     final.js llama a startGenerative/stopGenerative, así que aquí se intercepta
+     esa llamada y se suena la canción (en bucle, volumen bajo y sin chocar con
+     los sfx). La rumba generativa queda para los niveles. */
+  setConcert(on) {
+    this.init();
+    const v = !!on;
+    if (v === this._concertOn) { if (v) this.playSong({ volume: MIX.songFinal, fade: 0.8 }); return; }
+    this._concertOn = v;
+    this._stopGenRaw();          // en concierto NO suena la rumba generativa
+    if (v) {
+      this.duckMusic(false);     // el concierto suena a su volumen, sin duck
+      if (this.buffers.music) { this.playSong({ volume: MIX.songFinal, fade: 0.9, offset: 0 }); return; }
+      this.playSong({ volume: MIX.songFinal, fade: 0.9 });   // queda pedida: arranca al cargar
+      // respaldo: si la canción aún no está lista (partida rápida), que el
+      // concierto no se quede mudo mientras tanto: fondo rumbero suave
+      this.music.playing = true;
+      this.music.step = 0;
+      this.music.intensity = 2;
+      this.music.aura = true;
+      this.music.next = this.ctx.currentTime + 0.08;
+      this.music.timer = setInterval(() => this._schedule(), 25);
+      // cuando la canción real esté lista, fuera la rumba de respaldo
+      this.song.onLista = () => this._stopGenRaw();
+    } else {
+      this.song.onLista = null;
+      this.stopSong({ fade: 0.45 });
+    }
+  }
+
   startGenerative({ intensity = 1, aura = false } = {}) {
     this.init();
-    this.stopMenuMusic();
+    // en modo concierto manda LA CANCIÓN: no se arranca la rumba (final.js llama
+    // a startGenerative al empezar el concierto; aquí se redirige a la canción)
+    if (this._concertOn) { this.setConcert(true); return; }
+    this.stopMenuMusic();          // menú/intro/final -> partida: fuera la canción
+    this.duckMusic(false);         // cualquier arranque de música desagacha el bus
     if (this.music.playing) { this.music.intensity = intensity; this.music.aura = aura; return; }
     this.music.playing = true;
     this.music.step = 0;
@@ -90,15 +244,54 @@ export class AudioEngine {
   }
   setIntensity(n) { this.music.intensity = n; }
   setAura(on) { this.music.aura = !!on; }
-  stopGenerative() {
+  /* parada cruda de la rumba (sin mirar el modo concierto) */
+  _stopGenRaw() {
     if (this.music.timer) { clearInterval(this.music.timer); this.music.timer = null; }
     this.music.playing = false;
   }
-  stopAll() { this.stopGenerative(); this.stopMenuMusic(); }
+  stopGenerative() {
+    if (this._concertOn) {
+      // en pleno concierto la música ES la canción: parar la "generativa" no
+      // debe cortar el concierto (final.js llama a stopGenerative dentro de su
+      // play()). Solo se para la rumba de respaldo si es la que suena.
+      if (!this.song.playing) this._stopGenRaw();
+      return;
+    }
+    this._stopGenRaw();
+  }
+  /* fin del concierto (lo llama main.js al terminar el final del juego) */
+
+  /* agacha el bus de música (muerte / continue / carteles): la música sigue
+     pero se aparta para que se lean los avisos y suenen los sfx */
+  duckMusic(on) {
+    this.ducked = !!on;
+    if (!this.musicGain || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const g = this.musicGain.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.max(0.0001, g.value), t);
+    g.linearRampToValueAtTime(this.ducked ? MIX.duck : MIX.music, t + (this.ducked ? 0.35 : 0.8));
+  }
+
+  stopAll() { this.stopGenerative(); this.stopSong({ fade: 0.3 }); }
+
+  /* valores reales de mezcla (los lee el QA desde __qa.audio()) */
+  debugInfo() {
+    const g = (n) => (n && n.gain ? +n.gain.value.toFixed(3) : null);
+    return {
+      ctx: this.ctx ? this.ctx.state : 'none',
+      muted: this.muted, volume: this.volume,
+      master: g(this.master), musicBus: g(this.musicGain), sfxBus: g(this.sfxGain),
+      cancionBus: g(this.songGain), ducked: !!this.ducked,
+      generativa: { playing: this.music.playing, intensidad: this.music.intensity, aura: this.music.aura, paso: this.music.step },
+      cancion: { playing: this.song.playing, vol: this.song.vol || null, cargada: !!this.buffers.music, pedida: !!this._wantSong }
+    };
+  }
 
   // 8th notes · 32 steps = 4 compases · Dm Gm A Dm
   _schedule() {
     if (!this.ctx) return;
+    if (this.muted) return;        // en silencio no se programa nada (ahorra CPU)
     const spb = 60 / (this.music.tempo * (this.music.aura ? 1.22 : 1));
     const stepDur = spb / 2;
     const ahead = this.ctx.currentTime + 0.14;
@@ -266,7 +459,7 @@ export class AudioEngine {
       case 'continue': [392, 523, 659, 784].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.2, vol: 0.14, delay: i * 0.09 })); this.noise({ dur: 0.5, vol: 0.12, freq: 400, sweep: 3000, type: 'bandpass' }); break;
       /* game over: descenso grave y largo */
       case 'gameover': [440, 392, 330, 262, 196].forEach((f, i) => this.tone({ type: 'sawtooth', f0: f, dur: 0.34, vol: 0.16, delay: i * 0.18, filter: 900 })); this.tone({ type: 'sine', f0: 98, f1: 60, dur: 1.4, vol: 0.22, delay: 0.5 }); break;
-      /* super-vida conseguida */
+      /* super-vida conseguida (al gastar la reserva también se reconoce) */
       case 'supervida': [659, 784, 988, 1319].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.2, vol: 0.17, delay: i * 0.075 })); break;
       /* moneda/nota especial de nivel nuevo desbloqueado */
       case 'unlock': [523, 659, 784].forEach((f, i) => this.tone({ type: 'sine', f0: f, dur: 0.26, vol: 0.16, delay: i * 0.1 })); this.tone({ type: 'triangle', f0: 1046, dur: 0.4, vol: 0.14, delay: 0.3 }); break;
@@ -295,6 +488,52 @@ export class AudioEngine {
       case 'alert': this.tone({ type: 'triangle', f0: 1480, dur: 0.09, vol: 0.13 }); this.tone({ type: 'triangle', f0: 1976, dur: 0.12, vol: 0.11, delay: 0.1 }); break;
       /* telegrafía del golpe del jefe: subida corta y seca */
       case 'warn': this.tone({ type: 'square', f0: 300, f1: 220, dur: 0.1, vol: 0.1, filter: 900 }); break;
+      /* ---- efectos nuevos (v3: los que faltaban de verdad) ---- */
+      /* PASOS al correr: golpecito sordo y corto, alternando el pie (muy sutil,
+         va colgado del polvo de player.onDust cada 0,12 s) */
+      case 'step': {
+        if (!this._throttle('step', 95)) break;
+        const pie = (this._stepN = (this._stepN || 0) + 1) % 2 === 0;
+        this.tone({ type: 'sine', f0: pie ? 108 : 92, f1: 54, dur: 0.055, vol: 0.055 });
+        this.noise({ dur: 0.045, vol: 0.05, freq: 760, sweep: 320 });
+        break;
+      }
+      /* ROCE continuo de la barrida (bajo la estela de chispas, sin tapar el 'slide') */
+      case 'slideLoop': {
+        if (!this._throttle('slideLoop', 70)) break;
+        this.noise({ dur: 0.13, vol: 0.065, freq: 1900, sweep: 850, type: 'bandpass' });
+        break;
+      }
+      /* IMPACTO contra caja de HIERRO/ACERO que no cede: campana metálica corta
+         (se suma al golpe de madera, no lo sustituye: suena a metal hueco) */
+      case 'clank': {
+        if (!this._throttle('clank', 60)) break;
+        this.tone({ type: 'square', f0: 1180, f1: 760, dur: 0.07, vol: 0.1, filter: 3200 });
+        this.tone({ type: 'triangle', f0: 2360, dur: 0.15, vol: 0.07, delay: 0.012 });
+        this.noise({ dur: 0.05, vol: 0.1, freq: 3600, sweep: 1500, type: 'bandpass' });
+        break;
+      }
+      /* el hierro/acero CEDE: chatarra cayendo + golpe grave */
+      case 'clankBreak': {
+        this.tone({ type: 'square', f0: 1560, f1: 430, dur: 0.2, vol: 0.14, filter: 2600, delay: 0.04 });
+        this.tone({ type: 'triangle', f0: 980, f1: 520, dur: 0.3, vol: 0.1, delay: 0.07 });
+        this.noise({ dur: 0.32, vol: 0.2, freq: 3000, sweep: 500, type: 'bandpass' });
+        break;
+      }
+      /* CRUZAR LA META (nivel normal, sin jefe): aldaba + acorde + clamor del público */
+      case 'goal': {
+        this.tone({ type: 'sine', f0: 523, dur: 0.2, vol: 0.14 });
+        [659, 784, 1046].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.3, vol: 0.15, delay: 0.08 + i * 0.09 }));
+        this.noise({ dur: 0.8, vol: 0.12, freq: 900, sweep: 2400, type: 'bandpass' });
+        break;
+      }
+      /* el ESCUDO aguanta el golpe (antes sonaba una caja, que no pegaba nada) */
+      case 'shieldBlock': {
+        this.tone({ type: 'sine', f0: 1480, f1: 980, dur: 0.16, vol: 0.13 });
+        this.tone({ type: 'triangle', f0: 2960, dur: 0.12, vol: 0.06, delay: 0.02 });
+        this.noise({ dur: 0.2, vol: 0.11, freq: 1500, sweep: 3400, type: 'bandpass' });
+        break;
+      }
     }
   }
 }

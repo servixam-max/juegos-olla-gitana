@@ -17,6 +17,7 @@ import { TrapSystem } from './game/traps.js';
 import { LEVELS } from './game/levels.js';
 import { MaskCompanion } from './game/mask.js';
 import { Progreso, VIDAS_NIVEL, SUPER_VIDAS_INICIAL, CONTINUES } from './game/progreso.js';
+import { logros3d } from './game/logros3d.js';
 import { toonMat, makeOlla, makeVan, PALETA, makeNote } from './game/art.js';
 /* atrezzo ambiental en su propio módulo (decoración de escena, sin colisión) */
 import {
@@ -83,6 +84,10 @@ function loadRecords() {
 }
 /* progreso del jugador: niveles desbloqueados, super-vidas y continues */
 const progreso = new Progreso();
+/* logros del 3D: al conseguir uno suena el desbloqueo (el aviso lo pinta el módulo) */
+logros3d.onUnlock = () => Audio.sfx('unlock');
+/* en modo demo (vídeo de presentación) los logros no se registran ni avisan */
+logros3d.silencioso = DEMO;
 function saveRecord(id, data) {
   const prev = records[id];
   const better = !prev || data.notas > prev.notas || (data.notas === prev.notas && data.cajas > prev.cajas);
@@ -200,6 +205,31 @@ function startIntro(onEnd) {
     director.letterbox.classList.remove('on');
     if (onEnd) onEnd();
   });
+  /* MÚSICA DE LA INTRO: en el plano del concierto (la banda tocando en el
+     escenario) suena LA CANCIÓN REAL de la banda; el resto de la intro sigue
+     con la rumba generativa tal cual está montada (luces: rumba · silencio:
+     mudez dramática · cacharro: vuelve la rumba). Con guardas de modo para que
+     saltar la intro no meta la canción encima del menú. */
+  const planosIntro = INTRO.planos || [];
+  let tConcierto = 0, durConcierto = 0, acc = 0, hayConcierto = false;
+  for (const p of planosIntro) {
+    const d = p.t / (intro.skipSpeed || 1);
+    if (p.id === 'concierto') { tConcierto = acc; durConcierto = d; hayConcierto = true; }
+    acc += d;
+  }
+  if (hayConcierto) {
+    state.pending.push({ after: Math.max(0.05, tConcierto + 0.05), fn: () => {
+      if (!intro.activa) return;                 // intro saltada antes: manda el menú
+      Audio.stopGenerative();                    // la rumba cede el sitio a la banda real
+      Audio.playSong({ volume: 0.30, fade: 0.8 });
+    } });
+    state.pending.push({ after: Math.max(1, tConcierto + durConcierto - 0.05), fn: () => {
+      // empieza el ROBO de las notas: se hace el silencio dramático (también la
+      // canción). Solo si la intro sigue en marcha: saltada, manda el menú.
+      if (!intro.activa) return;
+      Audio.stopSong({ fade: 0.5 });
+    } });
+  }
   // el título aparece al final del último plano
   state.pending.push({
     after: Math.max(0.1, INTRO.planos.slice(0, -1).reduce((a, p) => a + p.t, 0)),
@@ -219,11 +249,13 @@ async function boot() {
   let ti = 0;
   const tipTimer = setInterval(() => { tip.textContent = loadTips[ti++ % loadTips.length]; }, 900);
 
+  // carga diferida: los sfx primero (ligeros); la canción de la banda (4,4 MB) en
+  // segundo plano — el menú/intro ya la piden y arranca sola al terminar
   await Audio.loadSamples({
-    music: BGDIR + 'music.mp3',
     hit: BGDIR + 'hit.mp3',
     levelup: BGDIR + 'levelup_special.mp3'
   });
+  Audio.loadSample('music', BGDIR + 'music.mp3').catch(() => {});
   progress = 45; bar.style.width = progress + '%';
 
   // fondos de Murcia como "skybox" de pasillo (planos lejanos)
@@ -238,6 +270,8 @@ async function boot() {
   setTimeout(() => {
     $('loadPanel').classList.add('hidden');
     const prefs = loadPrefs();
+    Audio.setMuted(!!prefs.muted);     // el botón de sonido (mute) se respeta desde el arranque
+    if (prefs.vol != null) Audio.setVolume(prefs.vol);   // volumen general guardado
     if (DEMO) {
       // modo demo: arranca el guion del vídeo directamente
       hud.show(false);
@@ -311,10 +345,12 @@ function showMenu() {
   if (btnFinal) btnFinal.classList.toggle('hidden', !loadPrefs().finalVisto);
   $('gamepadHint').textContent = input.hasGamepad() ? '🎮 Mando detectado' : '';
   const prefs = loadPrefs();
-  $('btnMute2').textContent = prefs.muted ? '🔇 Sonido' : '🔊 Sonido';
+  pintaBotonesSonido(!!prefs.muted);
+  const vv = Math.round((prefs.vol != null ? prefs.vol : Audio.volume) * 100);
+  if ($('volRange')) { $('volRange').value = vv; $('volLbl').textContent = vv + '%'; }
 }
 function hideOverlays() {
-  ['menuPanel', 'helpPanel', 'pausePanel', 'endPanel', 'overPanel', 'rankPanel', 'videoPanel'].forEach((id) => $(id).classList.add('hidden'));
+  ['menuPanel', 'helpPanel', 'pausePanel', 'endPanel', 'overPanel', 'rankPanel', 'videoPanel', 'logrosPanel'].forEach((id) => $(id).classList.add('hidden'));
   if ($('presentacion')) $('presentacion').pause();
 }
 
@@ -593,6 +629,7 @@ function startLevel(index, { keepLives = false } = {}) {
   state.checkpoint = null;
   state.pressure = false;
   state.vanCatchT = 0;
+  state.vidasPerdidasNivel = 0;      // para el logro de terminar sin perder vida
 
   // fondo lejano con la imagen de Murcia (DoubleSide: el plano debe verse desde la cámara)
   const tex = bgTexs[(level.bg - 1) % bgTexs.length];
@@ -702,6 +739,7 @@ function startLevel(index, { keepLives = false } = {}) {
       } });
     };
     boss.onDefeat = () => {
+      logros3d.registrar('jefe', { jefe: 'cacharro' });
       playCutscene(JEFE.derrota, {
         speaker: boss.obj, camara: 'jefe', dur: 6.5,
         onEnd: () => { endLevel(true, { boss: true }); }
@@ -741,6 +779,7 @@ function startLevel(index, { keepLives = false } = {}) {
   Audio.startGenerative({ intensity: 1 });
   Audio.setAura(false);
   savePrefs({ lastLevel: index });
+  logros3d.registrar('nivelIniciado', { index });
   // cartel del mundo al empezar (con subtítulo narrativo de la historia)
   const SUBTITULOS = [
     'Las 7 notas están escondidas por Murcia. ¡A por ellas!',
@@ -755,12 +794,14 @@ function startLevel(index, { keepLives = false } = {}) {
   showCineTitle(`MUNDO ${index + 1}`, def.nombre.toUpperCase(), 2.9, SUBTITULOS[index] || '');
   // frases habladas cortas del jugador (bocadillo sobre la olla)
   pickups.onNote = (n, total) => {
+    logros3d.registrar('nota');
     if (n % 10 === 0 && !dialog.active) {
       dialog.speaker = player.obj;
       dialog.play([{ t: pick(FRASES.nota), tone: 'exito', tail: 'down', hold: 0.9 }]);
     }
   };
   crates.onBreak = (c) => {
+    logros3d.registrar('caja', { tipo: c && c.crateType });
     if (Math.random() < 0.22 && !dialog.active) {
       dialog.speaker = null;
       dialog.play([{ t: pick(FRASES.caja), tone: 'grito', tail: 'down', hold: 0.8 }]);
@@ -769,6 +810,7 @@ function startLevel(index, { keepLives = false } = {}) {
     state.combo = Math.min(5, +(state.combo + 0.2).toFixed(1));
     state.comboT = 3.2;
     hud.setCombo(state.combo);
+    logros3d.registrar('combo', { valor: state.combo });
     // chispas de madera + destello en el sitio de la caja (refuerza el 'crate')
     if (c && c.mesh) {
       const cp = c.mesh.position;
@@ -794,6 +836,7 @@ function startLevel(index, { keepLives = false } = {}) {
   pickups.onMask = () => {
     // la máscara se vuelve compañera (tipo Aku Aku)
     const nivel = maskCompanion.add();
+    logros3d.registrar('mascara', { nivel });
     const txt = nivel === 3 ? '🎭 ¡MÁSCARA DORADA! 1 min invulnerable' : `🎭 Máscara nivel ${nivel}`;
     hud.toast(txt, 'record');
     if (nivel === 3) Audio.sfx('aura');
@@ -818,8 +861,12 @@ function startLevel(index, { keepLives = false } = {}) {
   // polvo al correr y estela de la barrida (sparks a ras de suelo)
   player.onDust = () => {
     if (player.sliding) {
+      // roce continuo de la barrida (sutil; la estela visual ya está en fx)
+      Audio.sfx('slideLoop');
       fx.burst({ x: player.pos.x, y: player.pos.y + 0.12, z: player.pos.z }, { count: 2, speed: 2.2, up: 2.0, life: 0.32, size: 0.8, colors: [0xffbe0b, 0xffe9a8, 0xcbb9a0] });
     } else {
+      // PASOS al correr: golpecito sordo sincronizado con el polvo (muy bajo)
+      Audio.sfx('step');
       fx.burst({ x: player.pos.x, y: player.pos.y + 0.08, z: player.pos.z }, { count: 1, speed: 1.1, up: 1.2, life: 0.4, size: 0.75, colors: [0x9a9aa8, 0xcbb9a0], puff: 0.4 });
     }
   };
@@ -910,6 +957,12 @@ function endLevel(win, extra = {}) {
   const data = { notas: earnedNotes, cajas: crates.broken, tiempo: time, estrellas: stars, fecha: Date.now() };
   const prevForBest = records[lv.id];
   const { better } = win ? saveRecord(lv.id, data) : { better: false };
+  if (win) {
+    logros3d.registrar('nivelCompletado', {
+      index: state.levelIndex, estrellas: stars, tiempo: time,
+      sinDano: (state.vidasPerdidasNivel || 0) === 0
+    });
+  }
 
   Audio.stopGenerative();
   if (win) { Audio.sfx(extra.boss ? 'bossdown' : 'victory'); fx.confettiBurst(); } else { Audio.sfx('death'); }
@@ -1061,6 +1114,7 @@ function checkFerminAppear() {  if (!state.ferminPending) return;
     // un toque de drama: el escenario se tiñe
     fermin.onHp = (hp, max) => hud.toast(`🎺 FERMÍN ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
     fermin.onDefeat = () => {
+      logros3d.registrar('jefe', { jefe: 'fermin' });
       playCutscene(JEFE_INTERMEDIO.derrota, {
         speaker: fermin.obj, camara: 'jefe', dur: 5.5,
         onEnd: () => { endLevel(true, { fermin: true }); }
@@ -1196,10 +1250,12 @@ function damagePlayer(reason) {
     }
   }
   const res = player.hurt();
-  if (res === 'shield') { hud.toast('🛡️ ¡Escudo aguantó!', 'good'); Audio.sfx('crate'); fx.flash({ x: player.pos.x, y: player.pos.y + 0.9, z: player.pos.z }, { color: 0x4cc9f0, size: 2.2, life: 0.32 }); fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: 0x4cc9f0, r0: 0.3, r1: 2.6, life: 0.45 }); fx.addShake(0.25); return; }
+  if (res === 'shield') { hud.toast('🛡️ ¡Escudo aguantó!', 'good'); Audio.sfx('shieldBlock'); fx.flash({ x: player.pos.x, y: player.pos.y + 0.9, z: player.pos.z }, { color: 0x4cc9f0, size: 2.2, life: 0.32 }); fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: 0x4cc9f0, r0: 0.3, r1: 2.6, life: 0.45 }); fx.addShake(0.25); return; }
   if (res !== 'hurt') return;
   if (window.__qa) window.__qa.data.damageLog.push({ reason, z: +player.pos.z.toFixed(1), x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1) });
   state.lives--;
+  state.vidasPerdidasNivel = (state.vidasPerdidasNivel || 0) + 1;
+  logros3d.registrar('dano', { nivel: state.level ? state.level.id : null, reason });
   hud.setLives(state.lives);
   hud.damage();
   Audio.sfx('damage');
@@ -1222,14 +1278,16 @@ function perderVidasNivel() {
   if (sv > 0) {
     progreso.gastarSuperVida();
     hud.toast(`💛 ¡Super-vida! Te quedan ${progreso.superVidas}`, 'bad');
-    Audio.sfx('death');
+    Audio.sfx('supervida');   // "te salva la reserva": suena a premio, no a derrota
     hud.show(false);
     state.mode = 'cine';
     director.fade(1, 900);
+    Audio.duckMusic(true);    // la música se aparta mientras se lee el cartel
     state.pending.push({ after: 0.5, fn: () => cineTitle(true, 'SUPER-VIDA', `Te quedan ${progreso.superVidas} 💛`, 'Aguanta, rumbero') });
     state.pending.push({ after: 1.9, fn: () => cineTitle(false) });
     state.pending.push({ after: 2.6, fn: () => {
       director.fade(0, 800);
+      Audio.duckMusic(false);   // vuelve la música a su volumen
       player.dead = false;
       state.lives = VIDAS_NIVEL;
       hud.setLives(state.lives);
@@ -1242,15 +1300,18 @@ function perderVidasNivel() {
   // sin super-vidas → continue
   if (progreso.continues > 0) {
     const cont = progreso.gastarContinue();
+    logros3d.registrar('continue');
     hud.toast(`⏩ ¡CONTINUE! Te quedan ${cont}`, 'record');
     Audio.sfx('continue');
     hud.show(false);
     state.mode = 'cine';
     director.fade(1, 1000);
+    Audio.duckMusic(true);    // misma pausa sonora que en la super-vida
     state.pending.push({ after: 0.5, fn: () => cineTitle(true, '¡CONTINUE!', `Te quedan ${cont} ⏩`, 'La rumba sigue') });
     state.pending.push({ after: 2.1, fn: () => cineTitle(false) });
     state.pending.push({ after: 2.9, fn: () => {
       director.fade(0, 800);
+      Audio.duckMusic(false);
       player.dead = false;
       progreso.addSuperVida(SUPER_VIDAS_INICIAL);   // el continue rellena las super-vidas
       startLevel(state.levelIndex, { keepLives: false });
@@ -1296,6 +1357,7 @@ function useCheckpoint(z) {
   // los checkpoints dan una super-vida (+1 de reserva): sin esto el jugador no
   // podía recuperarse nunca y llegaba a los jefes con 1 vida (queja del usuario)
   const sv = progreso.addSuperVida(1);
+  logros3d.registrar('superVida');
   hud.toast(`✔ Punto de control · +1 super-vida (${sv} 💛)`, 'good');
   Audio.sfx('heart');
   // destello verde en el punto guardado
@@ -1425,7 +1487,7 @@ function checkGoal() {
   // "ganar" el nivel desde fuera del pasillo (detrás del muro). Ahora hace
   // falta estar cerca de la meta Y dentro del ancho jugable.
   const enAncho = Math.abs(player.pos.x - (lv.goal.x || 0)) < 4.5;
-  if (d < 3.6 || (enAncho && player.pos.z > lv.goal.z + 1.5)) endLevel(true);
+  if (d < 3.6 || (enAncho && player.pos.z > lv.goal.z + 1.5)) { Audio.sfx('goal'); endLevel(true); }
 }
 
 /* La salida solo se ve cuando el nivel está "abierto": si hay jefe pendiente o
@@ -1818,11 +1880,30 @@ $('btnFinal').onclick = () => {
   Audio.sfx('ui');
   hideOverlays();
   state.mode = 'cine';
-  state.pending.push({ after: 0.2, fn: () => finalScene.play(() => { showMenu(); Audio.playMenuMusic(); }) });
+  Audio.setConcert(true);   // el "Ver final" también toca la canción real
+  state.pending.push({ after: 0.2, fn: () => finalScene.play(() => { Audio.setConcert(false); showMenu(); Audio.playMenuMusic(); }) });
 };
 $('btnMute').onclick = () => toggleMute();
 $('btnMute2').onclick = () => toggleMute();
+/* botón de sonido del propio HUD (jugando) y de las pantallas de fin */
+const btnHudMute = $('muteBtn');
+if (btnHudMute) btnHudMute.onclick = (e) => { e.stopPropagation(); toggleMute(); };
+$('btnMute3') && ($('btnMute3').onclick = () => toggleMute());
+$('btnMute4') && ($('btnMute4').onclick = () => toggleMute());
+pintaBotonesSonido();            // estado inicial del icono (según preferencia guardada)
 $('btnRank').onclick = () => showRank();
+/* logros: panel del menú (conseguidos en color, bloqueados en gris con pista) */
+$('btnLogros').onclick = () => {
+  Audio.sfx('ui');
+  logros3d.pintaPanel();
+  $('menuPanel').classList.add('hidden');
+  $('logrosPanel').classList.remove('hidden');
+};
+$('btnLogrosBack').onclick = () => {
+  Audio.sfx('ui');
+  $('logrosPanel').classList.add('hidden');
+  $('menuPanel').classList.remove('hidden');
+};
 $('btnRankBack').onclick = () => { $('rankPanel').classList.add('hidden'); $('menuPanel').classList.remove('hidden'); };
 /* vídeo de presentación */
 $('btnVideo').onclick = () => {
@@ -1854,7 +1935,7 @@ function guardarPuntuacion(inputId) {
     savePrefs({ finalVisto: true });   // desbloquea el botón "Ver final" del menú
     hideOverlays();
     state.mode = 'cine';
-    state.pending.push({ after: 0.9, fn: () => finalScene.play(() => { showMenu(); Audio.playMenuMusic(); }) });
+    state.pending.push({ after: 0.9, fn: () => { Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); showMenu(); Audio.playMenuMusic(); }); } });
   }
 }
 $('btnSaveScore').onclick = () => guardarPuntuacion('playerName');
@@ -1867,9 +1948,28 @@ function toggleMute() {
   const m = !prefs.muted;
   Audio.setMuted(m);
   savePrefs({ muted: m });
-  $('btnMute').textContent = m ? '🔇 Sonido' : '🔊 Sonido';
-  $('btnMute2').textContent = m ? '🔇 Sonido' : '🔊 Sonido';
+  pintaBotonesSonido(m);
   hud.toast(m ? '🔇 Sonido apagado' : '🔊 Sonido encendido');
+}
+/* el estado del sonido se pinta igual en TODOS los estados del juego
+   (menú, pausa, fin de nivel, fin de partida y botón del HUD) */
+function pintaBotonesSonido(m = !!loadPrefs().muted) {
+  const txt = m ? '🔇 Sonido' : '🔊 Sonido';
+  ['btnMute', 'btnMute2', 'btnMute3', 'btnMute4'].forEach((id) => { const el = $(id); if (el) el.textContent = txt; });
+  if ($('muteBtn')) { $('muteBtn').textContent = m ? '🔇' : '🔊'; $('muteBtn').title = m ? 'Sonido apagado' : 'Sonido encendido'; }
+}
+/* el volumen general se ajusta en la pausa y se recuerda entre partidas */
+const volRange = $('volRange');
+if (volRange) {
+  const v0 = Math.round((loadPrefs().vol != null ? loadPrefs().vol : Audio.volume) * 100);
+  volRange.value = v0;
+  $('volLbl').textContent = v0 + '%';
+  volRange.addEventListener('input', () => {
+    const k = Number(volRange.value) / 100;
+    Audio.setVolume(k);
+    $('volLbl').textContent = volRange.value + '%';
+    savePrefs({ vol: k });
+  });
 }
 
 function showRank() {
@@ -1922,8 +2022,8 @@ window.__qa = {
   ataques: () => ({ ondas: enemies.waves.length, bombas: boss.projectiles.filter((p) => p.alive).length, cd: +(boss.cd || 0).toFixed(2), fase: boss.phase }),
   /* cuchillas de la arena (QA) */
   trapsInfo: () => ({ n: traps.traps.length, activas: traps.traps.filter((t) => t.activa).length, fase: traps.fase, pos: traps.traps.filter((t) => t.activa).map((t) => +t.obj.position.x.toFixed(1)) }),
-  /* arranca el concierto final directamente (QA) */
-  finalPlay: (cb) => { state.mode = 'cine'; hud.show(false); hideOverlays(); finalScene.play(cb || (() => {})); },
+  /* arranca el concierto final directamente (QA); con la canción real de la banda */
+  finalPlay: (cb) => { state.mode = 'cine'; hud.show(false); hideOverlays(); Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); if (cb) cb(); }); },
   /* diagnóstico para los agentes de QA: estado interno del motor */
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,
@@ -1942,10 +2042,12 @@ window.__qa = {
     jefes: { boss: boss.alive ? { hp: boss.hp, fase: boss.phase, x: +boss.pos.x.toFixed(1), z: +boss.pos.z.toFixed(1) } : null,
              fermin: fermin.alive ? { hp: fermin.hp, vuln: +fermin.vulnerable.toFixed(1), x: +fermin.pos.x.toFixed(1), z: +fermin.pos.z.toFixed(1) } : null }
   }),
-  /* sonidos reproducidos (los nuevos: longjump, hardland, combo, combohi, gate, door) */
+  /* sonidos reproducidos (los nuevos: longjump, hardland, combo, combohi, gate, door, step, slideLoop, clank, goal, shieldBlock, supervida) */
   sonidos: (n = 40) => Audio.log.slice(-n),
   sonidosUsados: () => { const s = new Set(Audio.log); return [...s]; },
   sonidosReset: () => { Audio.log.length = 0; return true; },
+  /* MEZCLA (QA): volúmenes reales de los buses y estado de la música/canción */
+  audio: () => Audio.debugInfo(),
   /* posiciones de las plataformas móviles (para detectar si están congeladas) */
   moviles: () => world.boxes.filter((b) => b.moving).map((b) => ({ tag: b.tag, pos: { ...b.pos }, moving: b.moving })),
   /* estado de la furgo del nivel 3 (para QA: debe seguir al jugador todo el nivel) */
@@ -2000,6 +2102,11 @@ window.__qa = {
   enableBot: () => { state.bot = { t: 0, jumpCd: 0, spinCd: 0, stuckT: 0, lastZ: null, log: () => {} }; },
   damage: () => damagePlayer('qa'),
   win: () => endLevel(true),
+  /* logros del 3D: estado, lista y reinicio (QA) */
+  logros: () => logros3d.lista(),
+  logrosEstado: () => logros3d.estado(),
+  logrosReset: () => { logros3d.reset(); return true; },
+  logrosPanel: () => { logros3d.pintaPanel(); return logros3d.tally(); },
   godMode: (on = true) => { state.god = !!on; },
   /* QA de efectos: dispara un burst/flash/ring y devuelve el nº de partículas vivas */
   fxProbe: (n = 1) => {

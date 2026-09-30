@@ -45,16 +45,22 @@ export class CrateSystem {
   /* caja alcanzada por el giro o el pisotón */
   hit(crate, { fromSpin = false, fromStomp = false, power = 1 } = {}) {
     if (!crate || crate.dead) return false;
+    const esMetal = crate.crateType === 'iron' || crate.crateType === 'steel';
     if (crate.crateType === 'iron') {
       // el hierro solo se rompe con el pisotón en el aire o con el aura
-      if (!fromStomp && power < 2) { this.audio.sfx('land'); return false; }
+      if (!fromStomp && power < 2) { this.audio.sfx('land'); this.audio.sfx('clank'); return false; }
     }
     crate.hp -= (fromStomp ? 2 : power);
     if (crate.hp > 0) {
       if (crate.mesh) crate.mesh.userData.hitT = 0.18;
       this.audio.sfx('crate');
+      /* el hierro y el acero aguantan el primer golpe: campana metálica encima
+         del crujido de madera para que se note que NO es una caja normal */
+      if (esMetal) this.audio.sfx('clank');
       return false;
     }
+    /* el metal CEDE: chatarra cayendo (se suma al estallido de la caja) */
+    if (esMetal) this.audio.sfx('clankBreak');
     return this.break(crate);
   }
 
