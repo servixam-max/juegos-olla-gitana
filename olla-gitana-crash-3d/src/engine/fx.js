@@ -40,6 +40,13 @@ export class FX {
     this._ambT = 0;          // acumulador del emisor ambiental
     this._ambNext = 0.4;     // segundos hasta la siguiente partícula ambiental (0.3-0.6)
     this.geo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+    // atributo color BLANCO por vértice: con vertexColors:true el shader hace
+    // vColor.rgb *= color, y si la geometría no trae atributo `color` este vale
+    // (0,0,0) → TODAS las partículas salían NEGRAS (bug cazado con QA visual:
+    // se veían cuadros negros en vez de chispas). Con el atributo a 1, el color
+    // por instancia (instanceColor) manda.
+    const nv = this.geo.attributes.position.count;
+    this.geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nv * 3).fill(1), 3));
     const mat = new THREE.MeshToonMaterial({ color: 0xffffff, vertexColors: true });
     this.mesh = new THREE.InstancedMesh(this.geo, mat, pool);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

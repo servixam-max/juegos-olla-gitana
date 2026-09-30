@@ -89,6 +89,16 @@ function depenetrate(actor, world, r, h) {
         { axis: 'z', v: mn.z - r, d: penZL },
         { axis: 'z', v: mx.z + r, d: penZR }
       ].sort((a, c) => a.d - c.d);
+      // Si el actor está APOYADO (empujado por una plataforma o teletransportado
+      // dentro de algo estando en el suelo), las salidas horizontales mandan: la
+      // "subida encima" es la salida más corta al chocar con un techo/pared alta
+      // y lo eyectaba a través del techo (bug medido: actor a y=3.4 con techo en
+      // 3.0). Estar apoyado y dentro de un sólido nunca debe acabar en el techo
+      // de una caja más alta que el propio actor.
+      if (actor.grounded) {
+        const rango = (c) => (c.axis !== 'y' ? 0 : 1);
+        cands.sort((a, c) => (rango(a) - rango(c)) || (a.d - c.d));
+      }
       const put = (c) => ({ x: c.axis === 'x' ? c.v : p.x, y: c.axis === 'y' ? c.v : p.y, z: c.axis === 'z' ? c.v : p.z });
       // salida preferida: la más corta que sea válida Y con suelo debajo
       // (un muro te saca a la calle, no al vacío exterior)
@@ -152,6 +162,38 @@ export class World {
   }
 }
 
+/* Arrastre por plataforma móvil: se aplica EJE A EJE y solo si el destino está
+   libre de otros sólidos. Antes se sumaba el delta entero de golpe y una
+   plataforma que te llevaba contra una pared te empotraba dentro (el resolutor
+   después te expulsaba lateralmente, a veces al otro lado del muro). Con el
+   filtro, la plataforma "se te escapa" cuando el arrastre no cabe: físico, sin
+   teletransportes. En vertical además se recorta contra el techo más cercano
+   (nunca te sube atravesando un sólido). */
+function ceilAbove(world, x, z, feetY, r) {
+  let best = Infinity;
+  for (const b of world.boxes) {
+    if (!collides(b)) continue;
+    const mn = b.min, mx = b.max;
+    if (x + r <= mn.x || x - r >= mx.x || z + r <= mn.z || z - r >= mx.z) continue;
+    if (mn.y >= feetY + 0.05 && mn.y < best) best = mn.y;   // cara inferior por encima de los pies
+  }
+  return best;
+}
+function carryStep(actor, world, r, h, dx, dy, dz) {
+  const p = actor.pos;
+  for (const [ax, d] of [['x', dx], ['z', dz], ['y', dy]]) {
+    if (!d) continue;
+    let ny = ax === 'y' ? p.y + d : p.y;
+    if (ax === 'y' && d > 0) {
+      const lim = ceilAbove(world, p.x, p.z, p.y, r);
+      if (lim !== Infinity) ny = Math.min(ny, lim - h);          // tope con el techo
+    }
+    const nx = ax === 'x' ? p.x + d : p.x;
+    const nz = ax === 'z' ? p.z + d : p.z;
+    if (freeAt(world, nx, ny, nz, r, h)) { p.x = nx; p.y = ny; p.z = nz; }
+  }
+}
+
 /* ---------- colisión y resolución del actor contra el mundo ---------- */
 export function resolveActor(actor, world, dt, { onLand = null, onHitWall = null } = {}) {
   const r = actor.radius, h = actor.height;
@@ -163,9 +205,7 @@ export function resolveActor(actor, world, dt, { onLand = null, onHitWall = null
   //    (nada de arrastre en el frame del salto: vel.y>0 ⇒ el actor se suelta)
   if (actor.grounded && actor.groundBox && actor.groundBox.moving && actor.vel.y <= 0.01) {
     const b = actor.groundBox;
-    actor.pos.x += b.pos.x - b.prevPos.x;
-    actor.pos.y += b.pos.y - b.prevPos.y;
-    actor.pos.z += b.pos.z - b.prevPos.z;
+    carryStep(actor, world, r, h, b.pos.x - b.prevPos.x, b.pos.y - b.prevPos.y, b.pos.z - b.prevPos.z);
   }
 
   // 0) si arranca DENTRO de un sólido (teleport, plataforma que sube, caja que
@@ -207,37 +247,60 @@ export function resolveActor(actor, world, dt, { onLand = null, onHitWall = null
     if (actor.pos.y <= world.killY) actor.fell = true;
   }
 
-  // ---- Eje X ----
+  // ---- Eje X ---- (clamp a la cara MÁS restrictiva: con dos sólidos pisando
+  // el mismo barrido, resolver solo contra el primero de world.boxes dejaba al
+  // actor dentro del segundo)
   actor.pos.x += actor.vel.x * dt;
   const xAabb = { minX: actor.pos.x - r, maxX: actor.pos.x + r, minZ: actor.pos.z - r, maxZ: actor.pos.z + r, minY: actor.pos.y, maxY: actor.pos.y + h };
-  for (const b of world.boxes) {
-    if (!collides(b)) continue;
-    const mn = b.min, mx = b.max;
-    if (xAabb.maxY <= mn.y + 0.02 || xAabb.minY >= mx.y - 0.02) continue;
-    if (xAabb.maxZ <= mn.z || xAabb.minZ >= mx.z) continue;
-    if (xAabb.maxX > mn.x && xAabb.minX < mx.x) {
-      // si la caja está justo bajo los pies, no bloquea
-      if (actor.pos.y >= mx.y - 0.12) continue;
-      if (actor.vel.x > 0) actor.pos.x = mn.x - r; else if (actor.vel.x < 0) actor.pos.x = mx.x + r;
+  {
+    let clampX = null, hitBox = null;
+    for (const b of world.boxes) {
+      if (!collides(b)) continue;
+      const mn = b.min, mx = b.max;
+      if (xAabb.maxY <= mn.y + 0.02 || xAabb.minY >= mx.y - 0.02) continue;
+      if (xAabb.maxZ <= mn.z || xAabb.minZ >= mx.z) continue;
+      if (xAabb.maxX <= mn.x || xAabb.minX >= mx.x) continue;
+      if (actor.pos.y >= mx.y - 0.12) continue;      // caja justo bajo los pies: no bloquea
+      let c;
+      if (actor.vel.x > 0) c = mn.x - r;             // avanzando +X: primera cara por delante
+      else if (actor.vel.x < 0) c = mx.x + r;        // avanzando -X: primera cara por detrás
+      else c = (actor.pos.x < (mn.x + mx.x) / 2) ? mn.x - r : mx.x + r;   // empujado sin velocidad
+      if (clampX === null ||
+          (actor.vel.x > 0 && c < clampX) ||
+          (actor.vel.x < 0 && c > clampX) ||
+          (actor.vel.x === 0 && Math.abs(c - actor.pos.x) < Math.abs(clampX - actor.pos.x))) { clampX = c; hitBox = b; }
+    }
+    if (clampX !== null) {
+      if (clampX !== actor.pos.x) actor.pos.x = clampX;
       actor.vel.x = 0;
-      if (onHitWall) onHitWall(b);
-      break;
+      if (onHitWall) onHitWall(hitBox);
     }
   }
-  // ---- Eje Z ----
+  // ---- Eje Z ---- (igual: cara más restrictiva)
   actor.pos.z += actor.vel.z * dt;
   const zAabb = { minX: actor.pos.x - r, maxX: actor.pos.x + r, minZ: actor.pos.z - r, maxZ: actor.pos.z + r, minY: actor.pos.y, maxY: actor.pos.y + h };
-  for (const b of world.boxes) {
-    if (!collides(b)) continue;
-    const mn = b.min, mx = b.max;
-    if (zAabb.maxY <= mn.y + 0.02 || zAabb.minY >= mx.y - 0.02) continue;
-    if (zAabb.maxX <= mn.x || zAabb.minX >= mx.x) continue;
-    if (zAabb.maxZ > mn.z && zAabb.minZ < mx.z) {
+  {
+    let clampZ = null, hitBox = null;
+    for (const b of world.boxes) {
+      if (!collides(b)) continue;
+      const mn = b.min, mx = b.max;
+      if (zAabb.maxY <= mn.y + 0.02 || zAabb.minY >= mx.y - 0.02) continue;
+      if (zAabb.maxX <= mn.x || zAabb.minX >= mx.x) continue;
+      if (zAabb.maxZ <= mn.z || zAabb.minZ >= mx.z) continue;
       if (actor.pos.y >= mx.y - 0.12) continue;
-      if (actor.vel.z > 0) actor.pos.z = mn.z - r; else if (actor.vel.z < 0) actor.pos.z = mx.z + r;
+      let c;
+      if (actor.vel.z > 0) c = mn.z - r;
+      else if (actor.vel.z < 0) c = mx.z + r;
+      else c = (actor.pos.z < (mn.z + mx.z) / 2) ? mn.z - r : mx.z + r;
+      if (clampZ === null ||
+          (actor.vel.z > 0 && c < clampZ) ||
+          (actor.vel.z < 0 && c > clampZ) ||
+          (actor.vel.z === 0 && Math.abs(c - actor.pos.z) < Math.abs(clampZ - actor.pos.z))) { clampZ = c; hitBox = b; }
+    }
+    if (clampZ !== null) {
+      if (clampZ !== actor.pos.z) actor.pos.z = clampZ;
       actor.vel.z = 0;
-      if (onHitWall) onHitWall(b);
-      break;
+      if (onHitWall) onHitWall(hitBox);
     }
   }
 

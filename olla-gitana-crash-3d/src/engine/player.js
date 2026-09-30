@@ -18,7 +18,8 @@ const SLIDE_SPEED = 15.0;   // 13.5 → 15: la barrida ahora corre de verdad
 const SLIDE_TIME = 0.72;    // 0.55 → 0.72: dura más y sirve para pasillos/ataques
 const SPIN_TIME = 0.4;
 const COYOTE = 0.15;        // 0.12 → 0.15: salto más fiable al borde del suelo
-const JUMP_BUFFER = 0.20;   // 0.16 → 0.20: perdona pulsaciones algo tempranas
+const JUMP_BUFFER = 0.24;   // 0.20 → 0.24: el frame de aterrizaje consume uno,
+                            // así el margen REAL es 6 frames (0.20 s medidos)
 const STOP_GRACE = 0.15;    // al soltar: los primeros 0.15 s frenan más suave
 const STOP_FRICTION = FRICTION * 0.75;
 const TURN_GROUND = 14;     // giro al orientar en suelo
@@ -27,6 +28,19 @@ const ROLL_MAX = 0.12;      // inclinación visual al cambiar de dirección
 const SPIN_IMPULSE_T = 0.15; // el giro sostiene la velocidad 0.15 s
 const SPIN_IMPULSE_X = 1.15;
 const DJUMP_V = 1.0;        // doble salto (con 0.94 quedaba flojo)
+
+/* --- margen real de los saltos (auditoría de físicas) ---
+   Los contadores de coyote/buffer se consumían ANTES de comprobar el salto, así
+   que el margen nominal perdía un frame: con COYOTE 0.15 solo salvaba 4 frames
+   (0.133 s) y el buffer 5 (0.167 s). Ahora se comprueba primero y se decrementa
+   después. Además, caerse de un borde SIN haber saltado dejaba jumps=0 y ninguna
+   rama aplicaba: el jugador perdía sus DOS saltos. */
+const AIR_JUMP_V = 0.9;       // salto de recuperación tras caerse de un borde
+const AIR_JUMP_MAXVY = 2;     // solo si no está subiendo ya (evita dobles usos)
+const LONGJUMP_BOOST_T = 0.55; // el salto largo sostiene el ×1.35 en el aire
+const LONGJUMP_BOOST_X = 1.35;
+const SLIDE_MOMENTUM_T = 0.45; // tras la barrida el impulso se conserva (no se corta)
+const MOMENTUM_FRICTION = 9;   // decaimiento suave del impulso conservado (m/s²)
 
 export class Player {
   constructor(scene) {
@@ -88,6 +102,7 @@ export class Player {
     this.jumps = 0; this.spinT = 0; this.slideT = 0;
     this.coyote = 0; this.buffer = 0; this.stopT = 0;
     this.spinImpulseT = 0; this.roll = 0; this.hadInput = false;
+    this.longJumpWindow = 0; this.longJumpBoostT = 0; this.slideMomentumT = 0;
     this.dead = false; this.fell = false; this.animT = 0;
     this.grounded = false; this.hurtT = 0;
     this.obj.position.set(x, y, z);
@@ -96,7 +111,10 @@ export class Player {
 
   get spinning() { return this.spinT > 0; }
   get sliding() { return this.slideT > 0; }
-  get hitRadius() { return this.spinT > 0 ? 1.15 : 0.55; }
+  // alcance del giro: 1.15 → 1.3 (auditoría: con 1.15 el giro solo rompía cajas
+  // a ≤1.2 m del centro; a 1.5 m ya no llegaba y el jugador tenía que pegarse
+  // mucho. Con 1.3 la banda rota llega a ~1.6 m, que es el borde visual del aro)
+  get hitRadius() { return this.spinT > 0 ? 1.3 : 0.55; }
   get hitHeight() { return this.slideT > 0 ? 0.62 : 1.25; }
 
   /* El giro rompe cajas: caja de daño delante y alrededor */
@@ -128,6 +146,8 @@ export class Player {
     this.hurtT = Math.max(0, this.hurtT - dt);
     this.ghost = Math.max(0, this.ghost - dt);
     this.longJumpWindow = Math.max(0, this.longJumpWindow - dt);
+    this.longJumpBoostT = Math.max(0, (this.longJumpBoostT || 0) - dt);   // sostén ×1.35 en el aire
+    this.slideMomentumT = Math.max(0, (this.slideMomentumT || 0) - dt);   // impulso conservado tras la barrida
 
     this.spinT = Math.max(0, this.spinT - dt);
     this.spinImpulseT = Math.max(0, this.spinImpulseT - dt);
@@ -165,7 +185,12 @@ export class Player {
     }
     if (this.slideT > 0) {
       this.slideT -= dt;
-      if (this.slideT <= 0) this.longJumpWindow = Math.max(this.longJumpWindow, 0.2);
+      if (this.slideT <= 0) {
+        this.longJumpWindow = Math.max(this.longJumpWindow, 0.2);
+        // la barrida mantiene el impulso al terminar: al dejar de deslizarse NO
+        // se clava en seco (0.45 s de fricción suave conservando la velocidad)
+        if (Math.hypot(this.vel.x, this.vel.z) > MAX_SPEED * 0.55) this.slideMomentumT = SLIDE_MOMENTUM_T;
+      }
     }
 
     // ---- movimiento (relativo a la cámara) ----
@@ -179,13 +204,24 @@ export class Player {
     const accel = this.grounded ? ACCEL : AIR_ACCEL;
     const ctrl = this.slideT > 0 ? 0.25 : 1;
     const hasInput = wlen > 0.05;
-    // el giro empuja un poco hacia delante: objetivo ×1.15 durante 0.15 s
+    // el giro empuja un poco hacia delante: objetivo ×1.15 durante 0.15 s.
+    // El salto largo (barrida+salto) sostiene ×1.35 durante el vuelo: antes el
+    // bloque de movimiento tiraba la velocidad del impulso de vuelta al tope
+    // normal en ~0.2 s y el salto largo se quedaba en un salto normal.
     const spinPush = this.spinImpulseT > 0 ? SPIN_IMPULSE_X : 1;
+    // El sostén ×1.35 solo aplica si se SIGUE empujando en la dirección del
+    // impulso (dot>0.7): si el jugador gira 90° en el aire, el control normal
+    // manda y no se convierte en un acelerador gratis en cualquier dirección.
+    let ljPush = 1;
+    if (this.longJumpBoostT > 0 && !this.grounded && wlen > 0.05) {
+      const sp = Math.hypot(this.vel.x, this.vel.z);
+      if (sp > 0.5 && ((this.vel.x * wx + this.vel.z * wz) / (sp * wlen)) > 0.7) ljPush = LONGJUMP_BOOST_X;
+    }
     let rollTarget = 0;
 
     if (hasInput) {
-      const tx = (wx / (wlen || 1)) * maxS * spinPush;
-      const tz = (wz / (wlen || 1)) * maxS * spinPush;
+      const tx = (wx / (wlen || 1)) * maxS * spinPush * ljPush;
+      const tz = (wz / (wlen || 1)) * maxS * spinPush * ljPush;
       this.vel.x += (tx - this.vel.x) * Math.min(1, accel * ctrl * dt / maxS * 1.4);
       this.vel.z += (tz - this.vel.z) * Math.min(1, accel * ctrl * dt / maxS * 1.4);
       // orientar a donde va (en suelo gira más vivo; en aire, sin robotismo)
@@ -198,9 +234,12 @@ export class Player {
       // roll visual hacia el lado del giro (solo presentación)
       rollTarget = Math.max(-1, Math.min(1, -diff * 1.8)) * ROLL_MAX;
     } else if (this.grounded) {
-      // frenada con inercia: al soltar, 0.15 s de fricción suave y luego la normal
+      // frenada con inercia: al soltar, 0.15 s de fricción suave y luego la
+      // normal. Si venimos de una BARRIDA (slideMomentumT>0) la fricción es aún
+      // más baja: el impulso se conserva y el cambio de barrida→carrera no
+      // clava al jugador en seco (auditoría: frenaba 13.3→0 m/s en 0.6 s).
       if (this.hadInput) this.stopT = STOP_GRACE;
-      const fr = this.stopT > 0 ? STOP_FRICTION : FRICTION;
+      const fr = this.slideMomentumT > 0 ? MOMENTUM_FRICTION : (this.stopT > 0 ? STOP_FRICTION : FRICTION);
       const sp = Math.hypot(this.vel.x, this.vel.z);
       if (sp > 0) {
         const drop = Math.min(sp, fr * dt);
@@ -225,20 +264,22 @@ export class Player {
     }
 
     // ---- salto ----
+    // ORDEN: primero se COMPRUEBA el salto (con el coyote/buffer acumulados del
+    // frame anterior) y luego se decrementan. Al revés se perdía un frame de
+    // margen en cada pulsación al borde de una plataforma.
     if (this.grounded) { this.coyote = COYOTE; this.jumps = 0; }
-    else this.coyote = Math.max(0, this.coyote - dt);
     if (input.jumpP) this.buffer = JUMP_BUFFER;
-    else this.buffer = Math.max(0, this.buffer - dt);
 
     if (this.buffer > 0) {
       const longJump = this.longJumpWindow > 0 && (this.vel.x || this.vel.z);
-      if (this.coyote > 0 && this.jumps === 0) {
+      if ((this.coyote > 0 || this.grounded) && this.jumps === 0) {
         this.jumps = 1;
         this.vel.y = JUMP_V * (longJump ? 1.06 : 1);
         if (longJump) {
           const sp = Math.hypot(this.vel.x, this.vel.z) || 1;
-          this.vel.x = (this.vel.x / sp) * maxS * 1.35;
-          this.vel.z = (this.vel.z / sp) * maxS * 1.35;
+          this.vel.x = (this.vel.x / sp) * maxS * LONGJUMP_BOOST_X;
+          this.vel.z = (this.vel.z / sp) * maxS * LONGJUMP_BOOST_X;
+          this.longJumpBoostT = LONGJUMP_BOOST_T;   // el impulso aguanta en el aire
           this.onLongJump && this.onLongJump();
         }
         // cancelar barrida con el salto (el salto largo de la ventana se mantiene)
@@ -250,8 +291,19 @@ export class Player {
         this.vel.y = JUMP_V * DJUMP_V;
         this.buffer = 0;
         this.onJump && this.onJump(true);
+      } else if (this.jumps === 0 && this.coyote <= 0 && this.vel.y <= AIR_JUMP_MAXVY && !this.grounded) {
+        // RECUPERACIÓN: te caíste de un borde sin saltar (jumps seguía en 0).
+        // Antes ninguna rama aplicaba y el jugador perdía sus DOS saltos: este
+        // salto aéreo lo devuelve a la plataforma. Consume los dos saltos (el
+        // doble ya no aplica) para no premiar más caerse que saltar bien.
+        this.jumps = this.maxJumps;
+        this.vel.y = JUMP_V * AIR_JUMP_V;
+        this.buffer = 0;
+        this.onJump && this.onJump(true);
       }
     }
+    if (this.coyote > 0 && !this.grounded) this.coyote = Math.max(0, this.coyote - dt);
+    if (this.buffer > 0) this.buffer = Math.max(0, this.buffer - dt);
     if (!input.jump && this.vel.y > 0 && this.jumps > 0) this.vel.y -= GRAV_UP * JUMP_CUT * 1.4 * dt;
 
     // ---- gravedad ----

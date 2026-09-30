@@ -494,12 +494,12 @@ export function buildLevel2(world, scene, fx) {
 
   enemies.push(enemy('patrol', { x: -2.6, z: 22, span: 5, speed: 3.0, axis: 'x' }));
   enemies.push(enemy('patrol', { x: 2.6, z: 52, span: 6, speed: 3.4, axis: 'x' }));
-  enemies.push(enemy('turret', { x: 4.2, z: 80, period: 3.2 }));
-  enemies.push(enemy('patrol', { x: 0, z: 88, span: 6, speed: 3.0, axis: 'z' }));
-  enemies.push(enemy('turret', { x: -4.2, z: 152, period: 3.0 }));
-  enemies.push(enemy('patrol', { x: 2.4, z: 166, span: 7, speed: 3.6, axis: 'x' }));
+  enemies.push(enemy('turret', { x: 4.2, z: 104, period: 3.6 }));
+  enemies.push(enemy('patrol', { x: 0, z: 60, span: 6, speed: 3.0, axis: 'z' }));
+  enemies.push(enemy('turret', { x: -4.2, z: 166, period: 3.6 }));
+  enemies.push(enemy('patrol', { x: 2.4, z: 154, span: 5, speed: 3.2, axis: 'x' }));
   enemies.push(enemy('turret', { x: 4.4, z: 250, period: 3.2 }));
-  enemies.push(enemy('patrol', { x: -2.4, z: 240, span: 6, speed: 3.2, axis: 'x' }));
+  enemies.push(enemy('patrol', { x: -2.4, z: 244, span: 5, speed: 3.0, axis: 'x' }));
 
   return {
     id: 2, nombre: 'Ruta al Festi',

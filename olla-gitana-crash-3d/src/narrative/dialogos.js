@@ -11,36 +11,38 @@ export const PERSONAJES = {
 
 /* ---------- INTRO CINEMÁTICA (primer arranque y botón "Ver intro") ---------- */
 export const INTRO = {
-  duracion: 72,
+  // ~49 s en total: cada plano dura lo que dura su diálogo + un margen corto.
+  // (Antes 62,5 s: los planos arrastraban con 3-4 s de relleno al final.)
+  duracion: 49,
   planos: [
-    { id: 'luces', t: 8.5, camara: 'paneoEscenario' },
-    { id: 'concierto', t: 11.0, camara: 'lateralEscenario' },
-    { id: 'silencio', t: 8.0, camara: 'zoomPantalla' },
-    { id: 'cacharro', t: 15.0, camara: 'frenteCacharro' },
-    { id: 'huida', t: 13.0, camara: 'seguimientoOlla' },
-    { id: 'titulo', t: 7.0, camara: 'titulo' }
+    { id: 'luces', t: 6.5, camara: 'paneoEscenario' },
+    { id: 'concierto', t: 8.5, camara: 'lateralEscenario' },
+    { id: 'silencio', t: 6.0, camara: 'zoomPantalla' },
+    { id: 'cacharro', t: 14.8, camara: 'frenteCacharro' },
+    { id: 'huida', t: 9.0, camara: 'seguimientoOlla' },
+    { id: 'titulo', t: 4.0, camara: 'titulo' }
   ],
   dialogos: {
     luces: [
-      { t: 'Murcia. Sábado noche. El escenario está montao.', tone: 'normal', hold: 2.2 }
+      { t: 'Murcia. Sábado noche. El escenario está montao.', tone: 'normal', hold: 1.9 }
     ],
     concierto: [
-      { t: '¡La banda suena que se sale!', tone: 'grito', hold: 1.8 },
-      { t: 'Mira cómo brillan las notas… 🎵', tone: 'normal', hold: 2.0 }
+      { t: '¡La banda suena que se sale!', tone: 'grito', hold: 1.6 },
+      { t: 'Mira cómo brillan las notas… 🎵', tone: 'normal', hold: 1.8 }
     ],
     silencio: [
-      { t: '…', tone: 'pensamiento', hold: 1.2 },
-      { t: '¿Y el sonido?', tone: 'grito', hold: 1.6 }
+      { t: '…', tone: 'pensamiento', hold: 1.1 },
+      { t: '¿Y el sonido?', tone: 'grito', hold: 1.5 }
     ],
     cacharro: [
-      { t: '¡JA, JA, JA!', tone: 'grito', hold: 1.4 },
-      { t: 'Os he robao las SIETE notas de la banda.', tone: 'radio', hold: 2.4 },
-      { t: 'Las he escondío por toa Murcia. ¡Ya nunca sonaréis!', tone: 'radio', hold: 2.6 },
-      { t: 'Y esto… ¿qué es? ¿Una olla? ¡JUA, JUA!', tone: 'grito', hold: 2.2 }
+      { t: '¡JA, JA, JA!', tone: 'grito', hold: 1.2 },
+      { t: 'Os he robao las SIETE notas de la banda.', tone: 'radio', hold: 1.9 },
+      { t: 'Las he escondío por toa Murcia. ¡Ya nunca sonaréis!', tone: 'radio', hold: 2.2 },
+      { t: 'Y esto… ¿qué es? ¿Una olla? ¡JUA, JUA!', tone: 'grito', hold: 1.5 }
     ],
     huida: [
-      { t: 'Pues mira, sí. Y voy a por ti. 🔥', tone: 'grito', hold: 2.4 },
-      { t: '¡Que no pare la rumba!', tone: 'grito', hold: 2.0 }
+      { t: 'Pues mira, sí. Y voy a por ti. 🔥', tone: 'grito', hold: 2.0 },
+      { t: '¡Que no pare la rumba!', tone: 'grito', hold: 1.7 }
     ]
   },
   titulo: { linea1: 'OLLA GITANA 3D', linea2: 'GIRA MUNDIAL' }

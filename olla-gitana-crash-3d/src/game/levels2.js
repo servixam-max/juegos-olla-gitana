@@ -708,7 +708,7 @@ export function buildLevel7(world, scene, fx) {
     deco.push(colInst, capInst, arcoInst);
   }
   // lámparas oscilantes (peligro: te dan si te tocan) — sobre tramos firmes
-  for (const lz of [26, 62, 88, 162, 214, 246]) {
+  for (const lz of [26, 88, 162, 246]) {
     enemies.push(enemy('lamp', { x: -4 + (lz % 8), z: lz, period: 2.2, amp: 2.6 }));
   }
   // espejos decorativos: OPACOS (los transparentes obligaban a mezclar y
@@ -773,10 +773,10 @@ export function buildLevel7(world, scene, fx) {
   switches.push({ z: 256, doorZ: 260 });
 
   enemies.push(enemy('patrol', { x: -3.6, z: 34, span: 6, speed: 3.4, axis: 'x' }));
-  enemies.push(enemy('turret', { x: 6.0, z: 80, period: 3.2 }));
-  enemies.push(enemy('patrol', { x: 3.6, z: 128, span: 8, speed: 3.8, axis: 'x' }));
-  enemies.push(enemy('turret', { x: -6.0, z: 172, period: 3.0 }));
-  enemies.push(enemy('patrol', { x: 2.8, z: 206, span: 6, speed: 3.6, axis: 'x' }));
+  enemies.push(enemy('turret', { x: 6.0, z: 74, period: 3.6 }));
+  enemies.push(enemy('patrol', { x: 3.6, z: 132, span: 6, speed: 3.2, axis: 'x' }));
+  enemies.push(enemy('turret', { x: -6.0, z: 178, period: 3.6 }));
+  enemies.push(enemy('patrol', { x: 2.8, z: 210, span: 5, speed: 3.0, axis: 'x' }));
 
   return {
     id: 7, nombre: 'El Casino de Murcia',

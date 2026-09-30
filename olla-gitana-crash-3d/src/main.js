@@ -2001,6 +2001,18 @@ window.__qa = {
   damage: () => damagePlayer('qa'),
   win: () => endLevel(true),
   godMode: (on = true) => { state.god = !!on; },
+  /* QA de efectos: dispara un burst/flash/ring y devuelve el nº de partículas vivas */
+  fxProbe: (n = 1) => {
+    const p = { x: player.pos.x, y: player.pos.y + 0.9, z: player.pos.z };
+    fx.flash(p, { color: 0xffe9a8, size: 2, life: 0.5 });
+    fx.ring({ x: p.x, y: Math.max(0.05, player.pos.y), z: p.z }, { color: 0xffbe0b, r1: 2.4, life: 0.8 });
+    fx.burst(p, { count: n, colors: [0xffbe0b, 0xe63946, 0x38b000], speed: 5, up: 5, life: 3.0, size: 1.4 });
+    let vivos = 0;
+    for (const it of fx.items) if (it.alive) vivos++;
+    return { vivos, flash: fx.flashes.filter((f) => f.life > 0).length, rings: fx.rings.filter((r) => r.life > 0).length };
+  },
+  /* QA: ¿el atrezzo de tipo `tag` está fuera del suelo/pasillo? (x, z de cada pieza) */
+  decorPos: () => ambientDecor.slice(-40).map((o) => ({ x: +o.position.x.toFixed(2), z: +o.position.z.toFixed(1), y: +o.position.y.toFixed(2) })),
   alive: () => !player.dead,
   notes: () => pickups.notes.filter((n) => !n.taken).map((n) => ({ x: n.pos.x, y: n.pos.y, z: n.pos.z })),
   /* cajas vivas (tipo y posición): para QA de rotura/combo/interruptor */
