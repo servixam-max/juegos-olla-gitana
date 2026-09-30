@@ -434,8 +434,13 @@ export class EnemySystem {
         // aviso sonoro periódico mientras rueda
         e.sfxT = (e.sfxT || 0) - dt;
         if (e.sfxT <= 0) { e.sfxT = 0.34; this.audio.sfx('rodar'); }
-        // el tramo es largo: al llegar al final vuelve arriba a empezar
-        if (e.obj.position.z < e.base.z - 30) e.obj.position.z = e.base.z + 6;
+        /* El tramo es largo: al llegar al final vuelve arriba a empezar.
+           OJO: el recorrido es `largo` (el MISMO que el constructor de niveles
+           verifica que tenga suelo firme). Con 30 m fijos, un barril colocado
+           en un tramo firme de 16 m se metía rodando en la sección de bloques
+           sobre el vacío y el jugador (y el bot) caían al esquivarlo. */
+        const largoB = e.largo || 22;
+        if (e.obj.position.z < e.base.z - largoB) e.obj.position.z = e.base.z + 6;
         const dxB = Math.abs(e.obj.position.x - p.x), dzB = Math.abs(e.obj.position.z - p.z);
         if (dxB < 1.0 && dzB < 0.9 && p.y < 1.05) {
           if (e.hitCd <= 0) {

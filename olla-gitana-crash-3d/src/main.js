@@ -1793,6 +1793,21 @@ function botStep(dt) {
     // SALTA si hay una onda sonora acercándose
     const wave = enemies.waves.find((w) => Math.abs(Math.hypot(w.x - p.x, w.z - p.z) - w.r) < 2.0 && w.r > 2);
     if (wave && player.grounded) { out.jump = true; out.jumpP = true; }
+    // ESQUIVA LAS CUCHILLAS (traps): si una barra se acerca a su z, salta su
+    // banda o muévete al lado seguro. Sin esto el bot moría siempre en fase 3.
+    if (traps.traps.length) {
+      for (const t of traps.traps) {
+        if (!t.activa) continue;
+        const dz = Math.abs(t.z - p.z);
+        const dx = Math.abs(t.obj.position.x - p.x);
+        // la barra barre en x: si está cerca en z y su x se acerca, salta/desvía
+        if (dz < 1.6 && dx < t.len / 2 + 1.4) {
+          if (player.grounded && b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.45; }
+          // desvío lateral hacia donde la barra NO está
+          out.x = Math.max(-1, Math.min(1, (t.obj.position.x - p.x) > 0 ? -1.2 : 1.2));
+        }
+      }
+    }
   } else {
     // si va sobre el agua/acequia, busca el tronco lateral
   if (state.level.puddles && state.level.puddles.length) {
@@ -2246,6 +2261,8 @@ window.__qa = {
     t: c.crateType, x: +c.mesh.position.x.toFixed(1), y: +c.mesh.position.y.toFixed(1), z: +c.mesh.position.z.toFixed(1),
     dead: !!c.dead, mat: !!c.materializada
   })),
+  /* QA: notas y máscaras (posición y si están cogidas) */
+  notasPos: () => pickups.notes.map((n) => ({ x: +n.pos.x.toFixed(1), y: +n.pos.y.toFixed(1), z: +n.pos.z.toFixed(1), cogida: !!n.taken })),
   /* QA: piezas de las mecánicas Crash (ruinas y estado de los contornos) */
   mecanicas: () => ({
     ruinas: world.boxes.filter((b) => b.ruina).map((b) => ({ x: +b.pos.x.toFixed(1), z: +b.pos.z.toFixed(1), y: +b.pos.y.toFixed(2), caida: b.ruina.caida, t: +b.ruina.t.toFixed(2), solida: !!b.solid })),
