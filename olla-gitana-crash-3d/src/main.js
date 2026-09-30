@@ -591,6 +591,11 @@ function checkFerminAppear() {  if (!state.ferminPending) return;
     fermin.start();
     fermin.pos.x = 0; fermin.pos.z = state.ferminZ;
     if (fermin.obj) { fermin.obj.position.set(0, 0, state.ferminZ); }
+    // margen extra de vidas para la pelea del jefe (como la arena del Cacharro:
+    // antes llegabas con 1-2 vidas y era imposible)
+    state.lives = Math.max(state.lives, 6);
+    hud.setLives(state.lives);
+    hud.toast('¡JEFE! Ahora tienes más margen 💛');
     // un toque de drama: el escenario se tiñe
     fermin.onHp = (hp, max) => hud.toast(`🎺 FERMÍN ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
     fermin.onDefeat = () => {
@@ -599,6 +604,8 @@ function checkFerminAppear() {  if (!state.ferminPending) return;
         onEnd: () => { endLevel(true, { fermin: true }); }
       });
     };
+    // aviso cuando se queda vulnerable (ojos rojos): ¡salta encima!
+    fermin.onVulnerable = () => hud.toast('🔴 ¡SALTA ENCIMA!', 'good');
     // cutscene de entrada
     state.pending.push({
       after: 0.4, fn: () => {
@@ -949,13 +956,20 @@ function botStep(dt) {
 
   // cuando Fermín está activo, el bot le ataca (salta encima)
   if (state.ferminActive && fermin.alive) {
-    // persigue a Fermín y salta encima
     const fx2 = fermin.pos.x - p.x, fz2 = fermin.pos.z - p.z;
     const dF = Math.hypot(fx2, fz2);
     out.x = Math.max(-1, Math.min(1, fx2 * 0.5));
     out.z = Math.max(-1, Math.min(1, fz2 * 0.5));
-    if (dF < 4.6 && player.grounded && b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.55; }
-    if (b.spinCd <= 0) { out.spinP = true; b.spinCd = 0.5; }
+    // ESTRATEGIA: si NO está vulnerable, mantenerse a distancia de seguridad
+    // (acercarse sin más = choque lateral = muerte, el bug que veía el usuario).
+    if (fermin.vulnerable > 0) {
+      // vulnerable: acércate y salta ENCIMA
+      if (dF < 2.6 && player.grounded && b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.6; }
+    } else {
+      // peligro: mantén 3.5-5 de distancia y gira para parar las ondas
+      if (dF < 3.4) { out.x = -out.x; out.z = -out.z; }
+      if (b.spinCd <= 0) { out.spinP = true; b.spinCd = 0.6; }
+    }
     return botToScreen(out);
   }
 

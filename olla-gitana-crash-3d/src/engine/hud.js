@@ -41,14 +41,25 @@ export class Hud {
     this.lastLives = n;
     const wrap = this.el.lives;
     wrap.innerHTML = '';
-    for (let i = 0; i < Math.max(0, n); i++) {
-      const img = document.createElement('span');
-      img.className = 'lifeOlla';
-      img.textContent = '🥘';
-      img.style.fontSize = '15px';
-      wrap.appendChild(img);
+    if (!n || n <= 0) {
+      wrap.textContent = '—';
+    } else if (n <= 5) {
+      // hasta 5 vidas: se dibujan las ollitas una a una
+      for (let i = 0; i < n; i++) {
+        const img = document.createElement('span');
+        img.className = 'lifeOlla';
+        img.textContent = '🥘';
+        img.style.fontSize = '15px';
+        wrap.appendChild(img);
+      }
+    } else {
+      // muchas vidas: contador compacto para no comerse la pantalla
+      wrap.innerHTML = '<span class="lifeOlla" style="font-size:15px">🥘</span>';
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = 'x' + n;
+      wrap.appendChild(num);
     }
-    if (n <= 0) wrap.textContent = '—';
     this.flash('livesChip');
   }
   setNotes(n) { this.el.noteNum.textContent = n; this.flash('noteChip'); }

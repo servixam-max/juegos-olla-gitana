@@ -84,9 +84,12 @@ export class Boss {
 
     // ---- ataques ----
     this.cd -= dt;
-    // el jefe también es vulnerable al pisotón desde arriba (para rematarlo)
+    // el jefe también es vulnerable al pisotón desde arriba (para rematarlo).
+    // El umbral era y>4.0: solo se alcanzaba con doble salto perfecto, así que
+    // los jugadores no podían rematarlo y acababan muriendo. Ahora y>2.8
+    // (un doble salto normal basta y un salto simple bien dado casi llega).
     const distP = Math.hypot(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
-    if (distP < 2.2 && player.pos.y > 4.0 && player.vel.y < -2.5) {
+    if (distP < 2.3 && player.pos.y > 2.8 && player.vel.y < -1.6) {
       this.hit(1);
       player.vel.y = 10;
       this.fx.burst({ x: this.pos.x, y: 4.2, z: this.pos.z }, { count: 20, speed: 6, up: 7, life: 1.0, colors: [0xffbe0b, 0xffffff] });

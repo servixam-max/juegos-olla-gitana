@@ -15,21 +15,21 @@
 <!-- ================= HUD ================= -->
 <div id="hud" class="hidden">
   <div class="hudTop">
-    <div class="chip" id="livesChip"><span class="lbl">VIDAS</span><span id="lives"></span></div>
-    <div class="chip" id="noteChip">🎵 <span class="num" id="noteNum">0</span></div>
-    <div class="chip" id="crateChip">📦 <span class="num" id="crateNum">0/0</span></div>
-    <div class="chip" id="comboChip">COMBO <span class="num" id="comboNum">x1</span></div>
-    <div class="chip" id="timerChip">⏱ <span class="num" id="timerNum">0:00</span></div>
-    <button id="pauseBtn" title="Pausa (P)">⏸</button>
+    <div id="chipsRow">
+      <div class="chip" id="livesChip" title="Vidas"><span id="lives"></span></div>
+      <div class="chip" id="noteChip" title="Notas musicales">🎵 <span class="num" id="noteNum">0</span></div>
+      <div class="chip" id="crateChip" title="Cajones rotos">📦 <span class="num" id="crateNum">0/0</span></div>
+      <div class="chip" id="comboChip" title="Combo rumbero">🔥 <span class="num" id="comboNum">x1.0</span></div>
+      <div class="chip" id="timerChip" title="Tiempo">⏱ <span class="num" id="timerNum">0:00</span></div>
+    </div>
+    <button id="pauseBtn" title="Pausa (P)" aria-label="Pausa">⏸</button>
   </div>
   <div id="powerRow">
-    <div class="pw aura hidden" id="pwAura"><i></i></div>
-    <div class="pw ghost hidden" id="pwGhost"><i></i></div>
-    <div class="pw shield hidden" id="pwShield"><i></i></div>
+    <div class="pw aura hidden" id="pwAura"><span class="ico">✨</span><span class="track"><i></i></span></div>
+    <div class="pw ghost hidden" id="pwGhost"><span class="ico">👻</span><span class="track"><i></i></span></div>
+    <div class="pw shield hidden" id="pwShield"><span class="ico">🛡️</span><span class="track"><i></i></span></div>
   </div>
-  <div class="hudBottom">
-    <div class="chip dim small" id="hintChip">gira x · salta espacio</div>
-  </div>
+  <div class="chip dim small hint" id="hintChip"></div>
 </div>
 
 <div id="toasts"></div>
@@ -52,6 +52,15 @@
     <div class="sub">El Juego · edición rumbera</div>
     <div class="bar"><i id="loadBar"></i></div>
     <div class="tip" id="loadTip">Preparando la furgoneta…</div>
+    <div class="advice" id="loadAdvice">
+      <span class="aT">CONSEJO</span>
+      <div class="advStack">
+        <div>En el Casino el suelo resbala: frena antes de las curvas.</div>
+        <div>A los cajones TNT no se les saluda de cerca.</div>
+        <div>Con 3 máscaras te vuelves invencible: ¡aprovecha la racha!</div>
+        <div>Los cajones <b>?</b> rebotan 5 veces: písalos con ganas.</div>
+      </div>
+    </div>
   </div>
 </div>
 

@@ -111,8 +111,10 @@ export class Player {
   hurt() {
     if (this.aura) return false;                 // aura rumbera = invencible
     if (this.invulnT > 0) return false;
-    if (this.shield > 0) { this.shield = 0; this.invulnT = 1.0; return 'shield'; }
-    this.invulnT = 1.6;
+    if (this.shield > 0) { this.shield = 0; this.invulnT = 1.4; return 'shield'; }
+    // 2.2 s (antes 1.6): en las peleas de jefe los daños se encadenaban y el
+    // jugador moría sin margen para reaccionar (queja del usuario)
+    this.invulnT = 2.2;
     this.hurtT = 0.5;
     return 'hurt';
   }

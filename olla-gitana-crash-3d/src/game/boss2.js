@@ -181,7 +181,9 @@ export class BossFermin {
       this.audio.sfx('wave');
       this.pendingWave = 0.36;
       // vulnerable un momento tras el lanzamiento (para el pisotón)
-      this.vulnerable = 1.5;
+      const eraVulnerable = this.vulnerable > 0;
+      this.vulnerable = 1.8;
+      if (!eraVulnerable && this.onVulnerable) this.onVulnerable();
       // en el segundo compás de cada ciclo, además salta
       if (compas % 2 === 1) { this.jump = 0.7; }
     }
@@ -207,22 +209,39 @@ export class BossFermin {
     const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
     this.obj.rotation.y = Math.atan2(dx, dz) * 0.28;
 
-    // --- daño por pisotón en la cabeza (la cabeza está a ~5.3; se golpea desde arriba) ---
+    // --- daño por pisotón en la cabeza (se golpea desde arriba).
+    // El umbral era y>3.2 y un salto normal llega a ~2.68: era IMPOSIBLE
+    // pisarlo de un salto simple (los jugadores "fallaban y morían").
+    // Ahora con y>2.2 basta con un salto bien dado (o doble salto).
     const distH = Math.hypot(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
-    if (distH < 2.4 && player.pos.y > 3.2 && player.vel.y < -1.0 && this.vulnerable > 0) {
+    if (distH < 2.4 && player.pos.y > 2.2 && player.vel.y < -1.0 && this.vulnerable > 0) {
       if (this.hit(1)) {
         player.vel.y = 10;   // rebote
         this.fx.burst({ x: this.pos.x, y: 5.4, z: this.pos.z }, { count: 18, speed: 6, up: 6, life: 0.9, colors: [0xffbe0b, 0xffffff] });
         this.audio.sfx('bounce');
       }
     }
-    // también vale devolverle una onda con el giro justo cuando la lanza
-    if (distH < 3.2 && player.spinning && this.vulnerable > 0 && Math.random() < 0.06) {
+    // devolverle una onda con el giro cuando está vulnerable (antes era
+    // aleatorio 6%/frame ≈ injusto: ahora golpe garantizado con enfriamiento)
+    this.spinHitCd = Math.max(0, (this.spinHitCd || 0) - dt);
+    if (distH < 3.2 && player.spinning && this.vulnerable > 0 && this.spinHitCd <= 0) {
+      this.spinHitCd = 1.2;
       this.hit(1);
       this.fx.burst({ x: this.pos.x, y: 4.4, z: this.pos.z }, { count: 16, speed: 5, up: 5, life: 0.8, colors: [0xffbe0b, 0xffffff] });
     }
-    // choque lateral: hace daño al jugador
-    if (distH < 1.7 && player.pos.y < 4.4 && this.vulnerable <= 0) hitPlayer = true;
+    // choque lateral en la ventana de peligro: empujón de aviso + daño.
+    // Girando (parry) NO te hace daño — el giro también sirve de defensa,
+    // y el empujón evita quedarse clavado dentro del jefe (causa de las
+    // muertes repetidas que reportó el usuario).
+    if (distH < 1.7 && player.pos.y < 4.4 && this.vulnerable <= 0 && !player.spinning) {
+      const kx = (player.pos.x - this.pos.x) || 0.01;
+      const kz = (player.pos.z - this.pos.z) || 0.01;
+      const km = Math.hypot(kx, kz) || 1;
+      player.vel.x += (kx / km) * 7.5;
+      player.vel.z += (kz / km) * 7.5;
+      player.vel.y = Math.max(player.vel.y, 3.5);
+      hitPlayer = true;
+    }
 
     // --- flash de daño ---
     if (this.hitFlash > 0) {
