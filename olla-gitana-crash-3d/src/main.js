@@ -118,15 +118,18 @@ const dialog = new DialogQueue({ audio: Audio, camera, scene });
 const director = new Director({ camera, scene, audio: Audio, fx, dialog, hud });
 const intro = new IntroScene({ scene, director, audio: Audio, fx, dialog });
 let cineTitleEl = null;
-function cineTitle(on, l1 = '', l2 = '') {
+function cineTitle(on, l1 = '', l2 = '', l3 = '') {
   if (!cineTitleEl) {
     cineTitleEl = document.createElement('div');
     cineTitleEl.id = 'cineTitle';
-    cineTitleEl.innerHTML = '<div><div class="t1"></div><div class="t2"></div></div>';
+    cineTitleEl.innerHTML = '<div><div class="t1"></div><div class="t2"></div><div class="t3"></div></div>';
     document.getElementById('app').appendChild(cineTitleEl);
   }
   cineTitleEl.querySelector('.t1').textContent = l1;
   cineTitleEl.querySelector('.t2').textContent = l2;
+  const t3 = cineTitleEl.querySelector('.t3');
+  t3.textContent = l3 || '';
+  t3.style.display = l3 ? '' : 'none';
   cineTitleEl.classList.toggle('on', !!on);
 }
 
@@ -156,8 +159,8 @@ function playCutscene(lineas, { onEnd = null, speaker = null, camara = 'cajaFija
   });
 }
 
-function showCineTitle(l1, l2, dur = 2.6) {
-  cineTitle(true, l1, l2);
+function showCineTitle(l1, l2, dur = 2.6, l3 = '') {
+  cineTitle(true, l1, l2, l3);
   state.pending.push({ after: dur, fn: () => cineTitle(false) });
 }
 
@@ -405,8 +408,18 @@ function startLevel(index, { keepLives = false } = {}) {
   Audio.startGenerative({ intensity: 1 });
   Audio.setAura(false);
   savePrefs({ lastLevel: index });
-  // cartel del mundo al empezar
-  showCineTitle(`MUNDO ${index + 1}`, def.nombre.toUpperCase(), 2.4);
+  // cartel del mundo al empezar (con subtítulo narrativo de la historia)
+  const SUBTITULOS = [
+    'Las 7 notas están escondidas por Murcia. ¡A por ellas!',
+    'El Cacharro anda cerca: recupera lo robado en los andamios.',
+    '¡La furgo no perdona! Corre hacia el escenario.',
+    'En Semana Santa también se toca: sigue el desfile.',
+    'Fermín Cascabel guarda una nota. ¡Dale su merecido!',
+    'En la huerta hay acequias, abejas y mucho ritmo.',
+    'El Cacharro se esconde en el Casino. ¡Que no se escape!',
+    'El duelo final: devuélvele sus cajones y que pare la rumba.'
+  ];
+  showCineTitle(`MUNDO ${index + 1}`, def.nombre.toUpperCase(), 2.9, SUBTITULOS[index] || '');
   // frases habladas cortas del jugador (bocadillo sobre la olla)
   pickups.onNote = (n, total) => {
     if (n % 10 === 0 && !dialog.active) {
