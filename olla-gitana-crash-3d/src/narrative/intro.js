@@ -124,11 +124,26 @@ export class IntroScene {
       this.notas.push({ obj: n, base: n.position.y, ph: Math.random() * 6 });
     }
 
-    // público lejano (bultos)
+    // público lejano (bultos) — con brazos en alto y saltando
     for (let i = 0; i < 26; i++) {
       const c = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.5, 3, 6), toonMat(i % 3 === 0 ? 0x6b5b9a : 0x3a2f4d));
       c.position.set(-14 + Math.random() * 28, 0.5, -2 + Math.random() * 6);
+      c.userData.baseY = 0.5;
+      c.userData.ph = Math.random() * 6;
       g.add(c);
+      this.publico = this.publico || [];
+      this.publico.push(c);
+    }
+    // banderines de fiesta colgando entre los focos
+    const banCols = [0xe63946, 0xffbe0b, 0x4cc9f0, 0x38b000, 0xff70a6];
+    for (let i = 0; i < 18; i++) {
+      const b = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 4), new THREE.MeshBasicMaterial({ color: banCols[i % banCols.length] }));
+      b.position.set(-12 + i * 1.4, 6.6 + Math.sin(i * 0.8) * 0.25, -17.6);
+      b.rotation.x = Math.PI;
+      b.userData.ph = i * 0.5;
+      g.add(b);
+      this.banderines = this.banderines || [];
+      this.banderines.push(b);
     }
 
     this.scene.add(g);
@@ -235,6 +250,18 @@ export class IntroScene {
     this.focos.forEach((f, i) => {
       if (f.userData.yoke) f.userData.yoke.rotation.x = -0.55 + Math.sin(this.t * 1.2 + i) * (toca ? 0.35 : 0.06);
     });
+
+    // público entregado: salta al ritmo (más cuando la banda toca)
+    if (this.publico) {
+      const fuerza = toca ? 0.5 : 0.12;
+      for (const c of this.publico) {
+        c.position.y = c.userData.baseY + Math.abs(Math.sin(this.t * 4 + c.userData.ph)) * fuerza;
+      }
+    }
+    // banderines ondeando
+    if (this.banderines) {
+      this.banderines.forEach((b) => { b.rotation.z = Math.sin(this.t * 2 + b.userData.ph) * 0.28; });
+    }
 
     // pantalla: ojos y boca vivos
     if (this.pantalla && this.pantalla.grupo.visible) {

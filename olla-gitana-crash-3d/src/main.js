@@ -25,6 +25,7 @@ import {
 import { DialogQueue } from './narrative/bocadillos.js';
 import { Director } from './narrative/director.js';
 import { IntroScene } from './narrative/intro.js';
+import { FinalScene } from './narrative/final.js';
 import { INTRO, ENTRE_NIVELES, JEFE, JEFE_INTERMEDIO, FINAL, FRASES, pick } from './narrative/dialogos.js';
 import { DemoDirector, GUION as DEMO_GUION } from './video/demo.js';
 
@@ -134,6 +135,7 @@ let ambientDecor = [];   // atrezzo ambiental del nivel (solo visual, sin colisi
 const dialog = new DialogQueue({ audio: Audio, camera, scene });
 const director = new Director({ camera, scene, audio: Audio, fx, dialog, hud });
 const intro = new IntroScene({ scene, director, audio: Audio, fx, dialog });
+const finalScene = new FinalScene({ scene, director, audio: Audio, fx, dialog, camera });
 let cineTitleEl = null;
 function cineTitle(on, l1 = '', l2 = '', l3 = '') {
   if (!cineTitleEl) {
@@ -729,6 +731,9 @@ function endLevel(win, extra = {}) {
     if (loadPrefs().name) postScore(lv.id, earnedNotes, stars, time, loadPrefs().name);
     // diálogo al ganar el mundo (se lanza al pulsar Siguiente/Repetir)
     state.postWin = ENTRE_NIVELES[lv.id] || null; if (extra.boss) state.postWin = FINAL;
+    // ¿ha ganado el JUEGO? (jefe final derrotado) → al guardar el nombre sale el
+    // FINAL del concierto con la banda (petición del usuario)
+    state.esFinal = !!extra.boss;
   } else {
     $('overBest').textContent = prevForBest && prevForBest.tiempo ? `${Math.floor(prevForBest.tiempo / 60)}:${String(prevForBest.tiempo % 60).padStart(2, '0')}` : '—';
     $('overNotes').textContent = `${earnedNotes}/${totalNotes}`;
@@ -1531,6 +1536,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     // cinemática: manda el director (cámara + diálogos)
     director.update(dt, {});
     if (intro.activa) intro.update(dt);
+    if (finalScene.activa) finalScene.update(dt);
     fx.update(dt);
     state.t += dt;
   } else {
@@ -1600,6 +1606,14 @@ function guardarPuntuacion(inputId) {
   if (ps) postScore(ps.id, ps.score, ps.stars, ps.time, nombre);
   hud.toast('¡Puntuación guardada! 🏆', 'record');
   Audio.sfx('levelup');
+  // FINAL DEL JUEGO: si acabas de derrotar al Cacharro, tras guardar el nombre
+  // arranca el concierto final con la banda (y luego el mensaje de despedida)
+  if (state.esFinal) {
+    state.esFinal = false;
+    hideOverlays();
+    state.mode = 'cine';
+    state.pending.push({ after: 0.9, fn: () => finalScene.play(() => { showMenu(); Audio.playMenuMusic(); }) });
+  }
 }
 $('btnSaveScore').onclick = () => guardarPuntuacion('playerName');
 $('btnSaveScoreOver').onclick = () => guardarPuntuacion('playerNameOver');
@@ -1660,6 +1674,12 @@ window.__qa = {
   progreso: () => ({ desbloqueados: progreso.desbloqueados, superVidas: progreso.superVidas, continues: progreso.continues }),
   mascara: () => ({ nivel: maskCompanion.nivel, invT: +maskCompanion.invT.toFixed(1), invulnerable: maskCompanion.invulnerable, visible: !!(maskCompanion.obj && maskCompanion.obj.visible) }),
   metaVisible: () => !!(goalMesh && goalMesh.visible),
+  /* daña al jefe/boss para QA (probar el final sin jugar 10 minutos) */
+  hitBoss: (n = 1) => { if (state.bossActive && boss.alive) boss.hit(n); else if (state.ferminActive && fermin.alive) fermin.hit(n); return true; },
+  /* info de ataques del jefe (QA: ondas vs cajas bomba) */
+  ataques: () => ({ ondas: enemies.waves.length, bombas: boss.projectiles.filter((p) => p.alive).length, cd: +(boss.cd || 0).toFixed(2), fase: boss.phase }),
+  /* arranca el concierto final directamente (QA) */
+  finalPlay: (cb) => finalScene.play(cb || (() => {})),
   /* diagnóstico para los agentes de QA: estado interno del motor */
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,

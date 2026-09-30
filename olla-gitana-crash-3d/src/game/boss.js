@@ -172,23 +172,35 @@ export class Boss {
     }
     if (this.cd <= 0) {
       const phase = this.phase;
+      // REBALANCE (petición del usuario): el jefe lanzaba ondas sin parar y con
+      // ellas te daba siempre. Ahora las ondas son un recurso ESCASO (cada
+      // 3.6-5.5 s) y el peso lo llevan las CAJAS BOMBA, que se pueden devolver
+      // con el giro (y encima son su punto débil). Le gustan más las bombas.
       if (phase === 1) {
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.0, 18);
-        this.audio.sfx('wave');
-        this.cd = 2.4;
-      } else if (phase === 2) {
-        // ráfaga de 2 ondas + salto
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.3, 19);
-        this.pendingWave = 0.45;   // segunda onda diferida (sin setTimeout)
-        this.audio.sfx('wave');
-        this.jump = 0.6;
-        this.cd = 2.2;
-      } else {
-        // fase 3: ondas + lanzamiento
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.6, 21);
-        this.audio.sfx('wave');
+        // fase 1: sobre todo cajas; una onda de aviso de vez en cuando
+        if (Math.random() < 0.45) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 3.8, 16);
         this.launchCrate(player);
-        this.cd = 1.9;
+        this.cd = 3.6;
+      } else if (phase === 2) {
+        // fase 2: lluvia de cajas + salto (la onda queda para el salto)
+        this.launchCrate(player);
+        this.pendingCrate = 0.4;   // segunda caja diferida
+        this.jump = 0.6;
+        this.cd = 2.9;
+      } else {
+        // fase 3: el jefe se pone serio: 2 cajas + onda ocasional
+        this.launchCrate(player);
+        this.pendingCrate = 0.35;
+        if (Math.random() < 0.5) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.4, 18);
+        this.cd = 2.5;
+      }
+    }
+    // caja bomba diferida (sin setTimeout)
+    if (this.pendingCrate > 0) {
+      this.pendingCrate -= dt;
+      if (this.pendingCrate <= 0) {
+        this.pendingCrate = 0;
+        if (this.alive) this.launchCrate(player);
       }
     }
     // onda diferida de la fase 2
@@ -244,8 +256,16 @@ export class Boss {
         }
       }      if (p.mesh.position.y < 0.2 || p.life <= 0) {
         p.alive = false;
+        const px = p.mesh.position.x, pz = p.mesh.position.z;
         this.scene.remove(p.mesh);
-        this.fx.burst({ x: p.mesh.position.x, y: 0.4, z: p.mesh.position.z }, { count: 10, color: PALETA.madera, speed: 4, up: 4, life: 0.7 });
+        if (p.tipo === 'tnt') {
+          // las TNT del jefe EXPLOTAN al caer: más bombas y más espectáculo
+          this.fx.burst({ x: px, y: 0.5, z: pz }, { count: 22, speed: 8, up: 7, life: 0.9, colors: [0xffbe0b, 0xff7b00, 0xe63946] });
+          this.fx.addShake(0.4);
+          this.audio.sfx('boom');
+        } else {
+          this.fx.burst({ x: px, y: 0.4, z: pz }, { count: 10, color: PALETA.madera, speed: 4, up: 4, life: 0.7 });
+        }
       }
     }
     this.projectiles = this.projectiles.filter((p) => p.alive);
@@ -254,16 +274,21 @@ export class Boss {
   }
 
   launchCrate(player) {
-    const m = makeCrate('tnt');
+    // caja bomba: TNT la mayoría de las veces, y a veces una caja normal que
+    // rebota por la arena (más variedad de proyectiles, petición del usuario)
+    const tipo = Math.random() < 0.75 ? 'tnt' : 'normal';
+    const m = makeCrate(tipo);
     m.scale.setScalar(0.9);
     m.position.set(this.pos.x, 2.6, this.pos.z);
     this.scene.add(m);
     const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
     const dist = Math.max(1, Math.hypot(dx, dz));
     const speed = 9.5 + this.phase;
+    // ligero desvío para que no vengan todas en línea recta (más justo y vistoso)
+    const desvio = (Math.random() - 0.5) * 2.2;
     this.projectiles.push({
-      mesh: m, alive: true, life: 4.5, trail: 0.06,
-      vx: (dx / dist) * speed, vz: (dz / dist) * speed, vy: 3.6
+      mesh: m, alive: true, life: 4.5, trail: 0.06, tipo,
+      vx: (dx / dist) * speed + desvio, vz: (dz / dist) * speed, vy: 3.6 + Math.random() * 1.2
     });
     this.audio.sfx('throw');
   }
