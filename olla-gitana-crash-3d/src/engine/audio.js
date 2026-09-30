@@ -17,6 +17,7 @@ export class AudioEngine {
     this.menuAudio = null;
     this._noise = null;
     this._lastSfx = {};
+    this.log = [];          // historial corto de efectos reproducidos (lo lee QA)
   }
 
   init() {
@@ -230,9 +231,14 @@ export class AudioEngine {
   }
 
   sfx(name) {
+    // registro para QA (independiente de que el audio esté listo o silenciado)
+    this.log.push(name);
+    if (this.log.length > 200) this.log.shift();
     if (!this.ready || this.muted) return;
     switch (name) {
       case 'jump': this.tone({ type: 'triangle', f0: 330, f1: 720, dur: 0.14, vol: 0.16 }); break;
+      /* salpicadura del guiso al saltar (la olla va llena) */
+      case 'splash': this.noise({ dur: 0.14, vol: 0.14, freq: 2100, sweep: 700, type: 'bandpass' }); this.tone({ type: 'sine', f0: 420, f1: 220, dur: 0.1, vol: 0.07 }); break;
       case 'doublejump': this.tone({ type: 'triangle', f0: 520, f1: 1040, dur: 0.14, vol: 0.16 }); break;
       case 'spin': this.noise({ dur: 0.22, vol: 0.22, freq: 900, sweep: 3600, type: 'bandpass' }); break;
       case 'land': this.tone({ type: 'sine', f0: 180, f1: 90, dur: 0.09, vol: 0.12 }); break;
@@ -270,6 +276,25 @@ export class AudioEngine {
       case 'bossdown': this.noise({ dur: 1.0, vol: 0.4, freq: 1800, sweep: 90 }); [196, 165, 131].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.4, vol: 0.16, delay: i * 0.22 })); break;
       case 'levelup': this._playBuffer('levelup', { vol: 0.8 }); break;
       case 'victory': this._playBuffer('levelup', { vol: 0.9 }); break;
+      /* ---- efectos nuevos (v2) ---- */
+      /* salto largo (barrida + salto): silbido ascendente + golpe de aire */
+      case 'longjump': this.tone({ type: 'triangle', f0: 380, f1: 1240, dur: 0.24, vol: 0.17 }); this.noise({ dur: 0.26, vol: 0.18, freq: 600, sweep: 3200, type: 'bandpass' }); break;
+      /* aterrizaje fuerte (caída alta o pisotón): impacto grave + tierra */
+      case 'hardland': this.tone({ type: 'sine', f0: 150, f1: 52, dur: 0.28, vol: 0.26 }); this.noise({ dur: 0.3, vol: 0.3, freq: 1400, sweep: 200 }); break;
+      /* racha de notas encadenadas (combo x3+): campanilla corta y aguda */
+      case 'combo': this.tone({ type: 'triangle', f0: 1174, dur: 0.07, vol: 0.12 }); this.tone({ type: 'triangle', f0: 1760, dur: 0.1, vol: 0.1, delay: 0.06 }); break;
+      /* racha máxima (combo x5+): arpegio dorado más largo */
+      case 'combohi': [1046, 1318, 1568, 2093].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.16, vol: 0.12, delay: i * 0.055 })); break;
+      /* interruptor (!) pulsado: la puerta del final se abre */
+      case 'gate': [392, 523].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.18, vol: 0.14, delay: i * 0.07 })); this.noise({ dur: 0.5, vol: 0.2, freq: 260, sweep: 1600, type: 'bandpass' }); break;
+      /* puerta de salida abierta: dos golpes de aldaba + brillo */
+      case 'door': this.tone({ type: 'square', f0: 196, f1: 150, dur: 0.16, vol: 0.2 }); this.tone({ type: 'square', f0: 196, f1: 150, dur: 0.2, vol: 0.18, delay: 0.14 }); this.tone({ type: 'triangle', f0: 1568, dur: 0.4, vol: 0.1, delay: 0.3 }); break;
+      /* rugido del jefe al entrar / al cambiar de fase: grave + aire */
+      case 'bossroar': this.tone({ type: 'sawtooth', f0: 110, f1: 62, dur: 0.55, vol: 0.22, filter: 700 }); this.tone({ type: 'square', f0: 74, f1: 48, dur: 0.7, vol: 0.16, delay: 0.05, filter: 500 }); this.noise({ dur: 0.6, vol: 0.22, freq: 900, sweep: 180 }); break;
+      /* aviso: el jefe está VULNERABLE (salta encima) — ping agudo doble */
+      case 'alert': this.tone({ type: 'triangle', f0: 1480, dur: 0.09, vol: 0.13 }); this.tone({ type: 'triangle', f0: 1976, dur: 0.12, vol: 0.11, delay: 0.1 }); break;
+      /* telegrafía del golpe del jefe: subida corta y seca */
+      case 'warn': this.tone({ type: 'square', f0: 300, f1: 220, dur: 0.1, vol: 0.1, filter: 900 }); break;
     }
   }
 }

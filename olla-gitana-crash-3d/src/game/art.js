@@ -149,19 +149,75 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
       g.add(btn, ring);
     }
   }
-  // sombrero murciano (solo el jugador, no la banda con guitarra que ya va cargada)
+  // SIN sombrero (petición del usuario): se quiere ver la olla llena de
+  // ingredientes desde arriba. El toque rockero lo dan el pañuelo, la cadena
+  // y las gafas, no un sombrero tapando el guiso.
+  // ---- olla LLENA DE INGREDIENTES (burbujea y se ve al saltar) ----
+  // superficie del guiso (caldo espeso)
+  const estofadoMat = toonMat(0xc4530e, { emissive: new THREE.Color(0x842800).multiplyScalar(0.35) });
+  const guiso = new THREE.Mesh(new THREE.CircleGeometry(0.37, 20), estofadoMat);
+  guiso.rotation.x = -Math.PI / 2; guiso.position.y = 1.005;
+  g.add(guiso);
+  // ingredientes flotando: pimiento, cebolla, tomate, garbanzos, laurel...
+  const ingCols = [0xe63946, 0xf1c40f, 0x38b000, 0xff7b00, 0xb5651d, 0x9c6644];
+  const ings = [];
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + 0.4;
+    const rr = i % 3 === 0 ? 0.06 : 0.2 + (i % 4) * 0.045;
+    const im = new THREE.MeshBasicMaterial({ color: ingCols[i % ingCols.length] });
+    let mesh;
+    if (i % 3 === 0) mesh = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), im);            // garbanzo
+    else if (i % 3 === 1) mesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.055, 0.09), im);    // trozo de pimiento
+    else mesh = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.026, 5, 10), im);                  // anilla de cebolla
+    mesh.position.set(Math.sin(a) * rr, 1.03 + (i % 2) * 0.02, Math.cos(a) * rr);
+    mesh.rotation.set((i % 2) * 0.4, a, (i % 3) * 0.5);
+    mesh.userData.baseY = mesh.position.y;
+    mesh.userData.fase = Math.random() * 6.28;
+    g.add(mesh);
+    ings.push(mesh);
+  }
+  // hojita de laurel
+  const laurel = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.13, 5), toonMat(0x2d6a1f));
+  laurel.position.set(0.1, 1.05, -0.08); laurel.rotation.z = 1.2;
+  g.add(laurel);
+  // vapor del guiso (dos columnas suaves)
+  const vapMat = new THREE.MeshBasicMaterial({ color: 0xfff5e1, transparent: true, opacity: 0.22, depthWrite: false });
+  const vaporG = new THREE.Group();
+  for (let i = 0; i < 2; i++) {
+    const v = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), vapMat);
+    v.position.set((i ? 0.12 : -0.1), 0.14 + i * 0.16, (i ? -0.05 : 0.04));
+    v.scale.set(1, 1.25, 1);
+    vaporG.add(v);
+  }
+  vaporG.position.y = 1.02;
+  g.add(vaporG);
+  g.userData.vapor = vaporG;
+  g.userData.ings = ings;
+  // toque ROCKERO: cadena dorada al cuello con colgante de púa de guitarra
+  const chainMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+  const chain = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.022, 5, 22, Math.PI * 1.15), chainMat);
+  chain.rotation.x = Math.PI / 2 + 0.35; chain.rotation.z = -0.2;
+  chain.position.set(0, 0.86, 0.14);
+  g.add(chain);
+  const pua = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.16, 3), toonMat(PALETA.crema));
+  pua.rotation.x = Math.PI; pua.position.set(0, 0.6, 0.66);
+  g.add(pua);
+  // gafas de sol de roquero (montura negra + cristal reflectante)
   if (band && !guitar) {
-    const hatMat = toonMat(PALETA.negro);
-    const hatBand = toonMat(PALETA.rojoOsc);
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.56, 0.06, 16), hatMat);
-    brim.position.y = 1.06;
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.4, 0.3, 14), hatMat);
-    crown.position.y = 1.22;
-    const crownBand = new THREE.Mesh(new THREE.TorusGeometry(0.365, 0.045, 6, 16), hatBand);
-    crownBand.rotation.x = Math.PI / 2; crownBand.position.y = 1.16;
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.33, 0.05, 14), toonMat(PALETA.dorado));
-    top.position.y = 1.38;
-    g.add(brim, crown, crownBand, top);
+    const montMat = toonMat(0x141414);
+    const cristalMat = new THREE.MeshBasicMaterial({ color: 0x2b3a55 });
+    for (const s of [-1, 1]) {
+      const lente = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.13, 0.03), cristalMat);
+      lente.position.set(s * 0.185, 0.7, 0.6);
+      const montura = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.16, 0.02), montMat);
+      montura.position.set(s * 0.185, 0.7, 0.585);
+      const patilla = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.26), montMat);
+      patilla.position.set(s * 0.33, 0.73, 0.48);
+      g.add(montura, lente, patilla);
+    }
+    const puente = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.03, 0.03), montMat);
+    puente.position.set(0, 0.7, 0.6);
+    g.add(puente);
   }
   // brazos
   const armMat = toonMat(color);
@@ -612,6 +668,12 @@ export function makeBoss() {
   const eyeR = eyeL.clone();
   eyeL.position.set(-0.34, 4.14, 0.62); eyeR.position.set(0.34, 4.14, 0.62);
   g.add(eyeL, eyeR);
+  // pupilas móviles: siguen al jugador (las mueve boss.js vía userData.pupila)
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x3a0000 });
+  const pupL = new THREE.Mesh(new THREE.CircleGeometry(0.09, 12), pupilMat);
+  const pupR = pupL.clone();
+  pupL.position.set(-0.34, 4.14, 0.63); pupR.position.set(0.34, 4.14, 0.63);
+  g.add(pupL, pupR);
   const angMat = new THREE.MeshBasicMaterial({ color: 0x7a0c0c });
   const browL = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.07, 0.04), angMat);
   const browR = browL.clone();
@@ -683,6 +745,39 @@ export function makeBoss() {
     g.add(leg, foot);
   }
 
+  // ---- respiraderos laterales (rejillas del mueble) ----
+  const ventMat = toonMat(0x4a4a4a);
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const vet = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 1.1), ventMat);
+      vet.position.set(s * 1.21, 1.6 + i * 0.18, 0);
+      g.add(vet);
+    }
+  }
+  // ---- pilas/batería de la parte baja: indicador de vida (color por boss.js) ----
+  const ledMat = new THREE.MeshBasicMaterial({ color: 0x4cc9f0 });
+  const ledVida = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), ledMat);
+  ledVida.position.set(0, 0.86, 0.79);
+  const ledVidaRing = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 14), toonMat(0x141414));
+  ledVidaRing.position.set(0, 0.86, 0.79);
+  g.add(ledVida, ledVidaRing);
+  // ---- corazones de vida (se apagan al recibir daño; los toca boss.js) ----
+  const corazones = [];
+  for (let i = 0; i < 3; i++) {
+    const cv = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff2e2e }));
+    cv.scale.set(1, 0.85, 0.55);
+    const c1 = new THREE.Mesh(new THREE.SphereGeometry(0.082, 8, 6), cv.material);
+    c1.position.set(-0.072, 0.078, 0);
+    const c2 = c1.clone(); c2.position.x = 0.072;
+    const punta = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 4), cv.material);
+    punta.rotation.x = Math.PI; punta.position.y = -0.105;
+    cv.add(c1, c2, punta);
+    cv.position.set(-0.85 + i * 0.85, 4.78, 0.62);
+    cv.scale.multiplyScalar(0.85);
+    g.add(cv);
+    corazones.push(cv);
+  }
+
   // ---- parpadeo del ojo LED (solo visual, no toca update()) ----
   const blink = () => {
     const cyc = performance.now() * 0.001 % 4.2;
@@ -693,6 +788,6 @@ export function makeBoss() {
   };
   ledEye.onBeforeRender = blink;
 
-  g.userData = { armL, armR, torso, head, ledEye, browL, browR, antennaTip };
+  g.userData = { armL, armR, torso, head, ledEye, browL, browR, antennaTip, pupL, pupR, ledVida, corazones };
   return g;
 }

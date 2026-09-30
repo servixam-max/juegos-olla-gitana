@@ -41,6 +41,30 @@ export class BossFermin {
     this.compases = 0;
     this.state = 'idle';
     this.vulnerable = 0;
+    // rugido de entrada del jefe
+    this.audio.sfx('bossroar');
+    // anillo dorado de VULNERABLE (solo presentación: marca cuándo saltar encima)
+    if (!this.vulnRing) {
+      this.vulnRing = new THREE.Mesh(
+        new THREE.RingGeometry(2.2, 2.8, 44),
+        new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+      );
+      this.vulnRing.rotation.x = -Math.PI / 2;
+      this.vulnRing.renderOrder = 4;
+      this.vulnRing.visible = false;
+      this.scene.add(this.vulnRing);
+    }
+    // anillo rojo de aviso (cuando NO se le puede tocar)
+    if (!this.duelRing) {
+      this.duelRing = new THREE.Mesh(
+        new THREE.RingGeometry(1.9, 2.15, 40),
+        new THREE.MeshBasicMaterial({ color: 0xff5d5d, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+      );
+      this.duelRing.rotation.x = -Math.PI / 2;
+      this.duelRing.renderOrder = 4;
+      this.duelRing.visible = false;
+      this.scene.add(this.duelRing);
+    }
     this.onHp && this.onHp(this.hp, this.maxHp);
   }
 
@@ -134,6 +158,9 @@ export class BossFermin {
     const pupMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
     const pupL = mk(new THREE.CircleGeometry(0.12, 12), pupMat, -0.44, 5.5, 0.74);
     const pupR = mk(new THREE.CircleGeometry(0.12, 12), pupMat, 0.44, 5.5, 0.74);
+    // brillo fijo en la esquina de cada pupila (mirada viva, siempre igual)
+    const brilloMat = new THREE.MeshBasicMaterial({ color: 0xfff3c4 });
+    for (const s of [-1, 1]) mk(new THREE.CircleGeometry(0.035, 8), brilloMat, s * 0.44 - 0.04, 5.56, 0.76);
     // cejas pobladas sobre la pantalla
     const cejaMat = toonMat(0x141414);
     const cejaL = mk(new THREE.BoxGeometry(0.5, 0.11, 0.09), cejaMat, -0.44, 5.82, 0.72);
@@ -173,8 +200,8 @@ export class BossFermin {
     mk(new THREE.BoxGeometry(0.17, 0.26, 0.17), bowMat2, 0, bowY, bowZ);
     // cascabeles colgando de la pajarita
     const bellMat = new THREE.MeshBasicMaterial({ color: PALETA.dorado });
-    mk(new THREE.SphereGeometry(0.075, 10, 8), bellMat, -0.12, bowY - 0.28, bowZ);
-    mk(new THREE.SphereGeometry(0.075, 10, 8), bellMat, 0.12, bowY - 0.28, bowZ);
+    const bellL = mk(new THREE.SphereGeometry(0.075, 10, 8), bellMat, -0.12, bowY - 0.28, bowZ);
+    const bellR = mk(new THREE.SphereGeometry(0.075, 10, 8), bellMat, 0.12, bowY - 0.28, bowZ);
     mk(new THREE.BoxGeometry(0.02, 0.14, 0.02), toonMat(0x2b2b2b), -0.12, bowY - 0.13, bowZ);
     mk(new THREE.BoxGeometry(0.02, 0.14, 0.02), toonMat(0x2b2b2b), 0.12, bowY - 0.13, bowZ);
 
@@ -250,10 +277,17 @@ export class BossFermin {
       }
       powerLed.material.color.setHex(self.alive ? 0xff2e2e : 0x4a0f0f);
       powerLed.scale.setScalar(1 + Math.sin(self.t * 6) * 0.18);
+      // el bigote sube y baja con el jaleo (baile) y el cascabel se sacude
+      const jal = Math.sin(self.t * 9) * 0.06;
+      bigote.rotation.z = jal * 0.4;
+      puntaL.rotation.z = 1.15 + jal;
+      puntaR.rotation.z = -1.15 - jal;
+      bellL.position.y = bowY - 0.28 + Math.abs(Math.sin(self.t * 11)) * 0.05;
+      bellR.position.y = bowY - 0.28 + Math.abs(Math.sin(self.t * 11 + 1.2)) * 0.05;
     };
     cuerpo.onBeforeRender = animateLeds;
 
-    g.userData = { armL, armR, cabeza, ojoL, ojoR, pupL, pupR, cuerpo, headY: 6.4, pieL, pieR, leds, cejaL, cejaR, powerLed };
+    g.userData = { armL, armR, cabeza, ojoL, ojoR, pupL, pupR, cuerpo, headY: 6.4, pieL, pieR, leds, cejaL, cejaR, powerLed, bellL, bellR, bigote, puntaL, puntaR };
     return g;
   }
 
@@ -275,6 +309,8 @@ export class BossFermin {
     this.alive = false;
     this.audio.sfx('victory');
     this.fx.addShake(1.2);
+    if (this.vulnRing) this.vulnRing.visible = false;
+    if (this.duelRing) this.duelRing.visible = false;
     this.deathT = 1.4;
     this.fx.burst({ x: this.pos.x, y: 3, z: this.pos.z }, { count: 50, speed: 11, up: 9, life: 1.6, colors: [0xffbe0b, 0xe63946, 0x4cc9f0, 0xffffff] });
   }
@@ -329,7 +365,7 @@ export class BossFermin {
       // vulnerable un momento tras el lanzamiento (para el pisotón)
       const eraVulnerable = this.vulnerable > 0;
       this.vulnerable = 1.8;
-      if (!eraVulnerable && this.onVulnerable) this.onVulnerable();
+      if (!eraVulnerable && this.onVulnerable) { this.onVulnerable(); this.audio.sfx('alert'); }
       // en el segundo compás de cada ciclo, además salta
       if (compas % 2 === 1) { this.jump = 0.7; }
     }
@@ -351,9 +387,52 @@ export class BossFermin {
       }
     }
 
+    // tufos de humo del motor al bailar (solo cuando está vivo y no vulnerable)
+    this._humoT = (this._humoT || 0) - dt;
+    if (this._humoT <= 0 && this.vulnerable <= 0) {
+      this._humoT = this.hp <= 1 ? 0.22 : 0.42;
+      this.fx.burst({ x: this.pos.x + (Math.random() - 0.5) * 1.6, y: 5.9, z: this.pos.z - 0.9 },
+        { count: 1, speed: 0.4, up: 1.3, life: 0.9, size: 1.0, colors: [0x5a5a68, 0x8a8a98] });
+    }
+
+    /* ---- anillos de legibilidad (solo presentación: no colisionan) ----
+       dorado = VULNERABLE (salta encima) · rojo = todavía no se le toca */
+    if (this.vulnRing) {
+      const vul = this.vulnerable > 0;
+      this.vulnRing.visible = vul;
+      if (vul) {
+        this.vulnRing.position.set(this.pos.x, 0.07, this.pos.z);
+        const late = 0.5 + Math.sin(this.t * 12) * 0.5;
+        this.vulnRing.scale.setScalar(0.9 + late * 0.12);
+        this.vulnRing.material.opacity = 0.35 + late * 0.4;
+        this.vulnRing.rotation.z += dt * 2.2;
+        this.fx.burst({ x: this.pos.x + (Math.random() - 0.5) * 3.2, y: 0.2, z: this.pos.z + (Math.random() - 0.5) * 3.2 },
+          { count: 1, speed: 3.2, up: 3.4, life: 0.5, size: 0.7, colors: [0xffd23f, 0xffbe0b] });
+      }
+    }
+    if (this.duelRing) {
+      const peligro = this.vulnerable <= 0 && this.alive;
+      this.duelRing.visible = peligro;
+      if (peligro) {
+        this.duelRing.position.set(this.pos.x, 0.06, this.pos.z);
+        this.duelRing.material.opacity = 0.2 + Math.abs(Math.sin(this.t * 3)) * 0.25;
+        this.duelRing.rotation.z -= dt * 0.9;
+      }
+    }
+
     // --- mirar al jugador (girando el conjunto) ---
     const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
     this.obj.rotation.y = Math.atan2(dx, dz) * 0.28;
+    // las pupilas siguen al jugador dentro de la pantalla-cara
+    let go = Math.max(-1, Math.min(1, Math.atan2(dx, dz) * 1.6));
+    if (this.hitFlash > 0) go = 1.4;
+    ud.pupL.position.x = -0.44 + go * 0.13;
+    ud.pupR.position.x = 0.44 + go * 0.13;
+    // chispas de los cables cuando le queda poca vida
+    if (this.hp <= 1 && Math.random() < 0.06) {
+      this.fx.burst({ x: this.pos.x + (Math.random() - 0.5) * 2.2, y: 1.4 + Math.random() * 3.4, z: this.pos.z + 1.1 },
+        { count: 1, speed: 1.6, up: 1.2, life: 0.35, size: 0.6, colors: [0xffbe0b, 0xff7b00, 0xfff6c8] });
+    }
 
     // --- daño por pisotón en la cabeza (se golpea desde arriba).
     // El umbral era y>3.2 y un salto normal llega a ~2.68: era IMPOSIBLE

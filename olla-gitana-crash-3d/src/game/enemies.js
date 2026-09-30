@@ -40,6 +40,86 @@ function waveTexture() {
   return tex;
 }
 
+/* ---------- bicho enemigo con bandera de España ----------
+   El usuario pidió enemigos que "se noten que son enemigos": bichos con la
+   bandera de España (rojo-amarillo-rojo) y cara rara. Son los "pelotas" del
+   juego: el patrullero lleva la bandera a la espalda y antenas con ojos. */
+function makeBicho({ color = 0x6a1f6a, escala = 1, bandera = true, cara = 'rara' } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = toonMat(color, { emissive: new THREE.Color(color).multiplyScalar(0.16) });
+  // cuerpo: bola rechoncha con patas
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.44, 14, 12), bodyMat);
+  body.scale.set(1, 0.92, 1);
+  body.position.y = 0.5;
+  g.add(body);
+  // panza más clara
+  const panza = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), toonMat(0xf6e7c9));
+  panza.scale.set(1, 0.8, 0.62); panza.position.set(0, 0.4, 0.28);
+  g.add(panza);
+  // ojos saltones sobre pedúnculos
+  const stemMat = toonMat(color);
+  const ojoB = new THREE.MeshBasicMaterial({ color: 0xfff8e7 });
+  const pupiB = new THREE.MeshBasicMaterial({ color: 0x101010 });
+  for (const s of [-1, 1]) {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.24, 6), stemMat);
+    stem.position.set(s * 0.19, 0.95, 0.06);
+    const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.135, 10, 8), ojoB);
+    ojo.position.set(s * 0.19, 1.11, 0.06);
+    const pupi = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 6), pupiB);
+    pupi.position.set(s * 0.21, 1.11, 0.17);
+    g.add(stem, ojo, pupi);
+  }
+  // cara rara: boca torcida con colmillos
+  const bocaMat = toonMat(0x2a0d2a);
+  const boca = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.06), bocaMat);
+  boca.position.set(0, 0.35, 0.4); boca.rotation.z = 0.16;
+  g.add(boca);
+  const colmMat = new THREE.MeshBasicMaterial({ color: 0xfff8e7 });
+  for (const s of [-1, 1]) {
+    const colm = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 5), colmMat);
+    colm.position.set(s * 0.12, 0.42, 0.41); colm.rotation.x = Math.PI;
+    g.add(colm);
+  }
+  // cuernitos ridículos
+  const cuerMat = toonMat(0x2a0d2a);
+  for (const s of [-1, 1]) {
+    const cuerno = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 6), cuerMat);
+    cuerno.position.set(s * 0.3, 0.82, -0.05); cuerno.rotation.z = s * 0.5;
+    g.add(cuerno);
+  }
+  // patas cortas
+  const pataMat = toonMat(0x2a0d2a);
+  for (const s of [-1, 1]) {
+    const pata = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.12, 4, 6), pataMat);
+    pata.position.set(s * 0.22, 0.12, 0.02);
+    g.add(pata);
+    const pie = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.24), pataMat);
+    pie.position.set(s * 0.22, 0.04, 0.08);
+    g.add(pie);
+  }
+  // BANDERA DE ESPAÑA a la espalda (rojo, amarillo, rojo) con mástil
+  if (bandera) {
+    const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.9, 6), toonMat(0x8a6a3a));
+    mastil.position.set(0, 0.85, -0.28); mastil.rotation.x = -0.22;
+    g.add(mastil);
+    const tela = new THREE.Group();
+    const hR = 0.09, hY = 0.16;
+    const rojo1 = new THREE.Mesh(new THREE.PlaneGeometry(0.38, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+    rojo1.position.y = hY + hR / 2;
+    const amar = new THREE.Mesh(new THREE.PlaneGeometry(0.38, hY), new THREE.MeshBasicMaterial({ color: 0xffc400, side: THREE.DoubleSide }));
+    const rojo2 = new THREE.Mesh(new THREE.PlaneGeometry(0.38, hR), new THREE.MeshBasicMaterial({ color: 0xc60b1e, side: THREE.DoubleSide }));
+    rojo2.position.y = -hY - hR / 2;
+    tela.add(rojo1, amar, rojo2);
+    tela.position.set(0, 1.15, -0.3);
+    tela.rotation.y = 0.3;
+    g.add(tela);
+    g.userData.tela = tela;
+  }
+  g.scale.setScalar(escala);
+  g.userData.body = body;
+  return g;
+}
+
 export class EnemySystem {
   constructor({ scene, fx, audio, world }) {
     this.scene = scene;
@@ -66,7 +146,10 @@ export class EnemySystem {
     }
   }
 
-  /* abeja: vuela en zigzag a media altura */
+  /* abeja: vuela en zigzag a media altura.
+     Detalle v2: cuerpo con franjas, cabeza con ojos brillantes que siguen al
+     jugador, alas que baten de verdad, antenas, patas, aguijón y halo
+     luminoso. Todo lo que debe verse en la oscuridad va con MeshBasicMaterial. */
   makeBee(d) {
     const g = new THREE.Group();
     const cuerpo = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), toonMat(0xffbe0b));
@@ -76,75 +159,157 @@ export class EnemySystem {
       franja.position.z = -0.16 + i * 0.34;
       g.add(franja);
     }
-    const alaMat = new THREE.MeshToonMaterial({ color: 0xdff3ff, transparent: true, opacity: 0.7 });
+    // cabeza + ojos grandes (brillan solos) con pupila que mira al jugador
+    const cabeza = new THREE.Group();
+    const craneo = new THREE.Mesh(new THREE.SphereGeometry(0.21, 10, 8), toonMat(0x2b2b2b));
+    cabeza.add(craneo);
     for (const s of [-1, 1]) {
-      const ala = new THREE.Mesh(new THREE.CircleGeometry(0.26, 10), alaMat);
+      const ojo = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      ojo.position.set(s * 0.115, 0.05, 0.14);
+      const pup = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), new THREE.MeshBasicMaterial({ color: 0x141414 }));
+      pup.position.set(s * 0.1, 0.05, 0.225);
+      cabeza.add(ojo, pup);
+    }
+    cabeza.position.set(0, 0.02, 0.42);
+    g.add(cabeza);
+    // antenas
+    for (const s of [-1, 1]) {
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.26, 5), toonMat(0x2b2b2b));
+      ant.position.set(s * 0.08, 0.24, 0.5);
+      ant.rotation.set(-0.5, 0, s * 0.35);
+      g.add(ant);
+      const bola = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffbe0b }));
+      bola.position.set(s * 0.14, 0.36, 0.6);
+      g.add(bola);
+    }
+    // alas que baten (se animan en update)
+    const alaMat = new THREE.MeshToonMaterial({ color: 0xdff3ff, transparent: true, opacity: 0.75 });
+    const alas = [];
+    for (const s of [-1, 1]) {
+      const ala = new THREE.Mesh(new THREE.CircleGeometry(0.28, 10), alaMat);
       ala.position.set(s * 0.26, 0.22, 0);
       ala.rotation.set(-0.4, s * 0.4, 0);
       g.add(ala);
+      alas.push(ala);
     }
+    // patas colgando
+    for (const s of [-1, 1]) {
+      const pata = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.016, 0.28, 5), toonMat(0x2b2b2b));
+      pata.position.set(s * 0.14, -0.32, 0.1);
+      pata.rotation.z = s * 0.25;
+      g.add(pata);
+    }
+    // aguijón doble (púa oscura + punta al rojo que avisa del peligro)
     const aguijon = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 6), toonMat(0x2b2b2b));
     aguijon.rotation.x = Math.PI / 2; aguijon.position.z = 0.42;
-    g.add(cuerpo, aguijon);
+    const punta = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2e2e }));
+    punta.position.z = 0.35;
+    g.add(cuerpo, aguijon, punta);
+    // halo/zumbido: aro luminoso alrededor del cuerpo (visible de noche)
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.022, 5, 18), new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.5 }));
+    halo.rotation.x = Math.PI / 2;
+    halo.position.y = 0.04;
+    g.add(halo);
+    g.userData = { alas, cabeza, halo, punta };
     g.position.set(d.x, d.height || 2.4, d.z);
     this.scene.add(g);
     return { ...d, obj: g, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'bee', hp: 1 };
   }
 
-  /* lámpara oscilante del casino: va y viene colgada */
+  /* lámpara oscilante del casino: va y viene colgada.
+     Detalle v2: cadena con eslabones, casquete, pantalla con ribete dorado y
+     flecos, bombilla con halo y un cono de luz que barre el suelo al
+     balancearse — en el casino a oscuras se ve desde lejos. */
   makeLamp(d) {
     const g = new THREE.Group();
     const cadena = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), toonMat(0x9aa5b1));
     cadena.position.y = 1.2;
-    const pantalla = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 10), toonMat(0xd62828));
+    g.add(cadena);
+    // eslabones (aros alternos) a lo largo de la cadena
+    for (let i = 0; i < 5; i++) {
+      const eslabon = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.022, 5, 8), toonMat(0x6b7280));
+      eslabon.position.y = 0.42 + i * 0.42;
+      eslabon.rotation.y = i % 2 ? Math.PI / 2 : 0;
+      g.add(eslabon);
+    }
+    // casquete del techo + remate superior
+    const casquete = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.14, 8), toonMat(0x4a4a4a));
+    casquete.position.y = 2.42;
+    const remate = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), toonMat(PALETA.dorado));
+    remate.position.y = 0.24;
+    // pantalla (cono) con ribete dorado inferior y flecos
+    const pantalla = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 12), toonMat(0xd62828));
     pantalla.position.y = -0.15;
+    const ribete = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.035, 6, 16), toonMat(PALETA.dorado));
+    ribete.rotation.x = Math.PI / 2; ribete.position.y = -0.5;
+    g.add(pantalla, ribete, remate);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.24, 5), toonMat(PALETA.dorado));
+      fl.position.set(Math.sin(a) * 0.5, -0.62, Math.cos(a) * 0.5);
+      fl.rotation.x = Math.PI;
+      g.add(fl);
+    }
+    // bombilla que brilla + halo (MeshBasicMaterial: se ve en la oscuridad)
     const bombilla = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }));
     bombilla.position.y = -0.55;
-    g.add(cadena, pantalla, bombilla);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.44, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.2, depthWrite: false }));
+    halo.position.y = -0.55;
+    g.add(bombilla, halo);
+    // cono de luz abierto hacia el suelo (ápice en la bombilla, base abajo)
+    const luzMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false });
+    const cono = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3.6, 14, 1, true), luzMat);
+    cono.position.y = -2.35;
+    cono.renderOrder = 4;
+    g.add(cono);
+    g.userData = { bombilla, halo, cono, luzMat, pantalla };
     g.position.set(d.x, 5.0, d.z);
     this.scene.add(g);
     return { ...d, obj: g, base: { x: d.x, y: 5.0, z: d.z }, t: Math.random() * 10, alive: true, kind: 'lamp', hp: 1 };
   }
 
-  /* cirio que cae del cielo (Semana Santa): avisa con sombra y cae */
+  /* cirio que cae del cielo (Semana Santa): avisa con sombra y cae.
+     Detalle v2: plato de latón, chorretones de cera, pabilo y llama en tres
+     capas con halo; mientras cae suelta chispas y el aviso late más rápido. */
   makeCandle(d) {
     const g = new THREE.Group();
+    const plato = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.07, 12), toonMat(PALETA.dorado));
+    plato.position.y = -0.03;
     const cera = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.21, 1.6, 10), toonMat(0xfff1c0));
     cera.position.y = 0.8;
-    const llama = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffbe0b }));
-    llama.position.y = 1.7;
-    g.add(cera, llama);
+    g.add(plato, cera);
+    // chorretones de cera derretida (cápsulas pegadas al cuerpo)
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.4;
+      const gota = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.26 + (i % 3) * 0.18, 3, 6), toonMat(0xffe9c4));
+      gota.position.set(Math.sin(a) * 0.19, 1.42 - (i % 3) * 0.22, Math.cos(a) * 0.19);
+      g.add(gota);
+    }
+    // pabilo
+    const pabilo = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.026, 0.18, 5), toonMat(0x2b2b2b));
+    pabilo.position.y = 1.68;
+    // llama en 3 capas + halo (todo MeshBasicMaterial: brilla de noche)
+    const llama = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.44, 8), new THREE.MeshBasicMaterial({ color: 0xff7b00 }));
+    llama.position.y = 1.98;
+    const nucleo = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.28, 8), new THREE.MeshBasicMaterial({ color: 0xfff6c8 }));
+    nucleo.position.y = 1.94;
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffbe0b, transparent: true, opacity: 0.24, depthWrite: false }));
+    halo.position.y = 1.98;
+    g.add(pabilo, llama, nucleo, halo);
+    g.userData = { llama, nucleo, halo };
     g.position.set(d.x, 12, d.z);
     this.scene.add(g);
     // marca en el suelo (aviso)
     const aviso = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.85, 16), new THREE.MeshBasicMaterial({ color: 0xff5d5d, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
     aviso.rotation.x = -Math.PI / 2; aviso.position.set(d.x, 0.06, d.z);
+    aviso.renderOrder = 3;
     this.scene.add(aviso);
     return { ...d, obj: g, aviso, base: { x: d.x, z: d.z }, t: Math.random() * 3, alive: true, kind: 'candle', hp: 1, cd: d.period || 2.8 };
   }
 
   makePatrol(d) {
-    const obj = makeAmp();
-    // el ampli se veía como un bloque negro: se le da carácter (ojos, boca,
-    // ribete dorado) para que se lea como enemigo y no como un cuadrado oscuro
-    obj.traverse((c) => { if (c.isMesh && c.material && c.material.color) c.material.color.set(0x2f2f3a); });
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff5d5d });
-    for (const s of [-1, 1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), eyeMat);
-      eye.position.set(s * 0.2, 0.42, 0.28);
-      obj.add(eye);
-    }
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.07, 0.54), toonMat(PALETA.dorado));
-    rib.position.y = 0.58;
-    obj.add(rib);
-    // ruedas para que se lea "rodante"
-    const wheelMat = toonMat(0x141414);
-    for (const s of [-1, 1]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.08, 10), wheelMat);
-      w.rotation.z = Math.PI / 2;
-      w.position.set(s * 0.42, 0.13, 0);
-      obj.add(w);
-    }
+    // bicho con bandera de España: se lee como enemigo de un vistazo
+    const obj = makeBicho({ color: d.color || 0x7a2a8f, escala: 1.15, bandera: true });
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
     return { ...d, obj, base: { x: d.x, z: d.z }, t: Math.random() * 10, alive: true, kind: 'patrol', hp: 1 };
@@ -168,15 +333,8 @@ export class EnemySystem {
     return { ...d, obj, t: Math.random() * 2, alive: true, kind: 'turret', cd: d.period || 2.0, hp: 2 };
   }
   makeRoller(d) {
-    const obj = makeAmp();
-    obj.scale.setScalar(1.5);
-    obj.traverse((c) => { if (c.isMesh && c.material && c.material.color) c.material.color.set(0x6a1f1f); });
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffbe0b });
-    for (const s of [-1, 1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), eyeMat);
-      eye.position.set(s * 0.22, 0.5, 0.3);
-      obj.add(eye);
-    }
+    // bicho gordo rodante (rojo, con bandera): el que empuja sin piedad
+    const obj = makeBicho({ color: 0x8f2a2a, escala: 1.55, bandera: true });
     obj.position.set(d.x, 0, d.z);
     this.scene.add(obj);
     return { ...d, obj, alive: true, kind: 'roller', vz: -(d.speed || 8), base: { x: d.x, z: d.z }, hp: 1 };
@@ -216,9 +374,18 @@ export class EnemySystem {
       } else if (e.kind === 'turret') {
         e.t += dt;
         e.obj.rotation.y = Math.sin(e.t * 0.6) * 0.9;
+        e.flash = Math.max(0, (e.flash || 0) - dt);
+        // la luz del altavoz late siempre y destella al disparar (se ve de noche)
+        const luz = e.obj.userData.luz;
+        if (luz) {
+          const on = e.flash > 0;
+          luz.material.color.setHex(on ? 0xffffff : 0xff5d5d);
+          luz.scale.setScalar(on ? 1.9 : 1 + Math.sin(e.t * 7) * 0.16);
+        }
         e.cd -= dt;
         if (e.cd <= 0) {
           e.cd = e.period || 2.0;
+          e.flash = 0.3;
           this.spawnWave(e);
         }
       } else if (e.kind === 'roller') {
@@ -239,6 +406,21 @@ export class EnemySystem {
         e.obj.position.z = e.base.z + Math.cos(e.t * 1.1) * 1.6;
         e.obj.position.y = (e.height || 2.4) + Math.sin(e.t * 4.2) * 0.45;
         e.obj.rotation.y = Math.sin(e.t * 1.8) * 0.8;
+        // presentación: alas batiendo, halo latiendo y ojos que siguen al jugador
+        const ub = e.obj.userData;
+        if (ub.alas) {
+          const flap = Math.sin(e.t * 42) * 0.7;
+          ub.alas[0].rotation.z = -0.3 - flap;
+          ub.alas[1].rotation.z = 0.3 + flap;
+        }
+        if (ub.halo) ub.halo.material.opacity = 0.34 + Math.sin(e.t * 5) * 0.2;
+        if (ub.cabeza) {
+          let gy = Math.atan2(p.x - e.obj.position.x, p.z - e.obj.position.z) - e.obj.rotation.y;
+          while (gy > Math.PI) gy -= Math.PI * 2;
+          while (gy < -Math.PI) gy += Math.PI * 2;
+          ub.cabeza.rotation.y = Math.max(-0.7, Math.min(0.7, gy)) * 0.6;
+          ub.cabeza.rotation.x = Math.max(-0.4, Math.min(0.4, (p.y + 0.6 - e.obj.position.y) * 0.25));
+        }
         const d = Math.hypot(e.obj.position.x - p.x, e.obj.position.z - p.z);
         const dy = Math.abs(e.obj.position.y - (p.y + 0.6));
         if (d < 0.85 && dy < 1.3) {
@@ -253,8 +435,19 @@ export class EnemySystem {
         // lámpara que se balancea: peligro si te pilla
         e.t += dt;
         const amp = e.amp || 2.6;
-        e.obj.position.x = e.base.x + Math.sin(e.t * (e.period || 2.2)) * amp * 0.5;
-        e.obj.rotation.z = Math.sin(e.t * (e.period || 2.2)) * 0.5;
+        const sw = Math.sin(e.t * (e.period || 2.2));
+        e.obj.position.x = e.base.x + sw * amp * 0.5;
+        e.obj.rotation.z = sw * 0.5;
+        // presentación: la bombilla parpadea, el halo respira y el cono de luz
+        // se inclina con el balanceo (barre el suelo del casino)
+        const ul = e.obj.userData;
+        if (ul.bombilla) {
+          const flick = 0.82 + Math.sin(e.t * 28) * 0.08 + (Math.random() < 0.04 ? -0.3 : 0);
+          ul.bombilla.material.color.setRGB(flick, flick * 0.92, flick * 0.66);
+          ul.halo.material.opacity = 0.14 + flick * 0.12;
+          ul.cono.rotation.z = -sw * 0.35;
+          ul.cono.material.opacity = 0.08 + flick * 0.07;
+        }
         const d = Math.hypot(e.obj.position.x - p.x, e.obj.position.z - p.z);
         if (d < 0.75 && p.y > 1.6 && p.y < 5.4) {
           if (player.spinning) {
@@ -271,10 +464,25 @@ export class EnemySystem {
         const ciclo = 3.6;
         const fase = (e.t % ciclo) / ciclo;
         const suelo = 0.1;
+        // presentación: la llama chisporrotea siempre (visible desde lejos)
+        const uc = e.obj.userData;
+        if (uc.llama) {
+          const fl = 0.85 + Math.sin(e.t * 30) * 0.15 + (Math.random() < 0.06 ? 0.35 : 0);
+          uc.llama.scale.set(1, fl, 1);
+          uc.nucleo.scale.set(1, 0.8 + fl * 0.3, 1);
+          uc.halo.material.opacity = 0.16 + fl * 0.14;
+          uc.llama.rotation.z = Math.sin(e.t * 9) * 0.12;
+        }
         if (fase < 0.25) {
           e.obj.position.y = 14 - (14 - suelo) * (fase / 0.25);
           e.obj.rotation.z = 0;
           if (e.aviso) { e.aviso.material.opacity = 0.25 + fase * 2.4; e.aviso.scale.setScalar(0.8 + fase * 1.6); }
+          // chispas de la caída (estela) — avisa antes de impactar
+          e._chispa = (e._chispa || 0) - dt;
+          if (e._chispa <= 0) {
+            e._chispa = 0.07;
+            this.fx.burst({ x: e.base.x, y: Math.max(0.4, e.obj.position.y + 1.6), z: e.base.z }, { count: 1, speed: 0.7, up: 0.5, life: 0.4, size: 0.8, colors: [0xffbe0b, 0xff7b00] });
+          }
         } else if (fase < 0.42) {
           // impacto: se rompe, salta chispas
           if (!e._golpe) {
@@ -359,12 +567,13 @@ export class EnemySystem {
     mesh.position.set(e.obj.position.x, 0.35, e.obj.position.z);
     mesh.renderOrder = 5;
     this.scene.add(mesh);
-    this.waves.push({ x: e.obj.position.x, z: e.obj.position.z, y: 0.35, r: 0.9, max: 16, speed: 7.5, life: 4, mesh, alive: true, hitOnce: false });
+    // ONDA MÁS LENTA (petición del usuario): 7.5 → 4.6 m/s y más aviso
+    this.waves.push({ x: e.obj.position.x, z: e.obj.position.z, y: 0.35, r: 0.9, max: 16, speed: 4.6, life: 6, mesh, alive: true, hitOnce: false });
     this.audio.sfx('wave');
   }
 
-  /* el jefe también lanza ondas */
-  spawnBossWave(x, z, speed = 6.5, max = 20) {
+  /* el jefe también lanza ondas (más lentas para que se puedan esquivar) */
+  spawnBossWave(x, z, speed = 4.2, max = 20) {
     const geo = new THREE.RingGeometry(0.82, 1.0, 48);
     const mat = new THREE.MeshBasicMaterial({
       map: waveTexture(), color: 0xb5179e, transparent: true, opacity: 0.95,
@@ -375,6 +584,6 @@ export class EnemySystem {
     mesh.position.set(x, 0.35, z);
     mesh.renderOrder = 5;
     this.scene.add(mesh);
-    this.waves.push({ x, z, y: 0.35, r: 1.0, max, speed, life: 6, mesh, alive: true, hitOnce: false, boss: true });
+    this.waves.push({ x, z, y: 0.35, r: 1.0, max, speed, life: 8, mesh, alive: true, hitOnce: false, boss: true });
   }
 }

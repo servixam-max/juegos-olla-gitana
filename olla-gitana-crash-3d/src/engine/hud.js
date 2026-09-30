@@ -98,7 +98,11 @@ export class Hud {
     const m = Math.floor(s / 60);
     return `${m}:${String(s % 60).padStart(2, '0')}`;
   }
-  tick() { this.el.timerNum.textContent = this.timeStr(); }
+  tick() {
+    // solo escribe el DOM cuando cambia el texto (antes escribía cada frame)
+    const s = this.timeStr();
+    if (s !== this._lastTime) { this._lastTime = s; this.el.timerNum.textContent = s; }
+  }
 
   flash(id) {
     const el = document.getElementById(id);

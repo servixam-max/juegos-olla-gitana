@@ -400,31 +400,54 @@ export function buildLevel7(world, scene, fx) {
   while (z < L) { const d = 10 + rnd() * 10; segs.push({ z: z + d / 2, d }); z += d; }
   segs.forEach((s, i) => floorSeg(world, scene, { z: s.z, d: s.d, w: 16, color: i % 2 ? 0x8a7f6a : 0x9c9079, tag: 'pulido' }));
 
-  // columnas y arcos del casino
-  for (let i = 0; i < 14; i++) {
-    const cz = 8 + i * 11;
-    if (cz > L - 6) break;
-    for (const x of [-6.6, 6.6]) {
-      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 6.2, 12), toonMat(0xe8dcc0));
-      col.position.set(x, 3.1, cz);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.2), toonMat(0xd4c6a6));
-      cap.position.set(x, 6.2, cz);
-      scene.add(col, cap); deco.push(col, cap);
+  // columnas y arcos del casino — OPTIMIZADO: antes eran ~70 meshes sueltos
+  // (cada uno = una draw call) y con los 16 espejos transparentes el Casino
+  // iba lento en móvil (queja del usuario: "el mundo 7 me va lento").
+  // Ahora columnas/fustes/capiteles/arcos van en InstancedMesh: 4 draw calls.
+  {
+    const nCols = 14;
+    const colGeo = new THREE.CylinderGeometry(0.42, 0.5, 6.2, 12);
+    const capGeo = new THREE.BoxGeometry(1.2, 0.4, 1.2);
+    const arcoGeo = new THREE.TorusGeometry(3.3, 0.22, 8, 16, Math.PI);
+    const colInst = new THREE.InstancedMesh(colGeo, toonMat(0xe8dcc0), nCols * 2);
+    const capInst = new THREE.InstancedMesh(capGeo, toonMat(0xd4c6a6), nCols * 2);
+    const arcoInst = new THREE.InstancedMesh(arcoGeo, toonMat(0xe8dcc0), nCols);
+    const dummy = new THREE.Object3D();
+    let ci = 0, ai = 0;
+    for (let i = 0; i < nCols; i++) {
+      const cz = 8 + i * 11;
+      if (cz > L - 6) break;
+      for (const x of [-6.6, 6.6]) {
+        dummy.position.set(x, 3.1, cz);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        colInst.setMatrixAt(ci, dummy.matrix);
+        dummy.position.set(x, 6.2, cz);
+        dummy.updateMatrix();
+        capInst.setMatrixAt(ci, dummy.matrix);
+        ci++;
+      }
+      dummy.position.set(0, 6.2, cz);
+      dummy.updateMatrix();
+      arcoInst.setMatrixAt(ai++, dummy.matrix);
     }
-    // arco superior
-    const arco = new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.22, 8, 16, Math.PI), toonMat(0xe8dcc0));
-    arco.position.set(0, 6.2, cz);
-    scene.add(arco); deco.push(arco);
+    colInst.count = ci; capInst.count = ci; arcoInst.count = ai;
+    colInst.instanceMatrix.needsUpdate = true;
+    capInst.instanceMatrix.needsUpdate = true;
+    arcoInst.instanceMatrix.needsUpdate = true;
+    scene.add(colInst, capInst, arcoInst);
+    deco.push(colInst, capInst, arcoInst);
   }
   // lámparas oscilantes (peligro: te dan si te tocan)
   for (const lz of [26, 52, 80, 108, 134]) {
     enemies.push(enemy('lamp', { x: -4 + (lz % 8), z: lz, period: 2.2, amp: 2.6 }));
   }
-  // candelabros y espejos decorativos
-  for (let i = 0; i < 10; i++) {
-    const cz = 14 + i * 15;
+  // espejos decorativos: OPACOS (los transparentes obligaban a mezclar y
+  // ordenar cada frame; con 10 de ellos el Casino perdía fps)
+  for (let i = 0; i < 8; i++) {
+    const cz = 14 + i * 18;
     if (cz > L - 10) break;
-    const espejo = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 4.2), new THREE.MeshToonMaterial({ color: 0xbfe3ef, transparent: true, opacity: 0.55 }));
+    const espejo = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 4.2), toonMat(0xd6ecf5));
     espejo.position.set(i % 2 ? -7.4 : 7.4, 3.0, cz);
     espejo.rotation.y = i % 2 ? Math.PI / 2 : -Math.PI / 2;
     scene.add(espejo); deco.push(espejo);

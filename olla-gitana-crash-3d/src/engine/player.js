@@ -14,8 +14,8 @@ const JUMP_V = 10.6;
 const JUMP_CUT = 0.42;      // gravedad extra al soltar
 const GRAV_UP = 21;
 const GRAV_DOWN = 30;
-const SLIDE_SPEED = 13.5;
-const SLIDE_TIME = 0.55;
+const SLIDE_SPEED = 15.0;   // 13.5 → 15: la barrida ahora corre de verdad
+const SLIDE_TIME = 0.72;    // 0.55 → 0.72: dura más y sirve para pasillos/ataques
 const SPIN_TIME = 0.4;
 const COYOTE = 0.15;        // 0.12 → 0.15: salto más fiable al borde del suelo
 const JUMP_BUFFER = 0.20;   // 0.16 → 0.20: perdona pulsaciones algo tempranas
@@ -260,6 +260,7 @@ export class Player {
     this.vel.y = Math.max(this.vel.y, -30);
 
     // ---- física ----
+    this.landImpact = Math.max(0, -this.vel.y);   // velocidad de caída (para el golpe de aterrizaje)
     resolveActor(this, world, dt, {
       onLand: () => { this.onLand && this.onLand(); },
       onHitWall: () => {}
@@ -286,6 +287,20 @@ export class Player {
 
     // brazos y piernas
     const ud = this.obj.userData;
+    // el guiso está VIVO: ingredientes que burbujean y vapor que sube
+    if (ud.ings) {
+      for (const it of ud.ings) {
+        it.position.y = it.userData.baseY + Math.sin(this.animT * 3.2 + it.userData.fase) * 0.022;
+        it.rotation.y += dt * 0.6;
+      }
+    }
+    if (ud.vapor) {
+      ud.vapor.children.forEach((v, i) => {
+        v.position.y = 0.14 + i * 0.16 + Math.sin(this.animT * 1.5 + i * 2) * 0.08;
+        v.material.opacity = 0.16 + Math.sin(this.animT * 1.1 + i) * 0.07;
+        v.rotation.y += dt * 0.5;
+      });
+    }
     const runK = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / MAX_SPEED);
     const swing = Math.sin(this.animT * 12) * 0.9 * runK;
     if (ud.legL) { ud.legL.rotation.x = swing; ud.legR.rotation.x = -swing; }

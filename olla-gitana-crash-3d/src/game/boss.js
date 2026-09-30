@@ -47,6 +47,19 @@ export class Boss {
     this.alive = true;
     this.projectiles.forEach((p) => this.scene.remove(p.mesh));
     this.projectiles = [];
+    // rugido de entrada (el jefe se presenta)
+    this.audio.sfx('bossroar');
+    // anillo de telegrafía del golpe (solo presentación: no colisiona con nada)
+    if (!this.tell) {
+      this.tell = new THREE.Mesh(
+        new THREE.RingGeometry(2.0, 2.5, 40),
+        new THREE.MeshBasicMaterial({ color: 0xff5d5d, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+      );
+      this.tell.rotation.x = -Math.PI / 2;
+      this.tell.renderOrder = 4;
+      this.tell.visible = false;
+      this.scene.add(this.tell);
+    }
     this.onHp && this.onHp(this.hp, this.maxHp);
   }
 
@@ -77,15 +90,75 @@ export class Boss {
     // balanceo de brazos
     const ud = this.obj.userData;
     const sway = Math.sin(this.t * (2 + this.phase)) * 0.16;
+    // (a) balanceo normal; el golpe de ataque y el pisotón lo sobreescriben abajo
     ud.armL.rotation.z = 0.3 + sway;
     ud.armR.rotation.z = -0.3 + sway;
     this.obj.position.y = Math.abs(Math.sin(this.t * 2.2)) * 0.06;
     if (this.hitFlash > 0) this.obj.position.x = (Math.random() - 0.5) * 0.16;
 
+    /* ---- presentación v2 (solo visual: nada de esto toca daño ni fases) ---- */
+    // (b) los ojos siguen al jugador: pupilas dentro del ojo, ceño y antena
+    const ang = Math.atan2(dx, dz);
+    if (ud.pupL) {
+      const off = Math.max(-1, Math.min(1, ang - this.obj.rotation.y));
+      const mirada = (this.hitFlash > 0 ? 1.6 : 1) * off;
+      ud.pupL.position.x = -0.34 + mirada * 0.1;
+      ud.pupR.position.x = 0.34 + mirada * 0.1;
+      ud.pupL.position.y = 4.14 - 0.05 + Math.sin(this.t * 3) * 0.012;
+      ud.pupR.position.y = ud.pupL.position.y;
+      ud.browL.rotation.z = -0.42 - Math.max(0, off) * 0.3;
+      ud.browR.rotation.z = 0.42 - Math.min(0, off) * 0.3;
+      ud.antennaTip.scale.setScalar(1 + Math.sin(this.t * 6) * 0.25 + this.hitFlash * 1.4);
+    }
+    // (c) indicador de vida: 1 corazón encendido por punto de vida
+    if (ud.corazones) {
+      for (let i = 0; i < ud.corazones.length; i++) {
+        const vivo = i < this.hp;
+        const c = ud.corazones[i];
+        c.visible = vivo;
+        if (vivo) c.scale.setScalar(0.85 + Math.sin(this.t * 5 + i) * 0.06);
+      }
+      if (ud.ledVida) {
+        const col = this.hp <= 1 ? 0xff2e2e : (this.hp === 2 ? 0xff9500 : 0x4cc9f0);
+        ud.ledVida.material.color.setHex(col);
+        ud.ledVida.scale.setScalar(1 + Math.sin(this.t * 7) * 0.2 + this.hitFlash * 1.2);
+      }
+    }
+    // (d) humo del motor + chispas cuando está tocado (más denso en fase 1 de vida)
+    this._humoT = (this._humoT || 0) - dt;
+    if (this._humoT <= 0) {
+      this._humoT = this.hp <= 1 ? 0.16 : 0.3;
+      this.fx.burst({ x: this.pos.x + (Math.random() - 0.5) * 1.2, y: 4.9, z: this.pos.z - 0.4 },
+        { count: 1, speed: 0.5, up: 1.5, life: 0.9, size: 1.1, colors: [0x6a6a7a, 0x9a9aa8] });
+      if (this.hp >= 2 && Math.random() < 0.25) {
+        this.fx.burst({ x: this.pos.x + (Math.random() - 0.5) * 1.4, y: 1.2, z: this.pos.z + 0.6 },
+          { count: 1, speed: 1.4, up: 0.8, life: 0.4, size: 0.6, colors: [0xffbe0b, 0xff7b00] });
+      }
+    }
+
     let hitPlayer = false;
 
     // ---- ataques ----
     this.cd -= dt;
+    // (e) golpe de ataque: al acercarse el contador el jefe levanta los brazos
+    //     y aparece un anillo rojo que marca el alcance (solo presentación)
+    if (this.cd < 0.42 && this.cd > 0.0 && this.alive) {
+      const alza = Math.min(0.5, (0.42 - this.cd) * 1.1);
+      ud.armL.rotation.z = 0.5 + alza;
+      ud.armR.rotation.z = -0.5 - alza;
+      if (!this._golpeHecho) { this._golpeHecho = true; this.fx.addShake(0.22); this.audio.sfx('warn'); }
+      if (this.tell) {
+        this.tell.visible = true;
+        this.tell.position.set(this.pos.x, 0.06, this.pos.z);
+        const k = (0.42 - this.cd) / 0.42;              // 0 → 1 conforme carga
+        this.tell.scale.setScalar(0.6 + k * 0.6);
+        this.tell.material.opacity = 0.18 + k * 0.5;
+        this.tell.rotation.z += dt * 1.6;
+      }
+    } else if (this.cd > 0.42) {
+      this._golpeHecho = false;
+      if (this.tell) this.tell.visible = false;
+    }
     // el jefe también es vulnerable al pisotón desde arriba (para rematarlo).
     // El umbral era y>4.0: solo se alcanzaba con doble salto perfecto, así que
     // los jugadores no podían rematarlo y acababan muriendo. Ahora y>2.8
@@ -100,19 +173,19 @@ export class Boss {
     if (this.cd <= 0) {
       const phase = this.phase;
       if (phase === 1) {
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 6.0, 18);
+        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.0, 18);
         this.audio.sfx('wave');
         this.cd = 2.4;
       } else if (phase === 2) {
         // ráfaga de 2 ondas + salto
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 6.6, 19);
+        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.3, 19);
         this.pendingWave = 0.45;   // segunda onda diferida (sin setTimeout)
         this.audio.sfx('wave');
         this.jump = 0.6;
         this.cd = 2.2;
       } else {
         // fase 3: ondas + lanzamiento
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 7.2, 21);
+        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.6, 21);
         this.audio.sfx('wave');
         this.launchCrate(player);
         this.cd = 1.9;
@@ -123,7 +196,7 @@ export class Boss {
       this.pendingWave -= dt;
       if (this.pendingWave <= 0) {
         this.pendingWave = 0;
-        if (this.alive) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 5.0, 15);
+        if (this.alive) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 3.6, 15);
       }
     }
 
@@ -135,7 +208,7 @@ export class Boss {
         this.obj.position.y = 0;
         this.fx.addShake(0.5);
         this.audio.sfx('boom');
-        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 9.5, 12);
+        this.enemies.spawnBossWave(this.pos.x, this.pos.z, 5.5, 12);
       }
     }
 
@@ -209,6 +282,7 @@ export class Boss {
     this.alive = false;
     this.audio.sfx('victory');
     this.fx.addShake(1.2);
+    if (this.tell) this.tell.visible = false;
     this.fx.burst({ x: this.pos.x, y: 2.4, z: this.pos.z }, { count: 54, speed: 11, up: 9, life: 1.6, colors: [0xffbe0b, 0xe63946, 0x4cc9f0, 0x38b000, 0xffffff] });
     this.deathT = 1.35;
     this.deathStep = 0;

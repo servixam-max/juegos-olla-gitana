@@ -17,6 +17,11 @@ import { LEVELS } from './game/levels.js';
 import { MaskCompanion } from './game/mask.js';
 import { Progreso, VIDAS_NIVEL, SUPER_VIDAS_INICIAL, CONTINUES } from './game/progreso.js';
 import { toonMat, makeOlla, makeVan, PALETA, makeNote } from './game/art.js';
+/* atrezzo ambiental en su propio módulo (decoración de escena, sin colisión) */
+import {
+  makeSignPost, makeBin, makeStreetLamp, makeAwning, makeBunting,
+  makePotPlant, makeFruitBox, makeTileSign, makePoster, makeFloodlightTower
+} from './game/deco.js';
 import { DialogQueue } from './narrative/bocadillos.js';
 import { Director } from './narrative/director.js';
 import { IntroScene } from './narrative/intro.js';
@@ -123,6 +128,7 @@ let van = null;
 let bgPlane = null, bgTexs = {};
 let goalMesh = null, doorMesh = null;
 let coverBoxes = [];
+let ambientDecor = [];   // atrezzo ambiental del nivel (solo visual, sin colisión)
 
 /* ---------- narrativa ---------- */
 const dialog = new DialogQueue({ audio: Audio, camera, scene });
@@ -319,6 +325,123 @@ function clearLevel() {
   if (bgPlane) { scene.remove(bgPlane); bgPlane = null; }
   if (boss.obj) { scene.remove(boss.obj); boss.obj = null; }
   boss.alive = false;
+  clearAmbientDecor();
+}
+
+/* ================= decoración ambiental (solo visual) =================
+   Se monta en main.js (no en levels.js/levels2.js) para no chocar con la
+   geometría jugable: nada de lo que hay aquí entra en world.boxes, así que
+   NO bloquea el paso ni altera el suelo, las plataformas o la meta.
+   Se coloca pegado a las paredes (|x| >= 4.4) y los carteles/paneles cuelgan
+   altos, fuera del alcance del jugador. */
+const DECO_SEED = (n) => {
+  let s = Math.floor(n) || 1;
+  return () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
+};
+
+function place(x, y, z, obj) {
+  obj.position.set(x, y, z);
+  scene.add(obj);
+  ambientDecor.push(obj);
+  return obj;
+}
+
+function buildAmbientDecor(level) {
+  clearAmbientDecor();
+  if (!level || state.decoOff) return;   // QA: permite apagar el atrezzo para aislar su efecto
+  // arenas de jefe: torres de luz y faroles del duelo
+  if (level.arena) {
+    const rndA = DECO_SEED(99);
+    for (const [tx, tz] of [[-17, 10], [17, 10], [-17, -10], [17, -10]]) {
+      const fl = makeFloodlightTower({ height: 5.4, swing: -0.5 });
+      fl.scale.setScalar(1.25);
+      place(tx, 0, tz, fl);
+    }
+    // banderines de fiesta cruzando el escenario
+    for (const bz of [-20, -15]) {
+      const tr = makeBunting({ n: 13, span: 19 });
+      place(0, 7.4, bz, tr);
+    }
+    // faroles alrededor del ring
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const p = makeStreetLamp({ h: 4.2, color: PALETA.morado });
+      p.scale.setScalar(1.15);
+      p.rotation.y = -a + Math.PI / 2;
+      place(Math.cos(a) * 21.5, 0, Math.sin(a) * 21.5, p);
+      if (rndA() < 0.5) {
+        const b = makeBin({ color: PALETA.rosa });
+        place(Math.cos(a) * 20.2, 0, Math.sin(a) * 20.2, b);
+      }
+    }
+    return;
+  }
+
+  const len = level.length || 160;
+  const rnd = DECO_SEED(level.id * 7717 + 13);
+  const m = level.id;
+  const dark = (m === 5 || m === 7 || m === 8);      // mundos nocturnos / casino
+
+  // (1) LUZ: farolas de forja suplementarias en los bordes del pasillo
+  for (let z = 10; z < len - 6; z += 17) {
+    for (const s of [-1, 1]) {
+      if (rnd() < 0.35) continue;
+      const h = 3.2 + rnd() * 0.8;
+      const lap = makeStreetLamp({ h, color: dark ? PALETA.dorado : PALETA.rojoOsc });
+      lap.rotation.y = s < 0 ? 0 : Math.PI;      // el báculo apunta hacia dentro
+      place(s * 6.1, 0, z + s * 3.5, lap);
+    }
+  }
+  // (2) CARTELES de Murcia: postes con nombre de la peña
+  const carteles = ['MURCIA', 'AL SARDINERO', 'LA HUERTA', 'A LA GLORIA', 'EL CONTRAPASO', 'LAS 7 NOTAS', 'LA PARRA', 'A LA FLORIDA'];
+  for (let z = 16, i = 0; z < len - 8; z += 26, i++) {
+    const c = makeSignPost({ text: carteles[i % carteles.length], color: dark ? PALETA.dorado : PALETA.rojo, height: 2.0, dark });
+    c.rotation.y = Math.PI * 0.5;
+    place(-6.2, 0, z, c);
+    const t = makeTileSign({ text: carteles[(i + 3) % carteles.length].split(' ')[0], color: dark ? PALETA.azul : PALETA.verde });
+    t.rotation.y = -Math.PI * 0.5;
+    place(6.35, 0, z + 12, t);
+  }
+  // (3) PAPELERAS + MACETAS + CAJAS DE FRUTA (pegadas a las paredes)
+  for (let z = 22; z < len - 10; z += 19) {
+    const s = rnd() < 0.5 ? -1 : 1;
+    const bi = makeBin({ color: dark ? PALETA.rosa : PALETA.verde });
+    place(s * 6.0, 0, z, bi);
+    const pp = makePotPlant({ scale: 0.9 + rnd() * 0.5 });
+    place(-s * 6.05, 0, z + 6, pp);
+    if (m === 1 || m === 6) {
+      const fb = makeFruitBox();
+      fb.rotation.y = rnd() * 0.6 - 0.3;
+      place(s * 5.9, 0, z + 11, fb);
+    }
+  }
+  // (4) TOLDOS sobre las paredes (como balcones de calle)
+  for (let z = 30, i = 0; z < len - 14; z += 34, i++) {
+    const s = i % 2 ? -1 : 1;
+    const aw = makeAwning({ w: 3.2, d: 1.4, color: [PALETA.rojo, PALETA.verde, PALETA.azul, PALETA.naranja][i % 4] });
+    aw.position.set(s * 6.35, 3.6, z);
+    aw.rotation.y = s < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+    scene.add(aw); ambientDecor.push(aw);
+  }
+  // (5) BANDERINES cruzando el pasillo (a 4.5 de alto, por encima del jugador)
+  for (let z = 26; z < len - 12; z += 30) {
+    const bu = makeBunting({ n: 10, span: 10.5 });
+    bu.position.set(0, 4.5, z);
+    scene.add(bu); ambientDecor.push(bu);
+  }
+  // (6) PÓSTERES de la gira en la calle, la procesión y la huerta
+  if (m === 1 || m === 4 || m === 6) {
+    for (let z = 44, i = 0; z < len - 20; z += 48, i++) {
+      const po = makePoster({ text: ['FESTI', 'VERBENA', 'ROMERIA', 'FESTIVAL'][i % 4], color: [PALETA.morado, PALETA.rojo, PALETA.azul][i % 3], h: 2.8, w: 1.4 });
+      po.rotation.y = i % 2 ? Math.PI * 0.42 : -Math.PI * 0.42;
+      place(i % 2 ? -5.5 : 5.5, 0, z, po);
+    }
+  }
+}
+
+function clearAmbientDecor() {
+  for (const o of ambientDecor) scene.remove(o);
+  ambientDecor = [];
 }
 
 function startLevel(index, { keepLives = false } = {}) {
@@ -385,6 +508,10 @@ function startLevel(index, { keepLives = false } = {}) {
     glow.position.y = 1.5;
     goalMesh.add(arch, left, right, glow);
     goalMesh.position.set(level.goal.x, 0, level.goal.z);
+    // si el nivel no tiene jefe, la meta ya estaba a la vista: sin aviso.
+    // Si tiene jefe (Fermín), el aviso de "¡La salida está abierta!" sale
+    // justo cuando cae el jefe y la meta se hace visible.
+    goalMesh.userData.avisado = !level.bossIntermedio;
     scene.add(goalMesh);
   }
 
@@ -427,6 +554,9 @@ function startLevel(index, { keepLives = false } = {}) {
   player.aura = false; player.shield = 0; player.ghost = 0;
   camState.x = sp.x; camState.y = 3.6; camState.z = sp.z - 7.4; camState.yaw = 0;
 
+  // atrezzo ambiental del mundo (carteles, farolas, toldos, banderines…): decorativo
+  buildAmbientDecor(level);
+
   hideOverlays();
   hud.show(true);
   hud.start();
@@ -467,7 +597,18 @@ function startLevel(index, { keepLives = false } = {}) {
       dialog.speaker = null;
       dialog.play([{ t: pick(FRASES.caja), tone: 'grito', tail: 'down', hold: 0.8 }]);
     }
+    // racha rumbera: 5 cajones seguidos suben el combo (x3.0 → x4.0 → x5.0)
+    state.combo = Math.min(5, +(state.combo + 0.2).toFixed(1));
+    state.comboT = 3.2;
+    hud.setCombo(state.combo);
   };
+  // interruptor (!) pulsado: la puerta del final se abre con su propio sonido
+  crates.onSwitch = () => {
+    hud.toast('🔔 ¡MECANISMO! La salida se desbloquea', 'good');
+    Audio.sfx('gate');
+  };
+  // caja ? agotada: cierre dorado
+  crates.onBounceUnlock = () => { Audio.sfx('combo'); };
   pickups.onMask = () => {
     // la máscara se vuelve compañera (tipo Aku Aku)
     const nivel = maskCompanion.add();
@@ -482,6 +623,30 @@ function startLevel(index, { keepLives = false } = {}) {
     dialog.play([{ t: pick(FRASES.aura), tone: 'grito', tail: 'down', hold: 1.6 }]);
   };
   player.onFall = () => { if (!dialog.active) { dialog.speaker = player.obj; dialog.play([{ t: pick(FRASES.dano), tone: 'grito', tail: 'down', hold: 0.9 }]); } };
+  // AL SALTAR: el guiso salpica (la olla va llena y en movimiento)
+  player.onJump = () => {
+    const n = 5 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = 0.12 + Math.random() * 0.22;
+      fx.burst({
+        x: player.pos.x + Math.sin(a) * rr, y: player.pos.y + 1.05, z: player.pos.z + Math.cos(a) * rr
+      }, {
+        count: 1, speed: 1.6 + Math.random() * 1.8, up: 3.4 + Math.random() * 2.4,
+        life: 0.42 + Math.random() * 0.22, size: 0.85,
+        colors: [0xc4530e, 0xe07b1f, 0xffbe0b, 0x8c3b08]
+      });
+    }
+    Audio.sfx('splash');
+  };
+  // salto largo (barrida + salto): el silbido propio del impulso
+  player.onLongJump = () => { Audio.sfx('longjump'); hud.toast('¡SALTO LARGO! 🚀', 'good'); };
+  // aterrizaje fuerte: caída desde alto o pisotón desde el aire
+  player.onLand = () => {
+    const impacto = player.landImpact || 0;
+    if (impacto > 9.5) { Audio.sfx('hardland'); fx.burst({ x: player.pos.x, y: player.pos.y + 0.1, z: player.pos.z }, { count: 6, speed: 2.6, up: 1.4, life: 0.5, size: 1.2, colors: [0xcbb9a0, 0x9a9aa8] }); fx.addShake(0.25); }
+  };
+  // al pisar una caja desde el aire ya suena 'bounce' (collectCrateHits)
   // cutscene de entrada del jefe
   if (level.arena) {
     state.pending.push({
@@ -736,8 +901,10 @@ function updateCamera(dt) {
     camState.yaw = 0;
   }
   if (fx.shake > 0) {
-    camera.position.x += (Math.random() - 0.5) * fx.shake * 0.32;
-    camera.position.y += (Math.random() - 0.5) * fx.shake * 0.32;
+    // sacudida más suave (el usuario se quejaba de que la pantalla se mueve
+    // demasiado y no se ve bien): antes 0.32, ahora 0.20
+    camera.position.x += (Math.random() - 0.5) * fx.shake * 0.20;
+    camera.position.y += (Math.random() - 0.5) * fx.shake * 0.20;
   }
 }
 
@@ -820,18 +987,30 @@ function damagePlayer(reason) {
   if (state.lives <= 0) perderVidasNivel();
 }
 
-/* se acabaron las 3 vidas del nivel: gastar una super-vida (o continue) y seguir */
+/* el jugador pierde las 3 vidas del nivel: transición SUAVE de ~3 s
+   (pantalla a negro lento + cartel "SUPER-VIDA") y luego se reanuda.
+   El usuario pidió que no fuera tan brusco. */
 function perderVidasNivel() {
   player.dead = true;
-  const sv = progreso.gastarSuperVida();
+  const sv = progreso.superVidas;
   if (sv > 0) {
-    hud.toast(`💛 ¡Super-vida gastada! Te quedan ${sv}`, 'bad');
-    state.pending.push({ after: 0.55, fn: () => {
+    progreso.gastarSuperVida();
+    hud.toast(`💛 ¡Super-vida! Te quedan ${progreso.superVidas}`, 'bad');
+    Audio.sfx('death');
+    // fundido lento a negro con cartel, y después vuelta a la carga
+    director.fade(1, 900);
+    state.mode = 'cine';
+    setTimeout(() => { cineTitle(true, 'SUPER-VIDA', `Te quedan ${progreso.superVidas} 💛`, 'Aguanta, rumbero'); }, 500);
+    setTimeout(() => { cineTitle(false); }, 1900);
+    setTimeout(() => {
+      director.fade(0, 800);
       player.dead = false;
       state.lives = VIDAS_NIVEL;
       hud.setLives(state.lives);
       respawnAtCheckpoint();
-    } });
+      state.mode = 'play';
+      hud.show(true);
+    }, 2600);
     return;
   }
   // sin super-vidas → continue
@@ -839,13 +1018,16 @@ function perderVidasNivel() {
     const cont = progreso.gastarContinue();
     hud.toast(`⏩ ¡CONTINUE! Te quedan ${cont}`, 'record');
     Audio.sfx('continue');
-    state.pending.push({ after: 0.7, fn: () => {
+    director.fade(1, 1000);
+    state.mode = 'cine';
+    setTimeout(() => { cineTitle(true, '¡CONTINUE!', `Te quedan ${cont} ⏩`, 'La rumba sigue'); }, 500);
+    setTimeout(() => { cineTitle(false); }, 2100);
+    setTimeout(() => {
+      director.fade(0, 800);
       player.dead = false;
       progreso.addSuperVida(SUPER_VIDAS_INICIAL);   // el continue rellena las super-vidas
-      state.lives = VIDAS_NIVEL;
-      hud.setLives(state.lives);
       startLevel(state.levelIndex, { keepLives: false });
-    } });
+    }, 2900);
     return;
   }
   // sin continues → GAME OVER de verdad: se borra el progreso guardado
@@ -864,6 +1046,7 @@ function gameOverTotal() {
 function endLevelGameOver() {
   if (state.ended) return;
   state.ended = true;
+  state.gameOver = true;              // el reintento debe empezar en el mundo 1
   Audio.stopGenerative();
   hud.show(false);
   state.mode = 'over';
@@ -903,6 +1086,22 @@ function collectCrateHits() {
   if (player.spinning) {
     const c = crates.nearest(player.pos, player.hitRadius + 0.35, (cr) => !cr.dead && !cr.disabled);
     if (c) crates.hit(c, { fromSpin: true });
+  }
+  // BARRIDA: ahora sirve — arrasa las cajas a ras de suelo por delante y
+  // atropella a los enemigos pequeños que pilla (antes solo frenaba)
+  if (player.sliding) {
+    const c = crates.nearest(player.pos, 1.15, (cr) => !cr.dead && !cr.disabled && cr.crateType !== 'checkpoint' && cr.mesh.position.y < 0.7);
+    if (c) crates.hit(c, { fromStomp: true, power: 2 });
+    for (const e of enemies.list) {
+      if (!e.alive || (e.kind !== 'patrol' && e.kind !== 'bee')) continue;
+      const dx = Math.abs(e.obj.position.x - player.pos.x), dz = Math.abs(e.obj.position.z - player.pos.z);
+      if (dx < 0.85 && dz < 0.85 && e.obj.position.y < 1.6) {
+        e.alive = false;
+        scene.remove(e.obj);
+        fx.burst({ x: e.obj.position.x, y: 0.6, z: e.obj.position.z }, { count: 14, speed: 5.5, up: 4.5, life: 0.75, colors: [0xc60b1e, 0xffc400, 0xffffff] });
+        Audio.sfx('crate');
+      }
+    }
   }
   // pisotón
   if (!player.grounded && player.vel.y < -1.5) {
@@ -954,6 +1153,13 @@ function updateCombos(dt) {
       state.comboT = 3.2;
     }
   }
+  // campanilla de racha rumbera: suena al cruzar x3 (y arpegio dorado en x5)
+  if (state.combo !== state._comboSfx) {
+    const antes = state._comboSfx || 1;
+    if (state.combo >= 5 && antes < 5) Audio.sfx('combohi');
+    else if (state.combo >= 3 && antes < 3) Audio.sfx('combo');
+    state._comboSfx = state.combo;
+  }
   // power-ups temporizados
   if (state.auraT > 0) { state.auraT -= dt; player.aura = state.auraT > 0; Audio.setAura(state.auraT > 0); hud.setPower('aura', state.auraT / 14); if (state.auraT <= 0) { player.aura = false; hud.toast('Se fue el aura…'); } }
   if (state.ghostT > 0) { state.ghostT -= dt; player.ghost = state.ghostT; hud.setPower('ghost', state.ghostT / 6); }
@@ -991,6 +1197,9 @@ function actualizarMetaVisible(anunciar = false) {
       goalMesh.userData.avisado = true;
       hud.toast('🏁 ¡La salida está abierta!', 'good');
       Audio.sfx('unlock');
+      Audio.sfx('door');
+      // destello dorado al abrirse la puerta
+      fx.burst({ x: goalMesh.position.x, y: 1.6, z: goalMesh.position.z }, { count: 20, speed: 3.4, up: 2.4, life: 0.9, size: 1.1, colors: [0xffe9a8, PALETA.dorado, 0xffffff] });
     }
   }
 }
@@ -999,26 +1208,33 @@ function updateVan(dt) {
   const lv = state.level;
   if (!lv || !lv.chase || !van) return;
   state.vanGrace = Math.max(0, (state.vanGrace || 0) - dt);
-  // la furgo acelera contigo pero SIEMPRE queda algo más lenta que tu tope (8.4)
-  const speed = Math.min(7.0, lv.van.speed + player.pos.z * 0.006);
+  // LA FURGO TE SIGUE TODO EL NIVEL: más lenta que tú (tope 8.4) y pegada a ti.
+  // Antes se quedaba atrás y desaparecía (queja del usuario: "al matarme hay un
+  // momento que desapareció"). Ahora se mantiene a ~6 m por detrás: si te alejas
+  // acelera para recuperarte, si te acercas no te embiste de golpe.
+  const objetivo = Math.max(2.5, player.pos.z - 6);   // 6 m por detrás
+  const dObjetivo = objetivo - van.position.z;
+  const base = Math.min(6.2, lv.van.speed + player.pos.z * 0.004);
+  const speed = base + Math.max(-2.5, Math.min(3.2, dObjetivo * 0.8));
   van.position.z += speed * dt;
   van.userData.wheels.forEach((w) => { w.rotation.x += speed * dt * 1.2; });
-  van.position.x += (player.pos.x * 0.7 - van.position.x) * Math.min(1, dt * 1.2);
-  // nube de polvo tras la furgo + sacudida cuando está cerca
+  van.position.x += (player.pos.x * 0.62 - van.position.x) * Math.min(1, dt * 1.0);
+  // nube de polvo tras la furgo
   if (Math.random() < 0.6) {
     fx.burst({ x: van.position.x + (Math.random() - 0.5) * 1.2, y: 0.25, z: van.position.z - 1.8 },
       { count: 1, color: 0x8b8b8b, speed: 1.4, up: 1.6, life: 0.5, size: 0.9 });
   }
   const dist = player.pos.z - van.position.z;
-  if (dist < 12) fx.addShake(0.06);
+  // sacudida MUY leve solo si está encima (antes temblaba todo el rato y no se veía bien)
+  if (dist < 5) fx.addShake(0.025);
   if (dist < 1.4 && state.vanGrace <= 0) {
     damagePlayer('van');
     // empujón hacia ADELANTE (la furgo te embiste, no te manda al vacío)
     player.vel.z = Math.max(player.vel.z, 9);
     player.vel.y = 5.5;
     van.position.z = player.pos.z - 9.5;
-    state.vanGrace = 2.2;
-    fx.addShake(0.8);
+    state.vanGrace = 2.6;
+    fx.addShake(0.6);
   }
 }
 
@@ -1199,9 +1415,24 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     p.after -= dt;
     if (p.after <= 0) { state.pending.splice(i, 1); try { p.fn(); } catch (e) { console.warn(e); } }
   }
-  // fps
+  // fps + resolución ADAPTATIVA: si el móvil va justo (<45 fps sostenidos) se
+  // baja el pixelRatio para recuperar fluidez (queja: "el mundo 7 me va lento")
   state.frames++; state.fpsT += dt;
-  if (state.fpsT >= 0.5) { state.fps = Math.round(state.frames / state.fpsT); state.frames = 0; state.fpsT = 0; }
+  if (state.fpsT >= 0.5) {
+    state.fps = Math.round(state.frames / state.fpsT); state.frames = 0; state.fpsT = 0;
+    if (!DEMO) {
+      const dprMax = Math.min(2, window.devicePixelRatio || 1);
+      if (state.fps < 45) state.lowFps = (state.lowFps || 0) + 1; else state.lowFps = 0;
+      if (state.lowFps >= 3 && (state.dpr || dprMax) > 0.75) {
+        state.dpr = Math.max(0.75, (state.dpr || dprMax) - 0.25);
+        renderer.setPixelRatio(state.dpr);
+        state.lowFps = 0;
+      } else if (state.fps > 58 && state.dpr != null && state.dpr < dprMax) {
+        state.recover = (state.recover || 0) + 1;
+        if (state.recover >= 6) { state.dpr = Math.min(dprMax, state.dpr + 0.25); renderer.setPixelRatio(state.dpr); state.recover = 0; }
+      }
+    }
+  }
 
   // MODO DEMO: manda el director de vídeo, sin HUD ni pantallas de fin
   if (DEMO && demoDir && demoDir.activo) {
@@ -1310,7 +1541,13 @@ $('btnLevels').onclick = () => { togglePause(false); clearLevel(); showMenu(); }
 $('btnLevels2').onclick = () => { clearLevel(); showMenu(); };
 $('btnNext').onclick = () => { const n = Math.min(LEVELS.length - 1, state.levelIndex + 1); nextOrRetry(() => startLevel(n)); };
 $('btnRetry').onclick = () => nextOrRetry(() => startLevel(state.levelIndex));
-$('btnOverRetry').onclick = () => startLevel(state.levelIndex);
+$('btnOverRetry').onclick = () => {
+  // tras un GAME OVER el progreso está borrado: se empieza desde el mundo 1
+  const desde = state.gameOver ? 0 : state.levelIndex;
+  state.gameOver = false;
+  $('overWarn') && $('overWarn').classList.add('hidden');
+  startLevel(desde);
+};
 $('btnOverLevels').onclick = () => { $('overWarn') && $('overWarn').classList.add('hidden'); clearLevel(); showMenu(); };
 $('btnHelp').onclick = () => { Audio.sfx('ui'); $('helpPanel').classList.remove('hidden'); };
 $('btnHelpBack').onclick = () => $('helpPanel').classList.add('hidden');
@@ -1409,8 +1646,19 @@ window.__qa = {
     cajas: crates.items.filter((c) => !c.dead).length, tnts: crates.tnts.length,
     enemigos: enemies.list.filter((e) => e.alive).length,
     cajas_moviles: world.boxes.filter((b) => b.moving).length,
-    solidas: world.boxes.filter((b) => b.solid).length
+    solidas: world.boxes.filter((b) => b.solid).length,
+    combo: state.combo, deco: ambientDecor.length,
+    enemigosDetalle: enemies.list.filter((e) => e.alive).map((e) => e.kind),
+    enemigosPos: enemies.list.filter((e) => e.alive).map((e) => ({
+      k: e.kind, x: +e.obj.position.x.toFixed(1), y: +e.obj.position.y.toFixed(1), z: +e.obj.position.z.toFixed(1)
+    })),
+    jefes: { boss: boss.alive ? { hp: boss.hp, fase: boss.phase, x: +boss.pos.x.toFixed(1), z: +boss.pos.z.toFixed(1) } : null,
+             fermin: fermin.alive ? { hp: fermin.hp, vuln: +fermin.vulnerable.toFixed(1), x: +fermin.pos.x.toFixed(1), z: +fermin.pos.z.toFixed(1) } : null }
   }),
+  /* sonidos reproducidos (los nuevos: longjump, hardland, combo, combohi, gate, door) */
+  sonidos: (n = 40) => Audio.log.slice(-n),
+  sonidosUsados: () => { const s = new Set(Audio.log); return [...s]; },
+  sonidosReset: () => { Audio.log.length = 0; return true; },
   /* posiciones de las plataformas móviles (para detectar si están congeladas) */
   moviles: () => world.boxes.filter((b) => b.moving).map((b) => ({ tag: b.tag, pos: { ...b.pos }, moving: b.moving })),
   /* sonda de colisión: ¿qué sólido hay en ese punto? */
@@ -1430,6 +1678,27 @@ window.__qa = {
     };
   }),
   start: (i) => startLevel(i),
+  /* foto de QA: congela la cámara en un punto para inspeccionar detalle */
+  foto: (px, py, pz, lx, ly, lz) => {
+    state.mode = '_foto';
+    camera.position.set(px, py, pz);
+    camera.lookAt(lx, ly, lz);
+    renderer.render(scene, camera);
+    return true;
+  },
+  fotoFin: () => { state.mode = 'play'; return true; },
+  /* QA: apaga/enciende el atrezzo ambiental para aislar su efecto */
+  decoOff: (off = true) => {
+    state.decoOff = !!off;
+    if (state.level) buildAmbientDecor(state.level);
+    return ambientDecor.length;
+  },
+  /* QA: estado de los anillos de legibilidad de los jefes (telegrafía/aviso) */
+  anillos: () => ({
+    bossTell: !!(boss.tell && boss.tell.visible), bossTellOp: boss.tell ? +boss.tell.material.opacity.toFixed(2) : null,
+    ferminVuln: !!(fermin.vulnRing && fermin.vulnRing.visible), ferminPeligro: !!(fermin.duelRing && fermin.duelRing.visible),
+    cdBoss: +boss.cd.toFixed(2), vulnFermin: +fermin.vulnerable.toFixed(2)
+  }),
   teleport: (x, y, z) => player.reset(x, y, z),
   enableBot: () => { state.bot = { t: 0, jumpCd: 0, spinCd: 0, stuckT: 0, lastZ: null, log: () => {} }; },
   damage: () => damagePlayer('qa'),
@@ -1437,10 +1706,20 @@ window.__qa = {
   godMode: (on = true) => { state.god = !!on; },
   alive: () => !player.dead,
   notes: () => pickups.notes.filter((n) => !n.taken).map((n) => ({ x: n.pos.x, y: n.pos.y, z: n.pos.z })),
+  /* cajas vivas (tipo y posición): para QA de rotura/combo/interruptor */
+  cajas: () => crates.items.filter((c) => !c.dead && !c.disabled).map((c) => ({ t: c.crateType, x: +c.mesh.position.x.toFixed(1), y: +c.mesh.position.y.toFixed(1), z: +c.mesh.position.z.toFixed(1) })),
+  /* golpea la caja viva nº i por el camino real del giro (QA) */
+  golpearCaja: (i) => {
+    const c = crates.items.filter((x) => !x.dead && !x.disabled)[i];
+    if (!c) return null;
+    crates.hit(c, { fromSpin: true });
+    return c.crateType;
+  },
   minFps: function () { const s = this.data.fpsSamples.filter((x) => x > 0); return s.length ? Math.min(...s) : null; },
   avgFps: function () { const s = this.data.fpsSamples.filter((x) => x > 0); return s.length ? s.reduce((a, b) => a + b, 0) / s.length : null; }
 };
 window.addEventListener('error', (e) => { if (window.__qa) window.__qa.data.errors.push(String(e.message)); });
+window.addEventListener('unhandledrejection', (e) => { if (window.__qa) window.__qa.data.errors.push('promise: ' + String((e.reason && e.reason.message) || e.reason)); });
 
 boot();
 requestAnimationFrame((t) => { state.lastTime = t; loop(t); });
