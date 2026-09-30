@@ -96,6 +96,17 @@ export const JEFE = {
     2: [{ t: '¡Te vas a enterar! ¡Fase dos! ⚡⚡', tone: 'grito', hold: 1.4 }],
     3: [{ t: '¡ESTO ES EL FINAL, OLLITA! 💀', tone: 'grito', hold: 1.6 }]
   },
+  /* cada vez que le quitas una vida: te devuelve al inicio y vuelves a por él */
+  asaltos: {
+    1: [
+      { t: '¡Uy! ¡Eso ha dolido! 😤', tone: 'radio', hold: 1.8 },
+      { t: '¡Pero te falta la mitad del camino, ollita! 🏃', tone: 'grito', hold: 2.0 }
+    ],
+    2: [
+      { t: '¡¿Otra vez?! ¡Mis cuchillas no han terminado! ⚙️', tone: 'radio', hold: 2.0 },
+      { t: '¡Ven aquí si te atreves, chaval!', tone: 'grito', hold: 1.8 }
+    ]
+  },
   derrota: [
     { t: 'No… mi… sonido… 🎛️💥', tone: 'radio', hold: 2.2 },
     { t: 'La banda vuelve a sonar. ¡GRACIAS, ZAGAL! 🎸', tone: 'exito', hold: 2.6 }

@@ -42,7 +42,9 @@ export class FinalScene {
     stage.position.set(0, 0, -14);
     g.add(stage);
 
-    // la banda completa (4 ollas) + la protagonista en el centro
+    // la banda completa (4 ollas) + la protagonista en el centro.
+    // OJO: la cara de makeOlla está en +Z y la cámara mira desde +Z, así que
+    // rotation.y = 0 las pone DE CARA al público (con PI salían del revés).
     const cols = [0xe63946, 0x4cc9f0, 0xffbe0b, 0x38b000];
     const xs = [-7.2, -3.6, 3.6, 7.2];
     this.banda = [];
@@ -50,7 +52,7 @@ export class FinalScene {
       const olla = makeOlla({ color: cols[i], rim: 0xffbe0b, band: true, guitar: true });
       olla.position.set(x, 1.4, -13.6);
       olla.scale.setScalar(1.25);
-      olla.rotation.y = Math.PI;
+      olla.rotation.y = 0;
       g.add(olla);
       this.banda.push(olla);
     });
@@ -58,7 +60,7 @@ export class FinalScene {
     const hero = makeOlla({ color: 0xd62828, rim: 0xffbe0b, band: true });
     hero.position.set(0, 1.4, -13.2);
     hero.scale.setScalar(1.4);
-    hero.rotation.y = Math.PI;
+    hero.rotation.y = 0;
     g.add(hero);
     this.hero = hero;
 
@@ -113,12 +115,18 @@ export class FinalScene {
     this.built = true;
   }
 
-  /* arranca el final. onEnd: callback cuando termina (para volver al menú) */
+  /* arranca el final (modo cine para que el director mande la cámara) */
   play(onEnd) {
     this.build();
     this.grupo.visible = true;
     this.activa = true;
     this.t = 0;
+    // limpiar cualquier bocadillo huérfano (artefacto blanco flotante)
+    if (this.dialog) {
+      try { this.dialog.abort && this.dialog.abort(); } catch (_) {}
+      if (this.dialog.sprite) this.dialog.sprite.visible = false;
+      this.dialog.speaker = null;
+    }
 
     // música: la canción principal (rumba) a todo trapo
     this.audio.stopGenerative();
@@ -254,9 +262,16 @@ export class FinalScene {
       }
     }
 
-    // confeti de fiesta
-    if (this.t < 12 && Math.random() < 0.4) {
-      this.fx.confettiBurst && this.fx.confettiBurst();
+    // confeti de fiesta: ANTES se lanzaba confettiBurst() del DOM cada frame
+    // (0.4 de probabilidad = ~12 por segundo) y reventaba el rendimiento,
+    // dejando la pantalla pillada y con artefactos (queja del usuario).
+    // Ahora va por el sistema de partículas 3D (pool reutilizado) con ritmo
+    // controlado: rachas de 3 s al principio y luego solo de vez en cuando.
+    this._confT = (this._confT || 0) - dt;
+    if (this._confT <= 0 && this.t < 16) {
+      this._confT = this.t < 9 ? 0.55 : 1.3;
+      const h = this.hero || (todos[0] || null);
+      if (h) this.fx.confettiScene({ x: h.position.x, y: 2.6, z: h.position.z + 1 }, 14);
     }
     if (Math.random() < 0.5) {
       const o = this.hero || todos[0];

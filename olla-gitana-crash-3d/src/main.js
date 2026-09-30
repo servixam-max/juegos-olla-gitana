@@ -13,6 +13,7 @@ import { EnemySystem } from './game/enemies.js';
 import { Pickups } from './game/pickups.js';
 import { Boss } from './game/boss.js';
 import { BossFermin } from './game/boss2.js';
+import { TrapSystem } from './game/traps.js';
 import { LEVELS } from './game/levels.js';
 import { MaskCompanion } from './game/mask.js';
 import { Progreso, VIDAS_NIVEL, SUPER_VIDAS_INICIAL, CONTINUES } from './game/progreso.js';
@@ -22,6 +23,10 @@ import {
   makeSignPost, makeBin, makeStreetLamp, makeAwning, makeBunting,
   makePotPlant, makeFruitBox, makeTileSign, makePoster, makeFloodlightTower
 } from './game/deco.js';
+/* atrezzo nuevo (art.js): solo visual, pegado a paredes o colgado alto */
+import {
+  makeBotijo, makeOlivo, makeCipres, makeCaseta, makeCadenaLuces, makeFuente
+} from './game/art.js';
 import { DialogQueue } from './narrative/bocadillos.js';
 import { Director } from './narrative/director.js';
 import { IntroScene } from './narrative/intro.js';
@@ -118,6 +123,7 @@ const world = new World();
 const crates = new CrateSystem({ scene, fx, audio: Audio, hud });
 crates._blastCb = (p, r) => blastCallback(p, r);
 const enemies = new EnemySystem({ scene, fx, audio: Audio, world });
+const traps = new TrapSystem({ scene, fx, audio: Audio, world });
 const pickups = new Pickups({ scene, fx, audio: Audio });
 const player = new Player(scene);
 const boss = new Boss({ scene, fx, audio: Audio, enemies, pickups });
@@ -300,6 +306,9 @@ function showMenu() {
     img.classList.remove('hidden');
   }
   $('menuPanel').classList.remove('hidden');
+  // botón "Ver final": solo si ya se ha visto el final del juego (desbloqueado)
+  const btnFinal = $('btnFinal');
+  if (btnFinal) btnFinal.classList.toggle('hidden', !loadPrefs().finalVisto);
   $('gamepadHint').textContent = input.hasGamepad() ? '🎮 Mando detectado' : '';
   const prefs = loadPrefs();
   $('btnMute2').textContent = prefs.muted ? '🔇 Sonido' : '🔊 Sonido';
@@ -328,6 +337,7 @@ function clearLevel() {
   if (boss.obj) { scene.remove(boss.obj); boss.obj = null; }
   boss.alive = false;
   clearAmbientDecor();
+  traps.clear();                                      // cuchillas de la arena
 }
 
 /* ================= decoración ambiental (solo visual) =================
@@ -348,8 +358,64 @@ function place(x, y, z, obj) {
   return obj;
 }
 
+/* --- colocación de atrezzo pegada a la pared REAL de cada nivel ---
+   Los pasillos no tienen todos el mismo ancho (13, 11, 9…): con una x fija
+   el atrezzo acababa enterrado en el muro (niveles estrechos) o flotando
+   sobre el vacío (calzadas con agujeros). Aquí se busca el borde interior
+   del muro y el borde del suelo en esa z, la pieza se pega al menor de los
+   dos y se comprueba que hay suelo justo debajo. Todo sigue siendo SOLO
+   visual: nada de esto entra en world.boxes. */
+const _bbTmp = new THREE.Box3();
+function bordeMuro(z) {              // |x| del borde interior del muro, o null
+  let b = null;
+  for (const box of world.boxes) {
+    if (box.tag !== 'wall') continue;
+    if (z < box.pos.z - box.half.z - 0.6 || z > box.pos.z + box.half.z + 0.6) continue;
+    const interior = Math.abs(box.pos.x) - box.half.x;
+    if (interior < 0.8) continue;    // muro central: no es pared lateral
+    b = b === null ? interior : Math.min(b, interior);
+  }
+  return b;
+}
+function bordeSuelo(z) {             // |x| máximo con suelo firme a esa z
+  let b = null;
+  for (const box of world.boxes) {
+    if (box.tag !== 'floor' && box.tag !== 'pulido') continue;
+    if (z < box.pos.z - box.half.z || z > box.pos.z + box.half.z) continue;
+    if (box.max.y < -0.6 || box.max.y > 2.0) continue;
+    const e = Math.abs(box.pos.x) + box.half.x;
+    b = b === null ? e : Math.max(b, e);
+  }
+  return b;
+}
+function soporteSuelo(x, z) {
+  for (const b of world.boxes) {
+    if (b.tag !== 'floor' && b.tag !== 'pulido') continue;
+    if (b.max.y < -0.6 || b.max.y > 2.0) continue;
+    if (x > b.min.x && x < b.max.x && z > b.min.z && z < b.max.z) return b;
+  }
+  return null;
+}
+let decoFails = 0, decoPlaced = 0;   // QA: piezas descartadas/colocadas
+function placeAlBorde(z, s, obj, margen = 0.18) {
+  const bs = bordeSuelo(z), bm = bordeMuro(z);
+  const limite = Math.min(bs === null ? 6.6 : bs, bm === null ? 6.6 : bm);
+  obj.position.set(0, 0, z);
+  obj.updateMatrixWorld(true);
+  _bbTmp.setFromObject(obj);
+  const rx = Math.max(Math.abs(_bbTmp.min.x), Math.abs(_bbTmp.max.x), 0.2);
+  const x = s * Math.max(2.9, limite - margen - rx);
+  for (const dx of [0, 0.35, 0.8]) {           // si el borde cae en un agujero, un poco más adentro
+    const x2 = x - s * dx;
+    if (soporteSuelo(x2, z) && soporteSuelo(x2 - s * rx * 0.6, z)) { place(x2, 0, z, obj); decoPlaced++; return x2; }
+  }
+  decoFails++;
+  return null;   // sin suelo firme ahí: no se coloca (nada flotante sobre el vacío)
+}
+
 function buildAmbientDecor(level) {
   clearAmbientDecor();
+  decoFails = 0; decoPlaced = 0;
   if (!level || state.decoOff) return;   // QA: permite apagar el atrezzo para aislar su efecto
   // arenas de jefe: torres de luz y faroles del duelo
   if (level.arena) {
@@ -376,6 +442,12 @@ function buildAmbientDecor(level) {
         place(Math.cos(a) * 20.2, 0, Math.sin(a) * 20.2, b);
       }
     }
+    // fuentes de la plaza en las esquinas traseras (detalle nuevo, sin colisión)
+    for (const s of [-1, 1]) {
+      const fu = makeFuente({ r: 1.3 });
+      fu.scale.setScalar(1.15);
+      place(s * 13.5, 0, 15.5, fu);
+    }
     return;
   }
 
@@ -391,7 +463,7 @@ function buildAmbientDecor(level) {
       const h = 3.2 + rnd() * 0.8;
       const lap = makeStreetLamp({ h, color: dark ? PALETA.dorado : PALETA.rojoOsc });
       lap.rotation.y = s < 0 ? 0 : Math.PI;      // el báculo apunta hacia dentro
-      place(s * 6.1, 0, z + s * 3.5, lap);
+      placeAlBorde(z + s * 3.5, s, lap);
     }
   }
   // (2) CARTELES de Murcia: postes con nombre de la peña
@@ -399,29 +471,31 @@ function buildAmbientDecor(level) {
   for (let z = 16, i = 0; z < len - 8; z += 26, i++) {
     const c = makeSignPost({ text: carteles[i % carteles.length], color: dark ? PALETA.dorado : PALETA.rojo, height: 2.0, dark });
     c.rotation.y = Math.PI * 0.5;
-    place(-6.2, 0, z, c);
+    placeAlBorde(z, -1, c);
     const t = makeTileSign({ text: carteles[(i + 3) % carteles.length].split(' ')[0], color: dark ? PALETA.azul : PALETA.verde });
     t.rotation.y = -Math.PI * 0.5;
-    place(6.35, 0, z + 12, t);
+    placeAlBorde(z + 12, 1, t);
   }
   // (3) PAPELERAS + MACETAS + CAJAS DE FRUTA (pegadas a las paredes)
   for (let z = 22; z < len - 10; z += 19) {
     const s = rnd() < 0.5 ? -1 : 1;
     const bi = makeBin({ color: dark ? PALETA.rosa : PALETA.verde });
-    place(s * 6.0, 0, z, bi);
+    placeAlBorde(z, s, bi);
     const pp = makePotPlant({ scale: 0.9 + rnd() * 0.5 });
-    place(-s * 6.05, 0, z + 6, pp);
+    placeAlBorde(z + 6, -s, pp);
     if (m === 1 || m === 6) {
       const fb = makeFruitBox();
       fb.rotation.y = rnd() * 0.6 - 0.3;
-      place(s * 5.9, 0, z + 11, fb);
+      placeAlBorde(z + 11, s, fb);
     }
   }
   // (4) TOLDOS sobre las paredes (como balcones de calle)
   for (let z = 30, i = 0; z < len - 14; z += 34, i++) {
     const s = i % 2 ? -1 : 1;
     const aw = makeAwning({ w: 3.2, d: 1.4, color: [PALETA.rojo, PALETA.verde, PALETA.azul, PALETA.naranja][i % 4] });
-    aw.position.set(s * 6.35, 3.6, z);
+    const bs = bordeSuelo(z), bm = bordeMuro(z);
+    const limite = Math.min(bs === null ? 6.6 : bs, bm === null ? 6.6 : bm);
+    aw.position.set(s * (limite - 0.05), 3.6, z);       // pegado al muro, a 3,6 m de alto
     aw.rotation.y = s < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
     scene.add(aw); ambientDecor.push(aw);
   }
@@ -439,11 +513,67 @@ function buildAmbientDecor(level) {
       place(i % 2 ? -5.5 : 5.5, 0, z, po);
     }
   }
+  // (7) ATRREZZO NUEVO por mundo (todo pegado a las paredes o colgado alto:
+  //     nada invade el pasillo ni el aire de juego)
+  // (7a) botijos y cajas de fruta junto a las macetas (calle, festi, huerta)
+  if (m === 1 || m === 2 || m === 6) {
+    for (let z = 26, i = 0; z < len - 12; z += 41, i++) {
+      const s = i % 2 ? 1 : -1;
+      const bo = makeBotijo({ scale: 0.85 + rnd() * 0.35 });
+      bo.rotation.y = rnd() * 1.2 - 0.6;
+      placeAlBorde(z + 3, s, bo);
+      if (m !== 2) {
+        const fb2 = makeFruitBox();
+        fb2.rotation.y = rnd() * 0.5 - 0.25;
+        placeAlBorde(z + 4.4, -s, fb2);
+      }
+    }
+  }
+  // (7b) casetas de feria (calle y festi): puesto de churros mirando al pasillo
+  if (m === 1 || m === 2) {
+    const rotulos = ['CHURROS', 'BUÑUELOS', 'LA PARRA', 'MELÓN'];
+    for (let z = 58, i = 0; z < len - 26; z += 74, i++) {
+      const s = i % 2 ? -1 : 1;
+      const ca = makeCaseta({ text: rotulos[i % rotulos.length], color: [PALETA.rojo, PALETA.verde, PALETA.naranja][i % 3] });
+      ca.rotation.y = s < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;   // el mostrador mira al centro
+      placeAlBorde(z, s, ca, 0.05);
+    }
+  }
+  // (7c) cadenas de luces de fiesta: cruzan el pasillo a 4,3 m (por encima del salto)
+  if (m === 2 || m === 4) {
+    for (let z = 40; z < len - 16; z += 34) {
+      const cl = makeCadenaLuces({ span: 11.6, n: 12, colors: m === 4 ? [PALETA.dorado, PALETA.crema, PALETA.morado] : undefined });
+      cl.position.set(0, 4.3, z);
+      scene.add(cl); ambientDecor.push(cl);
+    }
+  }
+  // (7d) arbolado por mundo: cipreses en la procesión, olivos en la huerta
+  for (let z = 34, i = 0; z < len - 14; z += 53, i++) {
+    const s = i % 2 ? 1 : -1;
+    if (m === 4) {
+      const cip = makeCipres({ h: 3.0 + rnd() * 0.9 });
+      placeAlBorde(z, s, cip);
+    } else if (m === 6) {
+      const ol = makeOlivo({ scale: 0.9 + rnd() * 0.35 });
+      placeAlBorde(z, s, ol);
+    }
+  }
 }
-
 function clearAmbientDecor() {
   for (const o of ambientDecor) scene.remove(o);
   ambientDecor = [];
+}
+
+/* Animación muy barata del atrezzo (solo lo que tiene userData preparado):
+   el agua de las fuentes ondula y las cadenas de luces parpadean. */
+function animateAmbientDecor(dt, t) {
+  for (const o of ambientDecor) {
+    const ud = o.userData;
+    if (ud && ud.water) {
+      ud.water.position.y = 0.53 + Math.sin(t * 2.4 + o.position.x) * 0.02;
+      if (ud.chorro) ud.chorro.scale.y = 1 + Math.sin(t * 6) * 0.06;
+    }
+  }
 }
 
 function startLevel(index, { keepLives = false } = {}) {
@@ -528,12 +658,48 @@ function startLevel(index, { keepLives = false } = {}) {
   if (level.arena) {
     boss.start();
     state.bossActive = true;
+    state.assaults = 0;
+    // CUCHILLAS de la arena: la fase 1 ya trae 2 (petición del usuario)
+    traps.load();
     boss.onHp = (hp, max) => hud.toast(`👹 CACHARRO ${Math.max(0, hp)}/${max}`, hp <= 1 ? 'bad' : '');
     boss.onPhase = (ph) => {
       hud.toast(`⚡ ¡FASE ${ph}!`, 'bad');
       Audio.sfx('phaseup');
+      // cada fase trae obstáculos NUEVOS (cuchillas que cruzan la arena)
+      traps.setFase(ph);
+      state.assaulT = 0;
       const lineas = JEFE.fases[ph];
       if (lineas) { state.pending.push({ after: 0.6, fn: () => { if (state.mode === 'play') playCutscene(lineas, { speaker: boss.obj, camara: 'jefe', dur: 3.4, onEnd: () => { state.mode = 'play'; } }); } }); }
+    };
+    /* ASALTO (petición del usuario): cada vez que le quitas una vida, el juego
+       se para, sale la cutscene y te DEVUELVE AL INICIO del ring: tienes que
+       volver a llegar hasta él esquivando las cuchillas. 3 asaltos = victoria. */
+    boss.onHit = () => {
+      if (!boss.alive || boss.hp <= 0) return;
+      state.assaults = (state.assaults || 0) + 1;
+      const linea = (JEFE.asaltos && JEFE.asaltos[state.assaults]) || null;
+      state.pending.push({ after: 0.9, fn: () => {
+        if (state.mode !== 'play') return;
+        if (linea) {
+          playCutscene(linea, { speaker: boss.obj, camara: 'jefe', dur: 3.2, onEnd: () => {
+            // de vuelta al inicio: vuelve a por él esquivando las trampas nuevas
+            player.reset(0, 0.2, 15);
+            camState.z = 15 - 7.4;
+            boss.obj.position.set(0, 0, -8);
+            traps.reset();
+            traps.setFase(boss.phase);
+            hud.toast('¡Vuelve a por él! 🏃', 'bad');
+            state.mode = 'play';
+          } });
+        } else {
+          player.reset(0, 0.2, 15);
+          camState.z = 15 - 7.4;
+          boss.obj.position.set(0, 0, -8);
+          traps.reset();
+          traps.setFase(boss.phase);
+          hud.toast('¡Vuelve a por él! 🏃', 'bad');
+        }
+      } });
     };
     boss.onDefeat = () => {
       playCutscene(JEFE.derrota, {
@@ -603,11 +769,25 @@ function startLevel(index, { keepLives = false } = {}) {
     state.combo = Math.min(5, +(state.combo + 0.2).toFixed(1));
     state.comboT = 3.2;
     hud.setCombo(state.combo);
+    // chispas de madera + destello en el sitio de la caja (refuerza el 'crate')
+    if (c && c.mesh) {
+      const cp = c.mesh.position;
+      fx.flash({ x: cp.x, y: cp.y + 0.3, z: cp.z }, { color: 0xffe9a8, size: 1.9, life: 0.24 });
+      fx.ring({ x: cp.x, y: Math.max(0.05, cp.y - 0.4), z: cp.z }, { color: PALETA.madera, r0: 0.3, r1: 1.7, life: 0.36 });
+    }
+    // subida de combo: aviso rápido en pantalla (solo cuando sube, no al mantenerse)
+    if (state.combo >= 3 && state.combo !== state._comboToast) {
+      state._comboToast = state.combo;
+      hud.toast(`🔥 COMBO x${state.combo.toFixed(1)}`, 'record');
+    }
   };
   // interruptor (!) pulsado: la puerta del final se abre con su propio sonido
   crates.onSwitch = () => {
     hud.toast('🔔 ¡MECANISMO! La salida se desbloquea', 'good');
     Audio.sfx('gate');
+    // onda azul en el sitio del mecanismo (feedback inmediato)
+    fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: PALETA.azul, r0: 0.4, r1: 3.4, life: 0.6 });
+    fx.flash({ x: player.pos.x, y: player.pos.y + 0.8, z: player.pos.z }, { color: 0x4cc9f0, size: 2.2, life: 0.35 });
   };
   // caja ? agotada: cierre dorado
   crates.onBounceUnlock = () => { Audio.sfx('combo'); };
@@ -617,10 +797,20 @@ function startLevel(index, { keepLives = false } = {}) {
     const txt = nivel === 3 ? '🎭 ¡MÁSCARA DORADA! 1 min invulnerable' : `🎭 Máscara nivel ${nivel}`;
     hud.toast(txt, 'record');
     if (nivel === 3) Audio.sfx('aura');
+    // estallido dorado al recoger la máscara (se ve desde lejos)
+    const mp = { x: player.pos.x, y: player.pos.y + 1.1, z: player.pos.z };
+    fx.flash(mp, { color: 0xffe9a8, size: 2.6, life: 0.36 });
+    fx.ring(mp, { color: PALETA.dorado, r0: 0.4, r1: 3.0, life: 0.55 });
+    fx.burst(mp, { count: 14, speed: 4.5, up: 5.5, life: 0.9, size: 1, colors: [PALETA.dorado, 0xffe9a8, PALETA.morado, 0xffffff] });
+    fx.addShake(nivel === 3 ? 0.3 : 0.15);
     if (!dialog.active) { dialog.speaker = player.obj; dialog.play([{ t: pick(FRASES.mask), tone: 'exito', tail: 'down', hold: 0.9 }]); }
   };
   pickups.onAura = () => {
     hud.toast('¡AURA RUMBERA! 🎸', 'record');
+    // abanico dorado alrededor de la olla
+    fx.flash({ x: player.pos.x, y: player.pos.y + 1, z: player.pos.z }, { color: 0xffbe0b, size: 3, life: 0.45 });
+    fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: PALETA.dorado, r0: 0.5, r1: 4.2, life: 0.7 });
+    fx.burst({ x: player.pos.x, y: player.pos.y + 0.8, z: player.pos.z }, { count: 18, speed: 6, up: 6, life: 1, size: 1.1, colors: [PALETA.dorado, 0xff8800, 0xffffff] });
     dialog.speaker = player.obj;
     dialog.play([{ t: pick(FRASES.aura), tone: 'grito', tail: 'down', hold: 1.6 }]);
   };
@@ -630,7 +820,7 @@ function startLevel(index, { keepLives = false } = {}) {
     if (player.sliding) {
       fx.burst({ x: player.pos.x, y: player.pos.y + 0.12, z: player.pos.z }, { count: 2, speed: 2.2, up: 2.0, life: 0.32, size: 0.8, colors: [0xffbe0b, 0xffe9a8, 0xcbb9a0] });
     } else {
-      fx.burst({ x: player.pos.x, y: player.pos.y + 0.08, z: player.pos.z }, { count: 1, speed: 1.1, up: 1.2, life: 0.4, size: 0.75, colors: [0x9a9aa8, 0xcbb9a0] });
+      fx.burst({ x: player.pos.x, y: player.pos.y + 0.08, z: player.pos.z }, { count: 1, speed: 1.1, up: 1.2, life: 0.4, size: 0.75, colors: [0x9a9aa8, 0xcbb9a0], puff: 0.4 });
     }
   };
   // AL SALTAR: el guiso salpica (la olla va llena y en movimiento)
@@ -647,14 +837,30 @@ function startLevel(index, { keepLives = false } = {}) {
         colors: [0xc4530e, 0xe07b1f, 0xffbe0b, 0x8c3b08]
       });
     }
+    // aro del salto: el guiso se derrama en redondo al despegar
+    fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: 0xc4530e, r0: 0.22, r1: 1.15, life: 0.34 });
     Audio.sfx('splash');
   };
   // salto largo (barrida + salto): el silbido propio del impulso
-  player.onLongJump = () => { Audio.sfx('longjump'); hud.toast('¡SALTO LARGO! 🚀', 'good'); };
+  player.onLongJump = () => {
+    Audio.sfx('longjump');
+    hud.toast('¡SALTO LARGO! 🚀', 'good');
+    // estela dorada del impulso
+    fx.burst({ x: player.pos.x, y: player.pos.y + 0.3, z: player.pos.z }, { count: 10, speed: 3, up: 2.2, life: 0.55, size: 0.9, colors: [PALETA.dorado, 0xffe9a8, PALETA.azul] });
+  };
   // aterrizaje fuerte: caída desde alto o pisotón desde el aire
   player.onLand = () => {
     const impacto = player.landImpact || 0;
-    if (impacto > 9.5) { Audio.sfx('hardland'); fx.burst({ x: player.pos.x, y: player.pos.y + 0.1, z: player.pos.z }, { count: 6, speed: 2.6, up: 1.4, life: 0.5, size: 1.2, colors: [0xcbb9a0, 0x9a9aa8] }); fx.addShake(0.25); }
+    if (impacto > 9.5) {
+      Audio.sfx('hardland');
+      // polvo en abanico pegado al suelo + sacudida + destello (aterrizaje contundente)
+      fx.burst({ x: player.pos.x, y: player.pos.y + 0.1, z: player.pos.z }, { count: 10, speed: 3.4, up: 1.3, life: 0.55, size: 1.2, colors: [0xcbb9a0, 0x9a9aa8], puff: 0.5, drag: 2.2 });
+      fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: 0xcbb9a0, r0: 0.3, r1: 2.2, life: 0.42 });
+      fx.addShake(0.3);
+    } else if (impacto > 6.5) {
+      // aterrizaje medio: un puff suave (menos que antes, pero se nota)
+      fx.burst({ x: player.pos.x, y: player.pos.y + 0.08, z: player.pos.z }, { count: 4, speed: 2.2, up: 1.1, life: 0.4, size: 0.9, colors: [0xcbb9a0, 0x9a9aa8], puff: 0.5, drag: 2.4 });
+    }
   };
   // al pisar una caja desde el aire ya suena 'bounce' (collectCrateHits)
   // cutscene de entrada del jefe
@@ -982,6 +1188,7 @@ function damagePlayer(reason) {
       hud.toast('🎭 ¡La máscara aguantó el golpe!', 'good');
       Audio.sfx('maskBreak');
       fx.burst({ x: player.pos.x, y: player.pos.y + 1.4, z: player.pos.z }, { count: 16, speed: 5, up: 5, life: 0.8, colors: [PALETA.madera, PALETA.rojo, 0xffbe0b] });
+      fx.flash({ x: player.pos.x, y: player.pos.y + 1.3, z: player.pos.z }, { color: PALETA.dorado, size: 2.4, life: 0.3 });
       fx.addShake(0.4);
       player.invulnT = 1.6;
       if (navigator.vibrate) navigator.vibrate(40);
@@ -989,13 +1196,16 @@ function damagePlayer(reason) {
     }
   }
   const res = player.hurt();
-  if (res === 'shield') { hud.toast('🛡️ ¡Escudo aguantó!', 'good'); Audio.sfx('crate'); return; }
+  if (res === 'shield') { hud.toast('🛡️ ¡Escudo aguantó!', 'good'); Audio.sfx('crate'); fx.flash({ x: player.pos.x, y: player.pos.y + 0.9, z: player.pos.z }, { color: 0x4cc9f0, size: 2.2, life: 0.32 }); fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: 0x4cc9f0, r0: 0.3, r1: 2.6, life: 0.45 }); fx.addShake(0.25); return; }
   if (res !== 'hurt') return;
   if (window.__qa) window.__qa.data.damageLog.push({ reason, z: +player.pos.z.toFixed(1), x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1) });
   state.lives--;
   hud.setLives(state.lives);
   hud.damage();
   Audio.sfx('damage');
+  // fogonazo rojo + chispas de daño en la olla (se ve el golpe, no solo se siente)
+  fx.burst({ x: player.pos.x, y: player.pos.y + 0.9, z: player.pos.z }, { count: 14, speed: 4.5, up: 4.5, life: 0.7, size: 1, colors: [PALETA.rojo, PALETA.rojoOsc, 0xfff5e1] });
+  fx.flash({ x: player.pos.x, y: player.pos.y + 0.9, z: player.pos.z }, { color: PALETA.rojo, size: 2.6, life: 0.3 });
   fx.addShake(0.5);
   state.combo = 1;
   if (navigator.vibrate) navigator.vibrate(60);
@@ -1088,6 +1298,10 @@ function useCheckpoint(z) {
   const sv = progreso.addSuperVida(1);
   hud.toast(`✔ Punto de control · +1 super-vida (${sv} 💛)`, 'good');
   Audio.sfx('heart');
+  // destello verde en el punto guardado
+  const cp = { x: player.pos.x, y: player.pos.y + 0.6, z: player.pos.z };
+  fx.flash(cp, { color: PALETA.verde, size: 2.4, life: 0.4 });
+  fx.ring({ x: player.pos.x, y: player.pos.y, z: player.pos.z }, { color: PALETA.verde, r0: 0.35, r1: 3.2, life: 0.6 });
 }
 
 function respawnAtCheckpoint() {
@@ -1115,7 +1329,13 @@ function collectCrateHits() {
       if (dx < 0.85 && dz < 0.85 && e.obj.position.y < 1.6) {
         e.alive = false;
         scene.remove(e.obj);
-        fx.burst({ x: e.obj.position.x, y: 0.6, z: e.obj.position.z }, { count: 14, speed: 5.5, up: 4.5, life: 0.75, colors: [0xc60b1e, 0xffc400, 0xffffff] });
+        // bicho pisado: chispas de la bandera + fogonazo corto (remate con juice)
+        const ep = { x: e.obj.position.x, y: 0.6, z: e.obj.position.z };
+        fx.impact(ep, {
+          count: 14, speed: 5.5, up: 4.5, life: 0.75, size: 1,
+          colors: [0xc60b1e, 0xffc400, 0xffffff],
+          shake: 0.12, flash: 0xffc400, flashSize: 1.6, ring: PALETA.rojo, ringSize: 1.8
+        });
         Audio.sfx('crate');
       }
     }
@@ -1127,6 +1347,12 @@ function collectCrateHits() {
       crates.hit(c, { fromStomp: true, power: 2 });
       player.vel.y = 7.6; // rebotar como en Crash
       Audio.sfx('bounce');
+      // golpe seco al pisar: anillo dorado + chispas + micro-shake
+      const sp = { x: c.mesh.position.x, y: c.mesh.position.y + 0.3, z: c.mesh.position.z };
+      fx.ring(sp, { color: PALETA.dorado, r0: 0.3, r1: 1.9, life: 0.38, y: Math.max(0.06, c.mesh.position.y + 0.5) });
+      fx.flash(sp, { color: 0xffe9a8, size: 1.8, life: 0.22 });
+      fx.burst(sp, { count: 8, speed: 3.4, up: 3.2, life: 0.5, size: 0.9, colors: [PALETA.dorado, PALETA.crema] });
+      fx.addShake(0.16);
     }
   }
 }
@@ -1221,8 +1447,11 @@ function actualizarMetaVisible(anunciar = false) {
       hud.toast('🏁 ¡La salida está abierta!', 'good');
       Audio.sfx('unlock');
       Audio.sfx('door');
-      // destello dorado al abrirse la puerta
+      // destello dorado al abrirse la puerta (flash grande + anillo + confeti 3D)
+      fx.flash({ x: goalMesh.position.x, y: 1.8, z: goalMesh.position.z }, { color: 0xffe9a8, size: 4.2, life: 0.5 });
+      fx.ring({ x: goalMesh.position.x, y: 0.04, z: goalMesh.position.z }, { color: PALETA.dorado, r0: 0.5, r1: 4.5, life: 0.75 });
       fx.burst({ x: goalMesh.position.x, y: 1.6, z: goalMesh.position.z }, { count: 20, speed: 3.4, up: 2.4, life: 0.9, size: 1.1, colors: [0xffe9a8, PALETA.dorado, 0xffffff] });
+      fx.confettiScene({ x: goalMesh.position.x, y: 1.6, z: goalMesh.position.z }, 20);
     }
   }
 }
@@ -1499,12 +1728,16 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     const enemyHit = enemies.update(dt, player, { cover: coverBoxes });
     if (enemyHit) damagePlayer('enemy');
     if (state.bossActive) {
-      if (boss.alive) {
-        const bossHit = boss.update(dt, player);
-        if (bossHit) damagePlayer('boss');
-      } else {
-        boss.updateDeath(dt);
-      }
+    if (boss.alive) {
+      const bossHit = boss.update(dt, player);
+      if (bossHit) damagePlayer('boss');
+    } else {
+      boss.updateDeath(dt);
+    }
+    }
+    // cuchillas de la arena del jefe: cruzan de lado a lado y hacen daño
+    if (state.level.arena && traps.traps.length) {
+    if (traps.update(dt, player)) damagePlayer('trampa');
     }
     updateVan(dt);
     updateCombos(dt);
@@ -1518,6 +1751,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     fx.update(dt);
     updateCamera(dt);
     fx.ambient(null, dt, camera, state.level);   // partículas ambientales del mundo
+    animateAmbientDecor(dt, state.t);            // agua de fuentes, luces de fiesta…
     hud.tick();
     state.t += dt;
     if (dialog.sprite?.visible || dialog.active) dialog.update(dt);
@@ -1579,6 +1813,13 @@ $('btnOverLevels').onclick = () => { $('overWarn') && $('overWarn').classList.ad
 $('btnHelp').onclick = () => { Audio.sfx('ui'); $('helpPanel').classList.remove('hidden'); };
 $('btnHelpBack').onclick = () => $('helpPanel').classList.add('hidden');
 $('btnIntro').onclick = () => { Audio.sfx('ui'); hideOverlays(); startIntro(() => { showMenu(); Audio.playMenuMusic(); }); };
+/* Ver final: solo aparece si ya lo has desbloqueado (ganaste el juego una vez) */
+$('btnFinal').onclick = () => {
+  Audio.sfx('ui');
+  hideOverlays();
+  state.mode = 'cine';
+  state.pending.push({ after: 0.2, fn: () => finalScene.play(() => { showMenu(); Audio.playMenuMusic(); }) });
+};
 $('btnMute').onclick = () => toggleMute();
 $('btnMute2').onclick = () => toggleMute();
 $('btnRank').onclick = () => showRank();
@@ -1610,6 +1851,7 @@ function guardarPuntuacion(inputId) {
   // arranca el concierto final con la banda (y luego el mensaje de despedida)
   if (state.esFinal) {
     state.esFinal = false;
+    savePrefs({ finalVisto: true });   // desbloquea el botón "Ver final" del menú
     hideOverlays();
     state.mode = 'cine';
     state.pending.push({ after: 0.9, fn: () => finalScene.play(() => { showMenu(); Audio.playMenuMusic(); }) });
@@ -1678,8 +1920,10 @@ window.__qa = {
   hitBoss: (n = 1) => { if (state.bossActive && boss.alive) boss.hit(n); else if (state.ferminActive && fermin.alive) fermin.hit(n); return true; },
   /* info de ataques del jefe (QA: ondas vs cajas bomba) */
   ataques: () => ({ ondas: enemies.waves.length, bombas: boss.projectiles.filter((p) => p.alive).length, cd: +(boss.cd || 0).toFixed(2), fase: boss.phase }),
+  /* cuchillas de la arena (QA) */
+  trapsInfo: () => ({ n: traps.traps.length, activas: traps.traps.filter((t) => t.activa).length, fase: traps.fase, pos: traps.traps.filter((t) => t.activa).map((t) => +t.obj.position.x.toFixed(1)) }),
   /* arranca el concierto final directamente (QA) */
-  finalPlay: (cb) => finalScene.play(cb || (() => {})),
+  finalPlay: (cb) => { state.mode = 'cine'; hud.show(false); hideOverlays(); finalScene.play(cb || (() => {})); },
   /* diagnóstico para los agentes de QA: estado interno del motor */
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,
@@ -1690,6 +1934,7 @@ window.__qa = {
     cajas_moviles: world.boxes.filter((b) => b.moving).length,
     solidas: world.boxes.filter((b) => b.solid).length,
     combo: state.combo, deco: ambientDecor.length,
+    decoColocadas: decoPlaced, decoDescartadas: decoFails,
     enemigosDetalle: enemies.list.filter((e) => e.alive).map((e) => e.kind),
     enemigosPos: enemies.list.filter((e) => e.alive).map((e) => ({
       k: e.kind, x: +e.obj.position.x.toFixed(1), y: +e.obj.position.y.toFixed(1), z: +e.obj.position.z.toFixed(1)

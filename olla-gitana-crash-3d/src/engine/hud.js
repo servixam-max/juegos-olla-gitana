@@ -49,6 +49,9 @@ export class Hud {
     this.lastLives = n;
     const wrap = this.el.lives;
     wrap.innerHTML = '';
+    // última vida: el chip late en rojo (aviso claro antes de caer)
+    const chip = this.el.lives && this.el.lives.parentElement;
+    if (chip) chip.classList.toggle('danger', n === 1);
     if (!n || n <= 0) {
       wrap.textContent = '—';
     } else {
@@ -77,17 +80,31 @@ export class Hud {
     if (this.el.contNum) this.el.contNum.textContent = cont;
   }
   setCombo(m) {
+    const prev = this.lastCombo;
     this.el.comboNum.textContent = 'x' + m.toFixed(1);
     this.el.comboChip.classList.toggle('hot', m >= 3);
     if (m !== this.lastCombo) this.flash('comboChip');
+    // micro-rebote del número al SUBIR (feedback de "juice" al encadenar cajas)
+    if (m > prev) {
+      const n = this.el.comboNum;
+      n.classList.remove('pop');
+      void n.offsetWidth;
+      n.classList.add('pop');
+    }
     this.lastCombo = m;
   }
   setPower(kind, frac) {
     const el = this.el['pw' + kind[0].toUpperCase() + kind.slice(1)];
     if (!el) return;
-    el.classList.toggle('hidden', frac <= 0);
+    const k = Math.max(0, Math.min(1, frac));
+    const visible = k > 0.001;
+    el.classList.toggle('hidden', !visible);
+    if (!visible) return;
     const bar = el.querySelector('.track > i') || el.querySelector('i');
-    if (bar) bar.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
+    if (bar) bar.style.width = k * 100 + '%';
+    // últimos segundos de power-up: la barra late en rojo para avisar
+    el.classList.toggle('ending', k < 0.22);
+    el.classList.toggle('full', k > 0.985);
   }
   setPressure(on) {
     this.el.pressFlash.classList.toggle('hidden', !on);

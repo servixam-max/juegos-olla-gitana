@@ -70,6 +70,7 @@ export class Boss {
     this.t += dt;
     this.phaseT += dt;
     this.hitFlash = Math.max(0, this.hitFlash - dt * 3);
+    this.invT = Math.max(0, (this.invT || 0) - dt);
 
     // fase por vida: hp 3 → fase 1, hp 2 → fase 2, hp 1 → fase 3
     // OJO: antes era `3 - Math.max(0, hp-1) >= 3 ? 3 : ...` y la precedencia lo
@@ -172,27 +173,26 @@ export class Boss {
     }
     if (this.cd <= 0) {
       const phase = this.phase;
-      // REBALANCE (petición del usuario): el jefe lanzaba ondas sin parar y con
-      // ellas te daba siempre. Ahora las ondas son un recurso ESCASO (cada
-      // 3.6-5.5 s) y el peso lo llevan las CAJAS BOMBA, que se pueden devolver
-      // con el giro (y encima son su punto débil). Le gustan más las bombas.
+      // REBALANCE v3 (petición del usuario): las ondas siguen bajando porque
+      // "te dan sin querer". Ahora son RARAS (18-30%) y lentas; el peso lo
+      // llevan las CAJAS BOMBA (que se devuelven con el giro).
       if (phase === 1) {
-        // fase 1: sobre todo cajas; una onda de aviso de vez en cuando
-        if (Math.random() < 0.45) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 3.8, 16);
+        if (Math.random() < 0.18) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 3.2, 13);
         this.launchCrate(player);
-        this.cd = 3.6;
+        this.cd = 3.4;
       } else if (phase === 2) {
-        // fase 2: lluvia de cajas + salto (la onda queda para el salto)
+        // lluvia de cajas (2) + salto
         this.launchCrate(player);
-        this.pendingCrate = 0.4;   // segunda caja diferida
+        this.pendingCrate = 0.38;
         this.jump = 0.6;
-        this.cd = 2.9;
+        this.cd = 3.0;
       } else {
-        // fase 3: el jefe se pone serio: 2 cajas + onda ocasional
+        // fase 3: 3 cajas y alguna onda suelta
         this.launchCrate(player);
-        this.pendingCrate = 0.35;
-        if (Math.random() < 0.5) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 4.4, 18);
-        this.cd = 2.5;
+        this.pendingCrate = 0.3;
+        this.pendingCrate2 = 0.62;
+        if (Math.random() < 0.3) this.enemies.spawnBossWave(this.pos.x, this.pos.z, 3.6, 14);
+        this.cd = 2.6;
       }
     }
     // caja bomba diferida (sin setTimeout)
@@ -200,6 +200,13 @@ export class Boss {
       this.pendingCrate -= dt;
       if (this.pendingCrate <= 0) {
         this.pendingCrate = 0;
+        if (this.alive) this.launchCrate(player);
+      }
+    }
+    if (this.pendingCrate2 > 0) {
+      this.pendingCrate2 -= dt;
+      if (this.pendingCrate2 <= 0) {
+        this.pendingCrate2 = 0;
         if (this.alive) this.launchCrate(player);
       }
     }
@@ -295,12 +302,18 @@ export class Boss {
 
   hit(n = 1) {
     if (!this.alive) return;
+    // tras un golpe el jefe queda protegido un momento: así NO se le pueden
+    // quitar 2 vidas de golpe (petición del usuario: cada vida exige volver a
+    // por él). Coincide con el "asalto" que devuelve al jugador al inicio.
+    if (this.invT > 0) return;
     this.hp -= n;
     this.hitFlash = 1;
+    this.invT = 1.6;
     this.audio.sfx('crate');
     this.fx.addShake(0.4);
     this.onHp && this.onHp(this.hp, this.maxHp);
     if (this.hp <= 0) this.defeat();
+    else this.onHit && this.onHit(this.hp);
   }
 
   defeat() {

@@ -485,7 +485,16 @@ export function makeLampPost({ height = 3.4 } = {}) {
   head.position.set(0.62, height - 0.12, 0);
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }));
   bulb.position.set(0.62, height - 0.3, 0);
-  g.add(pole, arm, head, bulb);
+  // halo suave alrededor de la bombilla: la farola "brilla" de noche sin coste
+  // de luces reales (una esfera transparente aditiva, no afecta al rendimiento)
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.36, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.15, depthWrite: false })
+  );
+  halo.position.copy(bulb.position);
+  g.add(pole, arm, head, bulb, halo);
+  g.userData.bulb = bulb;
+  g.userData.halo = halo;
   return g;
 }
 
@@ -793,5 +802,154 @@ export function makeBoss() {
   ledEye.onBeforeRender = blink;
 
   g.userData = { armL, armR, torso, head, ledEye, browL, browR, antennaTip, pupL, pupR, ledVida, corazones };
+  return g;
+}
+
+/* =========================================================
+   ATRREZZO NUEVO (solo visual; las colisiones viven en levels*.js)
+   Se añaden al final para no tocar las firmas existentes.
+   ========================================================= */
+
+/* Botijo murciano: la pieza de alfarería más típica de la huerta. */
+export function makeBotijo({ color = 0xc4530e, scale = 1 } = {}) {
+  const g = new THREE.Group();
+  const barro = toonMat(color);
+  const cuerpo = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), barro);
+  cuerpo.scale.set(1, 0.95, 0.86); cuerpo.position.y = 0.34;
+  const boca = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.16, 10), barro);
+  boca.position.set(0, 0.62, 0.02);
+  const asa = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 6, 12, Math.PI), barro);
+  asa.position.set(0, 0.56, -0.2); asa.rotation.x = Math.PI * 0.5;
+  const pitorro = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.22, 8), barro);
+  pitorro.position.set(0.2, 0.44, 0.18); pitorro.rotation.z = -0.9; pitorro.rotation.x = 0.4;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.07, 12), toonMat(0x7c4519));
+  base.position.y = 0.03;
+  // cenefa pintada (toque de alfarería tradicional)
+  const cenefa = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.022, 6, 16), toonMat(PALETA.dorado));
+  cenefa.rotation.x = Math.PI / 2; cenefa.position.y = 0.44;
+  g.add(base, cuerpo, boca, asa, pitorro, cenefa);
+  g.scale.setScalar(scale);
+  return g;
+}
+
+/* Olivo de la huerta: tronco retorcido + copa plateada (no un árbol genérico). */
+export function makeOlivo({ scale = 1 } = {}) {
+  const g = new THREE.Group();
+  const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, 1.3, 7), toonMat(0x8a6a4a));
+  tronco.position.y = 0.65;
+  const tronco2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.6, 6), toonMat(0x7a5c3e));
+  tronco2.position.set(0.12, 1.5, 0.06); tronco2.rotation.z = 0.35;
+  g.add(tronco, tronco2);
+  const copa = toonMat(0x8fb573);
+  for (let i = 0; i < 5; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.34 + Math.random() * 0.16, 9, 7), copa);
+    s.position.set((Math.random() - 0.5) * 0.7, 1.8 + Math.random() * 0.5, (Math.random() - 0.5) * 0.7);
+    s.scale.set(1, 0.82, 1);
+    g.add(s);
+  }
+  g.scale.setScalar(scale);
+  return g;
+}
+
+/* Ciprés: el árbol alto y estrecho de las procesiones. */
+export function makeCipres({ h = 3.2 } = {}) {
+  const g = new THREE.Group();
+  const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 0.5, 6), toonMat(0x3b2a12));
+  tronco.position.y = 0.25;
+  const copaMat = toonMat(0x25551c);
+  const copa = new THREE.Mesh(new THREE.ConeGeometry(0.42, h, 9), copaMat);
+  copa.position.y = 0.5 + h / 2;
+  const copa2 = new THREE.Mesh(new THREE.ConeGeometry(0.3, h * 0.6, 8), toonMat(0x2d6a1f));
+  copa2.position.y = 0.7 + h * 0.78;
+  g.add(tronco, copa, copa2);
+  return g;
+}
+
+/* Caseta de feria: puesto de churros con toldo, mostrador y letrero. */
+export function makeCaseta({ text = 'CHURROS', color = PALETA.rojo } = {}) {
+  const g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 1.5), toonMat(PALETA.crema));
+  cuerpo.position.y = 0.75;
+  const marco = toonMat(color);
+  for (const s of [-1, 1]) {
+    const pilar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.5, 0.16), marco);
+    pilar.position.set(s * 1.06, 0.75, 0.72);
+    g.add(pilar);
+  }
+  const mostrador = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.14, 0.7), toonMat(PALETA.madera));
+  mostrador.position.set(0, 0.95, 0.85);
+  const tapa = new THREE.Mesh(new THREE.BoxGeometry(2.36, 0.1, 1.6), toonMat(color));
+  tapa.position.set(0, 1.52, 0.05);
+  // rayas del toldo
+  for (let i = 0; i < 5; i++) {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 1.62), toonMat(PALETA.crema));
+    r.position.set(-0.88 + i * 0.44, 1.54, 0.05);
+    g.add(r);
+  }
+  // letrero pintado (canvas)
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 96;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#e63946'; c.fillRect(0, 0, 256, 96);
+  c.strokeStyle = '#ffbe0b'; c.lineWidth = 8; c.strokeRect(6, 6, 244, 84);
+  c.font = '900 44px "Luckiest Guy", Nunito, sans-serif';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = '#fff5e1';
+  c.fillText(text.slice(0, 9), 128, 52);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const rotulo = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.64), new THREE.MeshBasicMaterial({ map: tex }));
+  rotulo.position.set(0, 1.1, 0.78);
+  g.add(cuerpo, mostrador, tapa, rotulo);
+  return g;
+}
+
+/* Cadena de luces de fiesta: cable curvado con bombillas de colores. */
+export function makeCadenaLuces({ span = 7, n = 11, colors = [PALETA.dorado, PALETA.rojo, PALETA.azul, PALETA.verde, PALETA.rosa] } = {}) {
+  const g = new THREE.Group();
+  const bombillaMat = (i) => new THREE.MeshBasicMaterial({ color: colors[i % colors.length] });
+  let prev = null;
+  for (let i = 0; i <= n; i++) {
+    const x = -span / 2 + (i / n) * span;
+    const y = -Math.sin((i / n) * Math.PI) * 0.5;
+    if (prev) {
+      const [x0, y0] = prev;
+      const len = Math.hypot(x - x0, y - y0);
+      const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 5), toonMat(0x2b2b2b));
+      cable.position.set((x0 + x) / 2, (y0 + y) / 2, 0);
+      cable.rotation.z = Math.PI / 2 - Math.atan2(y - y0, x - x0);
+      g.add(cable);
+    }
+    prev = [x, y];
+    if (i < n) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), bombillaMat(i));
+      b.position.set(x + span / (n * 2), y - 0.09, 0);
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.16, depthWrite: false }));
+      halo.position.copy(b.position);
+      g.add(b, halo);
+    }
+  }
+  return g;
+}
+
+/* Fuente de la plaza (agua animada por el juego vía userData.water) */
+export function makeFuente({ r = 1.5 } = {}) {
+  const g = new THREE.Group();
+  const pila = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.08, 0.5, 16), toonMat(0x9aa5b1));
+  pila.position.y = 0.25;
+  const borde = new THREE.Mesh(new THREE.TorusGeometry(r, 0.08, 6, 20), toonMat(0x6b7280));
+  borde.rotation.x = Math.PI / 2; borde.position.y = 0.52;
+  const columna = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 1.1, 10), toonMat(0x8b95a1));
+  columna.position.y = 1.05;
+  const taza = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.4, 0.18, 14), toonMat(0x9aa5b1));
+  taza.position.y = 1.66;
+  const aguaMat = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.7 });
+  const agua = new THREE.Mesh(new THREE.CircleGeometry(r - 0.12, 18), aguaMat);
+  agua.rotation.x = -Math.PI / 2; agua.position.y = 0.53;   // por encima del borde de la pila
+  const chorro = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.5, 4, 8), aguaMat);
+  chorro.position.y = 1.32;
+  g.add(pila, borde, columna, taza, agua, chorro);
+  g.userData.water = agua;
+  g.userData.chorro = chorro;
   return g;
 }

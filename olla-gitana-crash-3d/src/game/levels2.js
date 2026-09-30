@@ -1,9 +1,18 @@
-/* MUNDOS NUEVOS (5-8) — Olla Gitana 3D v2
-   4 = La Procesión (Semana Santa)  · plataformas horizontales + cirios que caen
-   5 = El Entierro de la Sardina      · JEFE Fermín Cascabel + antorchas y humo
-   6 = La Huerta Perdida              · agua que frena, saltos entre árboles, abejas
-   7 = El Casino de Murcia            · espejos, lámparas oscilantes, suelo pulido
-*/
+/* MUNDOS 4-7 — Olla Gitana 3D v2
+   4 = La Procesión (Semana Santa)  · tranvías procesionales + cirios que caen
+   5 = El Entierro de la Sardina    · JEFE Fermín Cascabel + antorchas y humo
+   6 = La Huerta Perdida            · agua que frena, saltos entre árboles, abejas
+   7 = El Casino de Murcia          · espejos, lámparas oscilantes, suelo pulido
+
+   REDISEÑO "saltos que obligan" (petición del usuario): estos 4 mundos también
+   son más largos (+43/+51 %) y tienen tramos donde hay que saltar de verdad:
+     · calzada()  → suelo con agujeros REALES (caerse = daño por caída) con
+                    plataforma móvil en los anchos.
+     · islas()    → tramos "SOLO BLOQUES": 4-6 losas sobre el vacío separadas
+                    1,7-2,2 m, alturas alternas y desplazadas en x.
+     · escalera() → ruta ALTA opcional montada sobre suelo firme (premio arriba).
+   Notas y cajas van ESPACIADAS en grupos (6-10 m de respiro) y SOLO sobre suelo
+   firme o sobre las losas: guían el camino seguro. */
 import * as THREE from 'three';
 import { Box } from '../engine/physics.js';
 import {
@@ -64,45 +73,166 @@ function buildMask(world, scene, { x, y = 1.0, z }) {
 }
 const enemy = (type, opts) => ({ type, ...opts });
 
+/* ---------- patrones de plataformas (saltos con riesgo real) ---------- */
+
+/* Calzada: suelo de z0 a z1 con huecos recortados DE VERDAD (debajo no hay
+   nada: caerse = daño por caída). Los huecos anchos llevan plataforma móvil
+   baja que se monta al paso. Devuelve los tramos firmes para colocar encima
+   notas, cajas y enemigos sin dejarlos flotando sobre el vacío. */
+function calzada(world, scene, { z0, z1, w = 13, color = PALETA.asfalto, saltos = [], rnd = Math.random }) {
+  let z = +z0;
+  const tramos = [];
+  for (const s of saltos) {
+    const a = s.z - s.w / 2;
+    if (a > z) {
+      floorSeg(world, scene, { z: (z + a) / 2, d: a - z, w, color: s.color || color });
+      tramos.push([+z, +a]);
+    }
+    if (s.plataforma) {
+      const p = s.plataforma;
+      floorSeg(world, scene, {
+        x: p.x || 0, z: s.z, d: p.d || (s.w - 0.2), w: p.w || 4.6, y: p.y == null ? 0.2 : p.y,
+        color: p.color || PALETA.dorado, tag: 'mover',
+        moving: { axis: p.axis || 'y', amp: p.amp == null ? 0.32 : p.amp, speed: p.speed || 1.4, phase: (p.phase || 0) + rnd() * 3 }
+      });
+    }
+    z = s.z + s.w / 2;
+  }
+  if (z < z1) {
+    floorSeg(world, scene, { z: (z + z1) / 2, d: z1 - z, w, color });
+    tramos.push([+z, +z1]);
+  }
+  return { fin: +z1, tramos };
+}
+
+/* Islas: tramo "SOLO BLOQUES": el suelo desaparece y queda una cadena de losas
+   sobre el vacío. `tops` alterna la altura (0 / 0.24) y `zig` las desplaza en x. */
+function islas(world, scene, { z0, n = 4, d = 7, sep = 1.7, w = 4.6, tops = [0, 0.24], zig = 0.5, color = PALETA.madera, tag = 'platform', salida = null }) {
+  const puestas = [];
+  let z = +z0;
+  let ultSep = Array.isArray(sep) ? +sep[0] : +sep;
+  for (let i = 0; i < n; i++) {
+    const dd = +(Array.isArray(d) ? d[i % d.length] : d);
+    const ss = +(Array.isArray(sep) ? sep[i % sep.length] : sep);
+    ultSep = ss;
+    const y = tops[i % tops.length];
+    const xx = zig ? Math.round(Math.sin(i * 1.25 + 0.5) * zig * 10) / 10 : 0;
+    floorSeg(world, scene, { x: xx, z: z + dd / 2, w, d: dd, y, color, tag });
+    puestas.push({ x: xx, y, z: z + dd / 2, d: dd, w });
+    z += dd;
+    if (i < n - 1) z += ss;
+  }
+  // la separación de salida es SIEMPRE un número (con un array el "+" concatenaba
+  // strings y todas las z del nivel acababan siendo NaN)
+  const fin = z + +(salida == null ? ultSep : salida);
+  return { fin, losa: puestas };
+}
+
+/* Escalera: ruta ALTA opcional MONTADA SOBRE SUELO FIRME (se puede pasar por
+   debajo). Subir es saltar de escalón en escalón; caerse no mata. */
+function escalera(world, scene, { x = 3.6, z, w = 3.2, d = 3.2, alturas = [0.7, 1.4, 2.1], color = PALETA.madera }) {
+  alturas.forEach((h, i) => {
+    floorSeg(world, scene, { x, y: h, z: z + i * d, w, d, color, tag: 'platform' });
+  });
+  return { fin: z + alturas.length * d, cima: alturas[alturas.length - 1], z, x, w, d };
+}
+
+/* Notas en arco repartidas por tramos firmes (nunca sobre el vacío). */
+function notasEnTramos(notes, world, scene, { tramos, paso = 9, fase = 0 }) {
+  for (const [a, b] of tramos) {
+    for (let z = a + 4; z < b - 2; z += paso) {
+      const arc = Math.sin((z + fase) * 0.35) * 2.4;
+      notes.push(buildNote(world, scene, { x: arc, y: 0.9 + Math.abs(Math.sin((z + fase) * 0.12)) * 1.5, z }));
+    }
+  }
+}
+
 /* =========================================================
    MUNDO 4 — "LA PROCESIÓN" (Semana Santa)
-   Plataformas que se mueven en horizontal + cirios que caen del cielo.
+   Tranvías procesionales (plataformas que van y vienen) + cirios que caen.
    ========================================================= */
 export function buildLevel4(world, scene, fx) {
   MUNDO2 = 4;
   const rnd = R(4821);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
-  const L = 172;
+  const tramosFirmes = [];
 
-  // suelo continuo (plataformas que se mueven son el reto, no los huecos)
-  const segs = [];
-  let z = 0;
-  while (z < L) { const d = 9 + rnd() * 10; segs.push({ z: z + d / 2, d }); z += d; }
-  segs.forEach((s, i) => floorSeg(world, scene, { z: s.z, d: s.d, w: 15, color: i % 2 ? 0x5b4a6e : 0x4a3b5c }));
-  corridor(world, scene, { z0: 0, z1: L, halfW: 7.2, h: 6.2, color: 0x6b4a7a, step: 14 });
+  /* Reparto:
+     A  0-52      carrera del trono: 3 huecos con tranvías procesionales
+     B  52-90     procesión: suelo firme con cirios y tronos
+     C  90-131,2  SOLO BLOQUES 1 · las andas se han roto: 5 losas sobre el vacío
+     D  131,2-176,4  tramo con dos huecos anchos y plataformas que van y vienen
+     E  176,4-190,4  ruta ALTA de premio (escalera con la máscara arriba)
+     F  190,4-243   SOLO BLOQUES 2 · 6 losas + 2 huecos con tranvía
+     G  243-250   recta final: interruptor (!) y meta */
 
-  // plataformas que se mueven en HORIZONTAL (tranvías procesionales)
-  const vias = [22, 46, 70, 96, 124, 150];
-  vias.forEach((vz, i) => {
-    floorSeg(world, scene, {
-      z: vz, d: 3.4, w: 5.0, y: 1.1, color: 0x9d0208, tag: 'mover',
-      moving: { axis: 'x', amp: 3.6 - i * 0.2, speed: 0.9 + i * 0.12, phase: Math.random() * 3 }
-    });
-    // notas encima de cada plataforma móvil
-    notes.push(buildNote(world, scene, { x: 0, y: 2.2, z: vz }));
-  });
+  // ---- A: tranvías procesionales en huecos reales ----
+  const A = calzada(world, scene, { z0: 0, z1: 52, rnd, w: 15, color: 0x4a3b5c, saltos: [
+    { z: 14, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.6, speed: 0.85, color: 0x9d0208 } },
+    { z: 26, w: 1.7 },
+    { z: 38, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.5, speed: 0.95, color: 0x9d0208 } },
+    { z: 47, w: 1.7 }
+  ] });
+  tramosFirmes.push(...A.tramos);
 
-  // cirios (columnas que caen: se avisan con una sombra en el suelo)
-  // a los LADOS del pasillo (nunca en el centro, que es donde va la cámara)
+  // ---- B: procesión (firme, con cirios que caen) ----
+  const B = calzada(world, scene, { z0: 52, z1: 90, rnd, w: 15, color: 0x5b4a6e });
+  tramosFirmes.push(...B.tramos);
   let ci = 0;
-  for (let cz = 20; cz < L - 10; cz += 11) {
+  for (let cz = 56; cz < 88; cz += 9) {
     const lado = (ci % 2 === 0) ? -1 : 1;
     enemies.push(enemy('candle', { x: lado * 4.6, z: cz, period: 2.6 + rnd() * 1.4 }));
     ci++;
   }
 
-  // atrezzo procesional: tronos y estandartes
-  for (const tz of [30, 78, 132]) {
+  // ---- C: SOLO BLOQUES 1 · cinco losas sobre el vacío ----
+  const C = islas(world, scene, { z0: 90, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x8b5a2b });
+  C.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
+  });
+
+  // ---- D: dos huecos anchos con plataformas que van y vienen ----
+  const D = calzada(world, scene, { z0: C.fin, z1: C.fin + 45, rnd, w: 15, color: 0x4a3b5c, saltos: [
+    { z: C.fin + 14, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.7, speed: 1.0, color: 0x9d0208 } },
+    { z: C.fin + 26, w: 1.7 },
+    { z: C.fin + 37, w: 3.4, plataforma: { y: 0.25, w: 4.6, amp: 0.55, speed: 1.4, color: 0x9d0208 } }
+  ] });
+  tramosFirmes.push(...D.tramos);
+  for (let cz = D.tramos[0][0] + 4; cz < D.tramos[0][1] - 2; cz += 9) {
+    enemies.push(enemy('candle', { x: (ci++ % 2 === 0) ? -4.6 : 4.6, z: cz, period: 2.8 + rnd() * 1.2 }));
+  }
+
+  // ---- E: ruta ALTA (escalera: la máscara está en la cima) ----
+  const E = calzada(world, scene, { z0: D.fin, z1: D.fin + 14, rnd, w: 15, color: 0x5b4a6e });
+  tramosFirmes.push(...E.tramos);
+  const esc = escalera(world, scene, { x: 4.0, z: D.fin + 1.5, w: 3.4, d: 3.2, alturas: [0.8, 1.6, 2.4] });
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z }));
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z + 3.2 }));
+  crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
+  masks.push(buildMask(world, scene, { x: esc.x, y: esc.cima + 1.3, z: esc.z + 3.2 }));
+
+  // ---- F: SOLO BLOQUES 2 · seis losas + dos huecos con tranvía ----
+  const F1 = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0x8b5a2b });
+  F1.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
+    if (i === 4) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'bounce' }));
+  });
+  const F2 = calzada(world, scene, { z0: F1.fin, z1: F1.fin + 28, rnd, w: 15, color: 0x4a3b5c, saltos: [
+    { z: F1.fin + 13, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.6, speed: 1.05, color: 0x9d0208 } },
+    { z: F1.fin + 23, w: 1.7 }
+  ] });
+  tramosFirmes.push(...F2.tramos);
+
+  // ---- G: recta final ----
+  const G = calzada(world, scene, { z0: F2.fin, z1: 252, rnd, w: 15, color: 0x5b4a6e });
+  tramosFirmes.push(...G.tramos);
+  const L = 252;
+  corridor(world, scene, { z0: 0, z1: L, halfW: 7.6, h: 6.2, color: 0x6b4a7a, step: 14 });
+
+  // atrezzo procesional: tronos (sobre suelo firme)
+  for (const tz of [58, 74, 108, 150, 216]) {
     const trono = new THREE.Group();
     const base = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.5, 2.4), toonMat(0x8b5a2b));
     base.position.y = 1.2;
@@ -115,23 +245,26 @@ export function buildLevel4(world, scene, fx) {
     scene.add(trono); deco.push(trono);
   }
   // velas por las paredes
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 26; i++) {
     const v = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.9 + rnd() * 0.6, 8), toonMat(0xfff5e1));
-    v.position.set((i % 2 ? 1 : -1) * (6.2 + rnd() * 0.4), 0.45 + rnd() * 0.3, 10 + i * 7);
+    v.position.set((i % 2 ? 1 : -1) * (6.2 + rnd() * 0.4), 0.45 + rnd() * 0.3, 10 + i * 9);
     scene.add(v); deco.push(v);
     const llama = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffbe0b }));
     llama.position.set(v.position.x, v.position.y + 0.6, v.position.z);
     scene.add(llama); deco.push(llama);
   }
 
-  // cajas y coleccionables
+  // ---- cajas y coleccionables (grupos espaciados 15-18 m) ----
   const clusters = [
-    { z: 16, kind: 'line', type: 'normal', n: 4 },
-    { z: 40, kind: 'pyramid' },
-    { z: 64, kind: 'bounce' },
-    { z: 88, kind: 'tnt' },
-    { z: 112, kind: 'mix' },
-    { z: 140, kind: 'line', type: 'steel', n: 3 }
+    { z: 10, kind: 'line', type: 'normal', n: 4 },
+    { z: 44, kind: 'pyramid' },
+    { z: 62, kind: 'bounce' },
+    { z: 80, kind: 'tnt' },
+    { z: 106, kind: 'mix' },
+    { z: 136, kind: 'line', type: 'steel', n: 3 },
+    { z: 168, kind: 'pyramid' },
+    { z: 206, kind: 'tnt' },
+    { z: 244, kind: 'line', type: 'normal', n: 4 }
   ];
   for (const c of clusters) {
     if (c.kind === 'line') for (let i = 0; i < c.n; i++) crates.push(buildCrate(world, scene, { x: -1.5 + i, z: c.z, type: c.type }));
@@ -154,29 +287,26 @@ export function buildLevel4(world, scene, fx) {
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'steel' }));
     }
   }
-  for (let zi = 12; zi < L - 10; zi += 6) {
-    notes.push(buildNote(world, scene, { x: Math.sin(zi * 0.4) * 3.4, y: 1.0 + Math.abs(Math.sin(zi * 0.2)) * 2.4, z: zi }));
-  }
-  // RUTA SECRETA: subiendo por las plataformas móviles más altas
-  for (let i = 0; i < 5; i++) notes.push(buildNote(world, scene, { x: 4.4, y: 5.4 + i * 0.5, z: 46 + i * 3 }));
-  masks.push(buildMask(world, scene, { x: 0, y: 1.3, z: 36 }));
-  masks.push(buildMask(world, scene, { x: -4.2, y: 4.6, z: 90 }));
-  masks.push(buildMask(world, scene, { x: 3.6, y: 1.2, z: 132 }));
 
-  [30, 76, 124].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
-  crates.push(buildCrate(world, scene, { x: 0, z: 156, type: 'switch' }));
-  switches.push({ z: 156, doorZ: 166 });
+  // notas: grupos SOLO sobre tramos firmes (nunca sobre el vacío)
+  notasEnTramos(notes, world, scene, { tramos: tramosFirmes, paso: 8 });
+  masks.push(buildMask(world, scene, { x: 0, y: 1.3, z: 70 }));
+  masks.push(buildMask(world, scene, { x: -3.6, y: 4.6, z: 214 }));
 
-  enemies.push(enemy('patrol', { x: -3.2, z: 34, span: 6, speed: 3.2, axis: 'x' }));
-  enemies.push(enemy('patrol', { x: 3.2, z: 58, span: 7, speed: 3.5, axis: 'x' }));
-  enemies.push(enemy('turret', { x: 5.6, z: 84, period: 2.3 }));
-  enemies.push(enemy('patrol', { x: 0, z: 108, span: 11, speed: 3.9, axis: 'z' }));
-  enemies.push(enemy('patrol', { x: -3.0, z: 148, span: 6, speed: 3.4, axis: 'x' }));
+  [46, 88, 160, 232].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
+  crates.push(buildCrate(world, scene, { x: 0, z: 246, type: 'switch' }));
+  switches.push({ z: 246, doorZ: 249 });
+
+  enemies.push(enemy('patrol', { x: -3.2, z: 60, span: 6, speed: 3.2, axis: 'x' }));
+  enemies.push(enemy('patrol', { x: 3.2, z: 84, span: 7, speed: 3.5, axis: 'x' }));
+  enemies.push(enemy('turret', { x: 5.6, z: 158, period: 3.0 }));
+  enemies.push(enemy('patrol', { x: 2.6, z: 200, span: 7, speed: 3.6, axis: 'x' }));
+  enemies.push(enemy('patrol', { x: -3.0, z: 226, span: 6, speed: 3.4, axis: 'x' }));
 
   return {
     id: 4, nombre: 'La Procesión',
-    tip: 'Las plataformas rojas van y vienen: móntate y salta. ¡Cuidado con los cirios que caen!',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 169 },
+    tip: 'Los tranvías rojos van y vienen: móntate o salta el hueco. ¡Cuidado con los cirios que caen!',
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 249 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: false, arena: false, bg: 4, colorTecho: 0x1a0f2e, lampIntensity: 1.15
   };
@@ -184,22 +314,48 @@ export function buildLevel4(world, scene, fx) {
 
 /* =========================================================
    MUNDO 5 — "EL ENTIERRO DE LA SARDINA" (jefe intermedio Fermín)
-   Desfile nocturno: antorchas, humo que empuja, y Fermín al final.
+   Desfile nocturno: antorchas, humo que empuja y Fermín al final.
    ========================================================= */
 export function buildLevel5(world, scene, fx) {
   MUNDO2 = 5;
   const rnd = R(7733);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
-  const L = 96;
+  const tramosFirmes = [];
 
-  const segs = [];
-  let z = 0;
-  while (z < L) { const d = 8 + rnd() * 9; segs.push({ z: z + d / 2, d }); z += d; }
-  segs.forEach((s, i) => floorSeg(world, scene, { z: s.z, d: s.d, w: 16, color: i % 2 ? 0x2e2438 : 0x372b44 }));
-  corridor(world, scene, { z0: 0, z1: L, halfW: 7.6, h: 6.4, color: 0x4a3560, step: 14 });
+  /* Reparto:
+     A  0-44      desfile: charcos de humo y un hueco con plataforma que sube
+     B  44-84     SOLO BLOQUES · 5 losas del desfile sobre el vacío
+     C  84-118,6  recta del desfile: antorchas, cajas y máscara alta
+     D  118,6-146 campo de Fermín: suelo firme (aquí es la pelea del jefe) y meta */
+
+  // ---- A: desfile con un hueco ----
+  const A = calzada(world, scene, { z0: 0, z1: 44, rnd, w: 16, color: 0x2e2438, saltos: [
+    { z: 16, w: 1.7 },
+    { z: 30, w: 3.4, plataforma: { y: 0.55, w: 4.6, amp: 0.45, speed: 1.4 } },
+    { z: 40, w: 1.7 }
+  ] });
+  tramosFirmes.push(...A.tramos);
+
+  // ---- B: SOLO BLOQUES · cinco losas sobre el vacío ----
+  const B = islas(world, scene, { z0: 44, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x5a3a1a });
+  B.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
+  });
+
+  // ---- C: recta del desfile (firme) ----
+  const C = calzada(world, scene, { z0: B.fin, z1: B.fin + 34, rnd, w: 16, color: 0x372b44 });
+  tramosFirmes.push(...C.tramos);
+  corridor(world, scene, { z0: 0, z1: 118, halfW: 7.6, h: 6.4, color: 0x4a3560, step: 14 });
+
+  // ---- D: campo de Fermín (TODO firme: la pelea del jefe no lleva huecos) ----
+  const D = calzada(world, scene, { z0: C.fin, z1: 146, rnd, w: 16, color: 0x2e2438 });
+  tramosFirmes.push(...D.tramos);
+  corridor(world, scene, { z0: 118, z1: 146, halfW: 7.6, h: 6.4, color: 0x4a3560, step: 14 });
+  const L = 146;
 
   // antorchas del desfile
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     const t = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.5, 8), toonMat(0x5a3a1a));
     t.position.set((i % 2 ? 1 : -1) * 6.6, 0.75, 8 + i * 4.4);
     scene.add(t); deco.push(t);
@@ -221,16 +377,23 @@ export function buildLevel5(world, scene, fx) {
   scene.add(sardina); deco.push(sardina);
 
   // humo que empuja (zonas que frenan y desplazan al jugador) — SIN colisión sólida
-  for (const hz of [24, 52]) {
+  for (const hz of [22, 60, 96]) {
     solid(world, scene, { x: (hz % 8) - 4, y: 0, z: hz, w: 6.5, h: 2.2, d: 4.5, color: 0x6a6a7a, tag: 'humo', visible: true }).solid = false;
   }
 
-  // cajas y notas
+  // ruta ALTA opcional sobre el suelo firme (escalera)
+  const esc = escalera(world, scene, { x: 4.2, z: B.fin + 4, alturas: [0.8, 1.6, 2.4] });
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z + 3.2 }));
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z + 6.4 }));
+  crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
+
+  // cajas y notas (grupos espaciados)
   const clusters = [
-    { z: 14, kind: 'line', type: 'normal', n: 4 },
-    { z: 34, kind: 'pyramid' },
-    { z: 58, kind: 'mix' },
-    { z: 76, kind: 'line', type: 'normal', n: 3 }
+    { z: 12, kind: 'line', type: 'normal', n: 4 },
+    { z: 50, kind: 'pyramid' },
+    { z: 76, kind: 'mix' },
+    { z: 98, kind: 'line', type: 'steel', n: 3 },
+    { z: 126, kind: 'pyramid' }
   ];
   for (const c of clusters) {
     if (c.kind === 'line') for (let i = 0; i < c.n; i++) crates.push(buildCrate(world, scene, { x: -1.5 + i, z: c.z, type: c.type }));
@@ -243,24 +406,23 @@ export function buildLevel5(world, scene, fx) {
       crates.push(buildCrate(world, scene, { x: 2.6, z: c.z, type: 'steel' }));
     }
   }
-  for (let zi = 10; zi < L - 8; zi += 5.5) {
-    notes.push(buildNote(world, scene, { x: Math.cos(zi * 0.35) * 3.8, y: 1.0 + Math.abs(Math.sin(zi * 0.25)) * 2.0, z: zi }));
-  }
+
+  notasEnTramos(notes, world, scene, { tramos: tramosFirmes, paso: 8 });
   masks.push(buildMask(world, scene, { x: -4.4, y: 1.2, z: 20 }));
-  masks.push(buildMask(world, scene, { x: 4.4, y: 3.2, z: 62 }));
+  masks.push(buildMask(world, scene, { x: 4.4, y: 3.4, z: 108 }));
 
-  [26, 60].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
+  [36, 90, 120].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
 
-  enemies.push(enemy('patrol', { x: -3.4, z: 22, span: 7, speed: 3.3, axis: 'x' }));
-  enemies.push(enemy('patrol', { x: 3.4, z: 46, span: 8, speed: 3.7, axis: 'x' }));
-  enemies.push(enemy('turret', { x: -6.0, z: 66, period: 2.1 }));
+  enemies.push(enemy('patrol', { x: -3.4, z: 24, span: 7, speed: 3.3, axis: 'x' }));
+  enemies.push(enemy('patrol', { x: 3.4, z: 68, span: 8, speed: 3.7, axis: 'x' }));
+  enemies.push(enemy('turret', { x: -6.0, z: 100, period: 2.9 }));
 
   return {
     id: 5, nombre: 'El Entierro de la Sardina',
     tip: '¡Menudo desfile! Esquiva el humo y al jefe Fermín Cascabel: písale la cabeza cuando esté rojo.',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 93 },
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 143 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
-    chase: false, arena: false, bossIntermedio: 'fermin', bossIntermedioZ: 74,
+    chase: false, arena: false, bossIntermedio: 'fermin', bossIntermedioZ: 122,
     bg: 5, colorTecho: 0x120a24, lampIntensity: 1.3
   };
 }
@@ -272,15 +434,34 @@ export function buildLevel6(world, scene, fx) {
   MUNDO2 = 6;
   const rnd = R(9166);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
-  const L = 180;
+  const tramosFirmes = [];
 
-  const segs = [];
-  let z = 0;
-  while (z < L) { const d = 9 + rnd() * 11; segs.push({ z: z + d / 2, d }); z += d; }
-  segs.forEach((s, i) => floorSeg(world, scene, { z: s.z, d: s.d, w: 17, color: i % 2 ? 0x4a5a35 : 0x3f4f2e }));
+  /* Reparto:
+     A  0-46      huerta de entrada: 2 acequias (agua que frena) y un hueco
+     B  46-89,2   SOLO BLOQUES 1 · los bancales se han hundido: 5 losas
+     C  89,2-140  huerta con acequia y ramas de árbol (ruta alta)
+     D  140-176,4 OBRAS del riego: 2 huecos con plataforma móvil
+     E  176,4-219,6  SOLO BLOQUES 2 · 6 losas + hueco con plataforma
+     F  219,6-248 huerta final con abejas, interruptor (!) y meta */
 
-  // agua/acequias que frenan (zonas marcadas) — con troncos a los lados, el centro libre
-  const acequias = [26, 54, 88, 120, 152];
+  // ---- A: huerta de entrada con una acequia ----
+  const A = calzada(world, scene, { z0: 0, z1: 46, rnd, w: 17, color: 0x3f4f2e, saltos: [
+    { z: 16, w: 1.7 },
+    { z: 34, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.6, speed: 0.9 } }
+  ] });
+  tramosFirmes.push(...A.tramos);
+
+  // ---- B: SOLO BLOQUES 1 · cinco losas ----
+  const B = islas(world, scene, { z0: 46, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0x8b6b3a });
+  B.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
+  });
+
+  // ---- C: huerta con acequias (agua que frena) y ramas ----
+  const C = calzada(world, scene, { z0: B.fin, z1: B.fin + 51, rnd, w: 17, color: 0x4a5a35 });
+  tramosFirmes.push(...C.tramos);
+  const acequias = [B.fin + 12, B.fin + 28, B.fin + 42];
   acequias.forEach((az, i) => {
     const agua = new THREE.Mesh(new THREE.BoxGeometry(15, 0.1, 3.4), new THREE.MeshToonMaterial({ color: 0x3d6f8e, transparent: true, opacity: 0.8 }));
     agua.position.set(0, 0.04, az);
@@ -290,14 +471,42 @@ export function buildLevel6(world, scene, fx) {
     for (const k of [-1, 1]) {
       solid(world, scene, { x: k * 5.2, y: 0, z: az, w: 3.4, h: 0.55, d: 4.2, color: 0x8b6b3a, tag: 'tabla' });
     }
-    if (i % 2 === 0) crates.push(buildCrate(world, scene, { x: 1.8, y: 0.6, z: az + 1.2, type: 'bounce' }));
+    if (i === 0) crates.push(buildCrate(world, scene, { x: 1.8, y: 0.6, z: az + 1.2, type: 'bounce' }));
   });
 
-  // árboles de huerta (con plataformas en las ramas)
-  for (let i = 0; i < 24; i++) {
+  // ---- D: obras del riego (huecos con plataformas móviles) ----
+  const D = calzada(world, scene, { z0: C.fin, z1: C.fin + 36, rnd, w: 17, color: 0x3f4f2e, saltos: [
+    { z: C.fin + 14, w: 3.4, plataforma: { y: 0.55, w: 4.6, amp: 0.45, speed: 1.5 } },
+    { z: C.fin + 27, w: 1.7 }
+  ] });
+  tramosFirmes.push(...D.tramos);
+
+  // ---- E: SOLO BLOQUES 2 · seis losas + hueco ----
+  const E1 = islas(world, scene, { z0: D.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0x8b6b3a });
+  E1.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
+    if (i === 4) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'bounce' }));
+  });
+  const E2 = calzada(world, scene, { z0: E1.fin, z1: E1.fin + 25, rnd, w: 17, color: 0x4a5a35, saltos: [
+    { z: E1.fin + 13, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.6, speed: 1.0 } }
+  ] });
+  tramosFirmes.push(...E2.tramos);
+
+  // ---- F: huerta final ----
+  const F = calzada(world, scene, { z0: E2.fin, z1: 256, rnd, w: 17, color: 0x3f4f2e });
+  tramosFirmes.push(...F.tramos);
+  const L = 256;
+
+  // árboles de huerta (con plataformas en las ramas) — sobre suelo firme
+  for (let i = 0; i < 32; i++) {
     const x = (i % 2 ? 1 : -1) * (5.4 + rnd() * 2.2);
     const z = 12 + i * 7;
     if (z > L - 8) break;
+    // los árboles solo donde hay suelo firme (no flotan sobre los agujeros)
+    let firme = false;
+    for (const [a, b] of tramosFirmes) if (z > a + 1 && z < b - 1) { firme = true; break; }
+    if (!firme) continue;
     const t = makeTree({ scale: 1.1 + rnd() * 0.5 });
     t.position.set(x, 0, z);
     scene.add(t); deco.push(t);
@@ -306,15 +515,20 @@ export function buildLevel6(world, scene, fx) {
       notes.push(buildNote(world, scene, { x: x * 0.75, y: 4.1, z: z }));
     }
   }
+  // ruta ALTA de premio (escalera sobre firme) — se ancla a un z conocido
+  const esc = escalera(world, scene, { x: -4.2, z: E2.fin + 2, alturas: [0.8, 1.6, 2.4] });
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z + 3.2 }));
+  crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
+
   // hortalizas decorativas + planter
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 20; i++) {
     const p = makePlanter();
-    p.position.set(-6 + rnd() * 12, 0, 18 + i * 9);
+    p.position.set(-6 + rnd() * 12, 0, 18 + i * 11);
     p.scale.setScalar(0.7 + rnd() * 0.5);
     scene.add(p); deco.push(p);
   }
   // espantapájaros
-  for (const sz of [40, 100, 150]) {
+  for (const sz of [58, 118, 176, 232]) {
     const palo = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), toonMat(0x6b4a2a));
     palo.position.set((sz % 2 ? 1 : -1) * 5.0, 1.3, sz);
     const brazos = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.12), toonMat(0x6b4a2a));
@@ -326,21 +540,23 @@ export function buildLevel6(world, scene, fx) {
     scene.add(palo, brazos, cabeza, sombrero);
   }
 
-  // ABEJAS: enemigo nuevo que vuela en zigzag (menos y más lentas)
-  for (const bz of [34, 74, 116]) {
+  // ABEJAS: vuelan en zigzag (sobre suelo firme)
+  for (const bz of [30, 76, 130, 210]) {
     enemies.push(enemy('bee', { x: -2.5 + (bz % 5), z: bz, span: 3.6, speed: 2.0, height: 2.6 }));
   }
-  enemies.push(enemy('patrol', { x: 0, z: 44, span: 9, speed: 3.2, axis: 'z' }));
-  enemies.push(enemy('turret', { x: 6.4, z: 132, period: 3.4 }));
+  enemies.push(enemy('patrol', { x: 0, z: 100, span: 7, speed: 3.0, axis: 'z' }));
+  enemies.push(enemy('turret', { x: 6.4, z: 190, period: 3.4 }));
 
-  // cajas
+  // cajas (grupos espaciados)
   const clusters = [
-    { z: 22, kind: 'line', type: 'normal', n: 5 },
-    { z: 48, kind: 'pyramid' },
-    { z: 72, kind: 'tnt' },
-    { z: 104, kind: 'mix' },
-    { z: 138, kind: 'bounce' },
-    { z: 166, kind: 'line', type: 'normal', n: 4 }
+    { z: 12, kind: 'line', type: 'normal', n: 5 },
+    { z: 40, kind: 'pyramid' },
+    { z: 64, kind: 'tnt' },
+    { z: 100, kind: 'mix' },
+    { z: 124, kind: 'bounce' },
+    { z: 152, kind: 'line', type: 'normal', n: 4 },
+    { z: 200, kind: 'pyramid' },
+    { z: 244, kind: 'line', type: 'steel', n: 3 }
   ];
   for (const c of clusters) {
     if (c.kind === 'line') for (let i = 0; i < c.n; i++) crates.push(buildCrate(world, scene, { x: -2 + i, z: c.z, type: c.type }));
@@ -363,21 +579,20 @@ export function buildLevel6(world, scene, fx) {
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'steel' }));
     }
   }
-  for (let zi = 14; zi < L - 10; zi += 6) {
-    notes.push(buildNote(world, scene, { x: Math.sin(zi * 0.32) * 4.2, y: 1.0 + Math.abs(Math.cos(zi * 0.21)) * 2.2, z: zi }));
-  }
-  masks.push(buildMask(world, scene, { x: 0, y: 1.3, z: 42 }));
-  masks.push(buildMask(world, scene, { x: -5.2, y: 4.2, z: 96 }));
-  masks.push(buildMask(world, scene, { x: 5.0, y: 1.2, z: 158 }));
 
-  [36, 82, 128].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
-  crates.push(buildCrate(world, scene, { x: 0, z: 172, type: 'switch' }));
-  switches.push({ z: 172, doorZ: 176 });
+  notasEnTramos(notes, world, scene, { tramos: tramosFirmes, paso: 8, fase: 2 });
+  masks.push(buildMask(world, scene, { x: 0, y: 1.3, z: 66 }));
+  masks.push(buildMask(world, scene, { x: -5.2, y: 4.2, z: 148 }));
+  masks.push(buildMask(world, scene, { x: 5.0, y: 1.2, z: 236 }));
+
+  [42, 104, 172, 240].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
+  crates.push(buildCrate(world, scene, { x: 0, z: 248, type: 'switch' }));
+  switches.push({ z: 248, doorZ: 251 });
 
   return {
     id: 6, nombre: 'La Huerta Perdida',
-    tip: 'El agua de las acequias te frena: cruza por los troncos. ¡Y ojo con las abejas!',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 177 },
+    tip: 'El agua de las acequias te frena: cruza por los troncos y salta los bancales hundidos.',
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 253 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: false, arena: false, bg: 6, colorTecho: 0x1c2a1a, lampIntensity: 1.0
   };
@@ -392,20 +607,74 @@ export function buildLevel7(world, scene, fx) {
   MUNDO2 = 7;
   const rnd = R(1207);
   const crates = [], notes = [], masks = [], checkpoints = [], puddles = [], enemies = [], switches = [], deco = [];
-  const L = 168;
+  const tramosFirmes = [];
 
-  // suelo pulido (resbaladizo de verdad: se marca con tag y el juego lo aplica)
-  const segs = [];
-  let z = 0;
-  while (z < L) { const d = 10 + rnd() * 10; segs.push({ z: z + d / 2, d }); z += d; }
-  segs.forEach((s, i) => floorSeg(world, scene, { z: s.z, d: s.d, w: 16, color: i % 2 ? 0x8a7f6a : 0x9c9079, tag: 'pulido' }));
+  /* Reparto:
+     A  0-56      sala pulida: 2 huecos con plataforma que va y viene
+     B  56-100    mesas de juego y lámparas (firme)
+     C  100-142   SOLO BLOQUES 1 · las baldosas se han caído: 5 losas
+     D  142-186   sala con espejos + 2 huecos (uno con plataforma)
+     E  186-203   ruta ALTA de premio (escalera con la máscara arriba)
+     F  203-250,4 SOLO BLOQUES 2 · 6 losas + hueco con plataforma
+     G  250,4-258 recta final: interruptor (!) y meta */
 
-  // columnas y arcos del casino — OPTIMIZADO: antes eran ~70 meshes sueltos
-  // (cada uno = una draw call) y con los 16 espejos transparentes el Casino
-  // iba lento en móvil (queja del usuario: "el mundo 7 me va lento").
-  // Ahora columnas/fustes/capiteles/arcos van en InstancedMesh: 4 draw calls.
+  // ---- A: sala pulida con dos huecos ----
+  const A = calzada(world, scene, { z0: 0, z1: 56, rnd, w: 16, color: 0x9c9079, saltos: [
+    { z: 18, w: 1.7 },
+    { z: 30, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.5, speed: 0.9 } },
+    { z: 46, w: 1.7 }
+  ], tag: 'pulido' });
+  tramosFirmes.push(...A.tramos);
+
+  // ---- B: mesas de juego y lámparas (firme) ----
+  const B = calzada(world, scene, { z0: 56, z1: 100, rnd, w: 16, color: 0x8a7f6a, tag: 'pulido' });
+  tramosFirmes.push(...B.tramos);
+
+  // ---- C: SOLO BLOQUES 1 · cinco losas ----
+  const C = islas(world, scene, { z0: 100, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24, 0], color: 0xd4c6a6 });
+  C.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
+  });
+
+  // ---- D: sala con espejos + huecos ----
+  const D = calzada(world, scene, { z0: C.fin, z1: C.fin + 44, rnd, w: 16, color: 0x9c9079, saltos: [
+    { z: C.fin + 14, w: 3.4, plataforma: { y: 0.55, w: 4.6, amp: 0.45, speed: 1.45 } },
+    { z: C.fin + 26, w: 1.7 },
+    { z: C.fin + 37, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.6, speed: 1.05 } }
+  ], tag: 'pulido' });
+  tramosFirmes.push(...D.tramos);
+
+  // ---- E: ruta ALTA (escalera: la máscara está en la cima) ----
+  const E = calzada(world, scene, { z0: D.fin, z1: D.fin + 17, rnd, w: 16, color: 0x8a7f6a, tag: 'pulido' });
+  tramosFirmes.push(...E.tramos);
+  const esc = escalera(world, scene, { x: -4.2, z: D.fin + 2, w: 3.4, d: 3.2, alturas: [0.8, 1.6, 2.4], color: 0xd4c6a6 });
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z }));
+  notes.push(buildNote(world, scene, { x: esc.x, y: esc.cima + 1.0, z: esc.z + 3.2 }));
+  crates.push(buildCrate(world, scene, { x: esc.x, y: esc.cima, z: esc.z + 6.4, type: 'bounce' }));
+  masks.push(buildMask(world, scene, { x: esc.x, y: esc.cima + 1.3, z: esc.z + 3.2 }));
+
+  // ---- F: SOLO BLOQUES 2 · seis losas + hueco con plataforma ----
+  const F1 = islas(world, scene, { z0: E.fin, n: 6, d: [8.4, 6.6, 6.6, 6.6, 6.6, 7.0], sep: 1.9, w: 4.8, zig: 0.5, tops: [0, 0.24], color: 0xd4c6a6 });
+  F1.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
+    if (i === 4) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'bounce' }));
+  });
+  const F2 = calzada(world, scene, { z0: F1.fin, z1: F1.fin + 28, rnd, w: 16, color: 0x9c9079, saltos: [
+    { z: F1.fin + 14, w: 3.4, plataforma: { axis: 'x', w: 4.6, amp: 1.6, speed: 1.1 } }
+  ], tag: 'pulido' });
+  tramosFirmes.push(...F2.tramos);
+
+  // ---- G: recta final ----
+  const G = calzada(world, scene, { z0: F2.fin, z1: 264, rnd, w: 16, color: 0x8a7f6a, tag: 'pulido' });
+  tramosFirmes.push(...G.tramos);
+  const L = 264;
+
+  // columnas y arcos del casino — en InstancedMesh (4 draw calls: el Casino iba
+  // lento en móvil con ~70 meshes sueltos + espejos transparentes).
   {
-    const nCols = 14;
+    const nCols = 20;
     const colGeo = new THREE.CylinderGeometry(0.42, 0.5, 6.2, 12);
     const capGeo = new THREE.BoxGeometry(1.2, 0.4, 1.2);
     const arcoGeo = new THREE.TorusGeometry(3.3, 0.22, 8, 16, Math.PI);
@@ -415,7 +684,7 @@ export function buildLevel7(world, scene, fx) {
     const dummy = new THREE.Object3D();
     let ci = 0, ai = 0;
     for (let i = 0; i < nCols; i++) {
-      const cz = 8 + i * 11;
+      const cz = 8 + i * 13;
       if (cz > L - 6) break;
       for (const x of [-6.6, 6.6]) {
         dummy.position.set(x, 3.1, cz);
@@ -438,14 +707,14 @@ export function buildLevel7(world, scene, fx) {
     scene.add(colInst, capInst, arcoInst);
     deco.push(colInst, capInst, arcoInst);
   }
-  // lámparas oscilantes (peligro: te dan si te tocan)
-  for (const lz of [26, 52, 80, 108, 134]) {
+  // lámparas oscilantes (peligro: te dan si te tocan) — sobre tramos firmes
+  for (const lz of [26, 62, 88, 162, 214, 246]) {
     enemies.push(enemy('lamp', { x: -4 + (lz % 8), z: lz, period: 2.2, amp: 2.6 }));
   }
   // espejos decorativos: OPACOS (los transparentes obligaban a mezclar y
   // ordenar cada frame; con 10 de ellos el Casino perdía fps)
-  for (let i = 0; i < 8; i++) {
-    const cz = 14 + i * 18;
+  for (let i = 0; i < 12; i++) {
+    const cz = 14 + i * 20;
     if (cz > L - 10) break;
     const espejo = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 4.2), toonMat(0xd6ecf5));
     espejo.position.set(i % 2 ? -7.4 : 7.4, 3.0, cz);
@@ -454,7 +723,8 @@ export function buildLevel7(world, scene, fx) {
   }
 
   // ESPEJOS JUGABLES: plataformas invisibles que se materializan al acercarse
-  const espejos = [20, 44, 68, 94, 118, 144];
+  // (ruta de premio sobre suelo firme: si te caes, no pasa nada)
+  const espejos = [20, 52, 86, 118, 150, 182];
   espejos.forEach((ez, i) => {
     const y = 1.4 + (i % 3) * 0.9;
     const b = floorSeg(world, scene, { z: ez, d: 3.0, w: 4.4, y, color: 0xbfe3ef, tag: 'espejo' });
@@ -466,14 +736,16 @@ export function buildLevel7(world, scene, fx) {
     if (i >= 3) notes.push(buildNote(world, scene, { x: 1.6, y: y + 1.6, z: ez + 1 }));
   });
 
-  // cajas
+  // cajas (grupos espaciados)
   const clusters = [
-    { z: 18, kind: 'line', type: 'normal', n: 4 },
+    { z: 12, kind: 'line', type: 'normal', n: 4 },
     { z: 40, kind: 'pyramid' },
     { z: 66, kind: 'mix' },
-    { z: 92, kind: 'tnt' },
-    { z: 120, kind: 'bounce' },
-    { z: 150, kind: 'line', type: 'steel', n: 3 }
+    { z: 90, kind: 'tnt' },
+    { z: 116, kind: 'bounce' },
+    { z: 138, kind: 'line', type: 'steel', n: 3 },
+    { z: 168, kind: 'pyramid' },
+    { z: 232, kind: 'mix' }
   ];
   for (const c of clusters) {
     if (c.kind === 'line') for (let i = 0; i < c.n; i++) crates.push(buildCrate(world, scene, { x: -1.8 + i, z: c.z, type: c.type }));
@@ -491,26 +763,25 @@ export function buildLevel7(world, scene, fx) {
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'checkpoint' }));
     }
   }
-  for (let zi = 12; zi < L - 10; zi += 5.5) {
-    notes.push(buildNote(world, scene, { x: Math.sin(zi * 0.45) * 4.6, y: 1.0 + Math.abs(Math.sin(zi * 0.3)) * 2.6, z: zi }));
-  }
-  masks.push(buildMask(world, scene, { x: 0, y: 1.3, z: 34 }));
-  masks.push(buildMask(world, scene, { x: -5.4, y: 4.4, z: 88 }));
-  masks.push(buildMask(world, scene, { x: 5.2, y: 1.3, z: 148 }));
 
-  [32, 78, 124].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
-  crates.push(buildCrate(world, scene, { x: 0, z: 158, type: 'switch' }));
-  switches.push({ z: 158, doorZ: 162 });
+  notasEnTramos(notes, world, scene, { tramos: tramosFirmes, paso: 8, fase: 1 });
+  masks.push(buildMask(world, scene, { x: 0, y: 1.3, z: 74 }));
+  masks.push(buildMask(world, scene, { x: 5.2, y: 1.3, z: 220 }));
 
-  enemies.push(enemy('patrol', { x: -3.6, z: 28, span: 6, speed: 3.4, axis: 'x' }));
-  enemies.push(enemy('turret', { x: 6.0, z: 60, period: 2.2 }));
-  enemies.push(enemy('patrol', { x: 3.6, z: 100, span: 8, speed: 3.8, axis: 'x' }));
-  enemies.push(enemy('turret', { x: -6.0, z: 138, period: 2.0 }));
+  [56, 96, 160, 232].forEach((cz) => { crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' })); checkpoints.push({ z: cz }); });
+  crates.push(buildCrate(world, scene, { x: 0, z: 256, type: 'switch' }));
+  switches.push({ z: 256, doorZ: 260 });
+
+  enemies.push(enemy('patrol', { x: -3.6, z: 34, span: 6, speed: 3.4, axis: 'x' }));
+  enemies.push(enemy('turret', { x: 6.0, z: 80, period: 3.2 }));
+  enemies.push(enemy('patrol', { x: 3.6, z: 128, span: 8, speed: 3.8, axis: 'x' }));
+  enemies.push(enemy('turret', { x: -6.0, z: 172, period: 3.0 }));
+  enemies.push(enemy('patrol', { x: 2.8, z: 206, span: 6, speed: 3.6, axis: 'x' }));
 
   return {
     id: 7, nombre: 'El Casino de Murcia',
     tip: 'Suelo pulido: resbala. Los espejos se materializan al acercarte y las lámparas se balancean.',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 164 },
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 259 },
     crates, notes, masks, checkpoints, puddles, enemies, switches,
     chase: false, arena: false, resbalon: true,
     bg: 7, colorTecho: 0x2a2418, lampIntensity: 1.45
