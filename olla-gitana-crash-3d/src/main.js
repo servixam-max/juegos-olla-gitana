@@ -733,8 +733,16 @@ function damagePlayer(reason) {
 
 function useCheckpoint(z) {
   state.checkpoint = { x: 0, y: 0.1, z: z - 3 };
-  hud.toast('✔ Punto de control', 'good');
-  Audio.sfx('checkpoint');
+  // los checkpoints dan vida (+1, máx 6): sin esto el jugador no podía
+  // recuperarse nunca y llegaba a los jefes con 1 vida (queja del usuario)
+  if (state.lives < 6) {
+    state.lives++;
+    hud.setLives(state.lives);
+    hud.toast(`✔ Punto de control · +1 vida (${state.lives})`, 'good');
+    Audio.sfx('heart');
+  } else {
+    hud.toast('✔ Punto de control', 'good');
+  }
 }
 
 function respawnAtCheckpoint() {

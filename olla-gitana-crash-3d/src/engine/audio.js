@@ -244,6 +244,7 @@ export class AudioEngine {
       case 'mask': [784, 988, 1319].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.14, vol: 0.16, delay: i * 0.07 })); break;
       case 'aura': [523, 659, 784, 1046, 1319].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.22, vol: 0.13, delay: i * 0.08 })); break;
       case 'checkpoint': [659, 880, 1319].forEach((f, i) => this.tone({ type: 'sine', f0: f, dur: 0.24, vol: 0.15, delay: i * 0.09 })); break;
+      case 'heart': [523, 784, 1046, 1319].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.17, delay: i * 0.08 })); break;
       case 'tnt': this.tone({ type: 'square', f0: 1600, dur: 0.05, vol: 0.1 }); break;
       case 'boom': this.noise({ dur: 0.6, vol: 0.45, freq: 1400, sweep: 120 }); this.tone({ type: 'sine', f0: 120, f1: 40, dur: 0.5, vol: 0.3 }); break;
       case 'throw': this.noise({ dur: 0.18, vol: 0.16, freq: 700, sweep: 1900, type: 'bandpass' }); break;
