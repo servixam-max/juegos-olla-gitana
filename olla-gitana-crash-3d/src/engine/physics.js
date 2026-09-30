@@ -47,8 +47,26 @@ function collides(b) {
 /* Depenetración: si el actor arranca DENTRO de un sólido (teleport de QA, una
    plataforma que sube, una explosión), lo saca por el lado más cercano. Sin
    esto el resolutor por ejes lo expulsaba al lado CONTRARIO (p. ej. empujar +Z
-   dentro de un muro teletransportaba 6 m hacia atrás, al vacío). */
+   dentro de un muro teletransportaba 6 m hacia atrás, al vacío).
+   Solo se mueve si existe una salida VÁLIDA (que no deje al actor penetrando
+   otro sólido): con huecos más bajos que el jugador (andamios de N2) no había
+   salida y el empuje alterno arriba/abajo hacía temblar al actor. */
 const DEPEN_EPS = 0.015;
+function penetrationDepth(x, y, z, r, h, b) {
+  const mn = b.min, mx = b.max;
+  const ox = Math.min(x + r, mx.x) - Math.max(x - r, mn.x);
+  const oy = Math.min(y + h, mx.y) - Math.max(y, mn.y);
+  const oz = Math.min(z + r, mx.z) - Math.max(z - r, mn.z);
+  if (ox <= 0 || oy <= 0 || oz <= 0) return 0;
+  return Math.min(ox, oy, oz);
+}
+function freeAt(world, x, y, z, r, h) {
+  for (const b of world.boxes) {
+    if (!collides(b)) continue;
+    if (penetrationDepth(x, y, z, r, h, b) > DEPEN_EPS) return false;
+  }
+  return true;
+}
 function depenetrate(actor, world, r, h) {
   for (let pass = 0; pass < 3; pass++) {
     let fixed = false;
@@ -62,36 +80,30 @@ function depenetrate(actor, world, r, h) {
       const penYU = mx.y - p.y;          // subir (pies al tope)
       const penYD = (p.y + h) - mn.y;    // bajar (cabeza al suelo)
       if (penXL <= 0 || penXR <= 0 || penZL <= 0 || penZR <= 0 || penYU <= 0 || penYD <= 0) continue;
-      const ax = Math.min(penXL, penXR), az = Math.min(penZL, penZR), ay = Math.min(penYU, penYD);
-      if (Math.min(ax, az, ay) <= DEPEN_EPS) continue;
-      // candidatos de salida; empate → el que deje suelo debajo (así un muro
-      // te saca a la calle, no al vacío exterior)
+      if (Math.min(Math.min(penXL, penXR), Math.min(penZL, penZR), Math.min(penYU, penYD)) <= DEPEN_EPS) continue;
       const cands = [
-        { axis: 'y', v: mx.y, d: penYU },
-        { axis: 'y', v: mn.y - h, d: penYD },
+        { axis: 'y', v: mx.y, d: penYU },          // subirse encima
+        { axis: 'y', v: mn.y - h, d: penYD },      // descolgarse por debajo
         { axis: 'x', v: mn.x - r, d: penXL },
         { axis: 'x', v: mx.x + r, d: penXR },
         { axis: 'z', v: mn.z - r, d: penZL },
         { axis: 'z', v: mx.z + r, d: penZR }
-      ];
-      cands.sort((a, c) => a.d - c.d);
-      // candidato preferido: el más cercano que deje suelo bajo los pies y no
-      // sea mucho más largo que el mínimo (banda de 0.6 m) → un muro te saca a
-      // la calle y un tranvía que te barre te empuja al lado o te sube encima,
-      // pero nunca te lanza al vacío.
-      const d0 = cands[0].d;
-      let pick = cands[0];
+      ].sort((a, c) => a.d - c.d);
+      const put = (c) => ({ x: c.axis === 'x' ? c.v : p.x, y: c.axis === 'y' ? c.v : p.y, z: c.axis === 'z' ? c.v : p.z });
+      // salida preferida: la más corta que sea válida Y con suelo debajo
+      // (un muro te saca a la calle, no al vacío exterior)
+      let pick = null;
+      const valid = (c) => { const d = put(c); return freeAt(world, d.x, d.y, d.z, r, h); };
       for (const c of cands) {
-        if (c.d > d0 + 0.6) break;
-        const nx = c.axis === 'x' ? c.v : p.x;
-        const ny = c.axis === 'y' ? c.v : p.y;
-        const nz = c.axis === 'z' ? c.v : p.z;
-        const sup = world.groundUnder({ minX: nx - 0.1, maxX: nx + 0.1, minZ: nz - 0.1, maxZ: nz + 0.1, minY: -50, maxY: ny + 0.05 });
+        if (!valid(c)) continue;
+        const d = put(c);
+        const sup = world.groundUnder({ minX: d.x - 0.1, maxX: d.x + 0.1, minZ: d.z - 0.1, maxZ: d.z + 0.1, minY: -50, maxY: d.y + 0.05 });
         if (sup) { pick = c; break; }
       }
-      if (pick.axis === 'x') p.x = pick.v;
-      else if (pick.axis === 'z') p.z = pick.v;
-      else p.y = pick.v;
+      if (!pick) pick = cands.find(valid) || null;   // sin suelo, la primera válida
+      if (!pick) continue;                            // no cabe en ningún sitio: no tocar
+      const d = put(pick);
+      p.x = d.x; p.y = d.y; p.z = d.z;
       fixed = true;
     }
     if (!fixed) break;

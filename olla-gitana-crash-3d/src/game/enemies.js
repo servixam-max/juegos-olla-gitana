@@ -2,6 +2,44 @@
 import * as THREE from 'three';
 import { makeAmp, makeSpeaker, toonMat, PALETA } from './art.js';
 
+/* Textura del anillo de onda (compartida): banda nítida con doble línea y
+   muescas radiales, para que la onda se lea como una onda de sonido. */
+let WAVE_TEX = null;
+function waveTexture() {
+  if (WAVE_TEX) return WAVE_TEX;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  const cx = 128, cy = 128;
+  // El anillo (RingGeometry 0.82→1.0) mapea a UV 0.41→0.5 del centro:
+  // dibujamos la banda en la corona 105→128 px.
+  const grad = g.createRadialGradient(cx, cy, 100, cx, cy, 128);
+  grad.addColorStop(0.00, 'rgba(255,255,255,0)');
+  grad.addColorStop(0.14, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.80, 'rgba(255,255,255,0.85)');
+  grad.addColorStop(1.00, 'rgba(255,255,255,0)');
+  g.beginPath(); g.arc(cx, cy, 128, 0, Math.PI * 2);
+  g.fillStyle = grad; g.fill();
+  // doble línea interior (cresta de la onda)
+  g.beginPath(); g.arc(cx, cy, 116, 0, Math.PI * 2);
+  g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 3; g.stroke();
+  g.beginPath(); g.arc(cx, cy, 108, 0, Math.PI * 2);
+  g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 2; g.stroke();
+  // muescas radiales tipo diapasón
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    g.beginPath();
+    g.moveTo(cx + Math.cos(a) * 104, cy + Math.sin(a) * 104);
+    g.lineTo(cx + Math.cos(a) * 124, cy + Math.sin(a) * 124);
+    g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 4; g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  WAVE_TEX = tex;
+  return tex;
+}
+
 export class EnemySystem {
   constructor({ scene, fx, audio, world }) {
     this.scene = scene;
@@ -225,10 +263,17 @@ export class EnemySystem {
       w.r += w.speed * dt;
       w.life -= dt;
       w.mesh.scale.setScalar(w.r);
-      w.mesh.material.opacity = Math.max(0, 0.75 * (1 - w.r / w.max));
+      w.mesh.material.opacity = Math.max(0, 0.95 * (1 - (w.r / w.max) * 0.6));
       if (w.r > w.max || w.life <= 0) { w.alive = false; this.scene.remove(w.mesh); continue; }
       const dist = Math.hypot(w.x - p.x, w.z - p.z);
-      const ringHit = Math.abs(dist - w.r) < 0.55;
+      // COLISIÓN = BANDA VISIBLE: el anillo dibujado ocupa [0.82·r, 1.0·r].
+      // Antes se usaba |dist - r| < 0.55, que disparaba el golpe ANTES de que
+      // la onda llegara a dibujarse encima del jugador (el "me dieron antes de
+      // saltar" que reportó el usuario). Ahora el golpe cae justo cuando el
+      // frente de onda toca el cuerpo del jugador (radio 0.4) y termina cuando
+      // la banda lo ha rebasado por completo.
+      const inner = w.r * 0.82, outer = w.r, bodyR = 0.4;
+      const ringHit = (dist - bodyR) <= outer && (dist + bodyR) >= inner;
       if (ringHit && !w.hitOnce && p.y < w.y + 1.6) {
         // ¿hay un pilar de por medio?
         if (this.hasCover(w.x, w.z, p.x, p.z, ctx)) continue;
@@ -265,11 +310,15 @@ export class EnemySystem {
   }
 
   spawnWave(e) {
-    const geo = new THREE.RingGeometry(0.85, 1.0, 28);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xff8fa3, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+    const geo = new THREE.RingGeometry(0.82, 1.0, 48);
+    const mat = new THREE.MeshBasicMaterial({
+      map: waveTexture(), color: 0xff8fa3, transparent: true, opacity: 0.9,
+      side: THREE.DoubleSide, depthWrite: false
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(e.obj.position.x, 0.35, e.obj.position.z);
+    mesh.renderOrder = 5;
     this.scene.add(mesh);
     this.waves.push({ x: e.obj.position.x, z: e.obj.position.z, y: 0.35, r: 0.9, max: 16, speed: 7.5, life: 4, mesh, alive: true, hitOnce: false });
     this.audio.sfx('wave');
@@ -277,11 +326,15 @@ export class EnemySystem {
 
   /* el jefe también lanza ondas */
   spawnBossWave(x, z, speed = 6.5, max = 20) {
-    const geo = new THREE.RingGeometry(0.9, 1.15, 32);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xb5179e, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    const geo = new THREE.RingGeometry(0.82, 1.0, 48);
+    const mat = new THREE.MeshBasicMaterial({
+      map: waveTexture(), color: 0xb5179e, transparent: true, opacity: 0.95,
+      side: THREE.DoubleSide, depthWrite: false
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(x, 0.35, z);
+    mesh.renderOrder = 5;
     this.scene.add(mesh);
     this.waves.push({ x, z, y: 0.35, r: 1.0, max, speed, life: 6, mesh, alive: true, hitOnce: false, boss: true });
   }

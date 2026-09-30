@@ -77,23 +77,91 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
   const pup2 = pup.clone();
   pup.position.set(-0.16, 0.68, 0.68); pup2.position.set(0.2, 0.68, 0.68);
   g.add(pup, pup2);
-  // cejas
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.045, 0.05), darkMat);
+  // cejas expresivas (arco + punta) — mucho más "personaje"
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.06, 0.07), darkMat);
   const brow2 = brow.clone();
-  brow.position.set(-0.18, 0.88, 0.58); brow.rotation.z = 0.22;
-  brow2.position.set(0.18, 0.88, 0.58); brow2.rotation.z = -0.22;
+  brow.position.set(-0.175, 0.885, 0.575); brow.rotation.z = 0.30;
+  brow2.position.set(0.175, 0.885, 0.575); brow2.rotation.z = -0.30;
   g.add(brow, brow2);
+  const browTip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.06), darkMat);
+  const browTip2 = browTip.clone();
+  browTip.position.set(-0.275, 0.915, 0.5); browTip.rotation.z = 0.7;
+  browTip2.position.set(0.275, 0.915, 0.5); browTip2.rotation.z = -0.7;
+  g.add(browTip, browTip2);
+  // chispita de luz en cada pupila (mirada viva)
+  const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const shine = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), shineMat);
+  const shine2 = shine.clone();
+  shine.position.set(-0.132, 0.719, 0.741);
+  shine2.position.set(0.172, 0.719, 0.741);
+  g.add(shine, shine2);
+  // mejillas sonrosadas
+  const blushMat = toonMat(0xff8fa5, { emissive: new THREE.Color(0x772233).multiplyScalar(0.35) });
+  const blushL = new THREE.Mesh(new THREE.SphereGeometry(0.095, 10, 8), blushMat);
+  blushL.scale.set(1, 0.8, 0.45); blushL.position.set(-0.33, 0.56, 0.5); blushL.rotation.y = -0.52;
+  const blushR = blushL.clone();
+  blushR.position.set(0.33, 0.56, 0.5); blushR.rotation.y = 0.52;
+  g.add(blushL, blushR);
   // bigote rumbero
   if (band) {
     const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.06), darkMat);
     const m2 = m1.clone();
     m1.position.set(-0.1, 0.5, 0.62); m1.rotation.z = 0.18;
     m2.position.set(0.1, 0.5, 0.62); m2.rotation.z = -0.18;
-    g.add(m1, m2);
-    // pañuelo de la banda
-    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 18), toonMat(PALETA.rojoOsc));
+    // puntas del bigote: le dan el gesto rumbero
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 6), darkMat);
+    tip.position.set(-0.22, 0.53, 0.6); tip.rotation.z = 1.05;
+    const tip2 = tip.clone();
+    tip2.position.set(0.22, 0.53, 0.6); tip2.rotation.z = -1.05;
+    g.add(m1, m2, tip, tip2);
+    // pañuelo de la banda: doble vuelta, lunares y nudo al costado
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.062, 6, 18), toonMat(PALETA.rojoOsc));
     scarf.rotation.x = Math.PI / 2; scarf.position.y = 0.2;
     g.add(scarf);
+    const scarf2 = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.045, 6, 18), toonMat(PALETA.crema));
+    scarf2.rotation.x = Math.PI / 2; scarf2.position.y = 0.115;
+    g.add(scarf2);
+    // lunares del pañuelo
+    const dotMat = toonMat(PALETA.crema);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const d = new THREE.Mesh(new THREE.SphereGeometry(0.036, 6, 6), dotMat);
+      d.position.set(Math.sin(a) * 0.42, 0.2, Math.cos(a) * 0.42);
+      g.add(d);
+    }
+    // nudo lateral + colas al viento
+    const knot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.1), toonMat(PALETA.rojo));
+    knot.position.set(-0.42, 0.2, 0.06); knot.rotation.z = 0.4;
+    const tailA = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.05), toonMat(PALETA.rojo));
+    tailA.position.set(-0.5, 0.08, 0.12); tailA.rotation.z = 0.55;
+    const tailB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), toonMat(PALETA.rojoOsc));
+    tailB.position.set(-0.52, 0.13, -0.02); tailB.rotation.z = 0.95;
+    g.add(knot, tailA, tailB);
+    // botones de la banda (como una chaquetilla): 3 dorados en el pecho
+    const btnMat = new THREE.MeshBasicMaterial({ color: PALETA.dorado });
+    const btnRing = toonMat(PALETA.maderaOsc);
+    for (let i = 0; i < 3; i++) {
+      const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.035, 10), btnMat);
+      btn.rotation.x = Math.PI / 2;
+      btn.position.set(0, 0.44 - i * 0.13, 0.62 + i * 0.012);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.014, 6, 12), btnRing);
+      ring.position.set(0, 0.44 - i * 0.13, 0.625 + i * 0.012);
+      g.add(btn, ring);
+    }
+  }
+  // sombrero murciano (solo el jugador, no la banda con guitarra que ya va cargada)
+  if (band && !guitar) {
+    const hatMat = toonMat(PALETA.negro);
+    const hatBand = toonMat(PALETA.rojoOsc);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.56, 0.06, 16), hatMat);
+    brim.position.y = 1.06;
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.4, 0.3, 14), hatMat);
+    crown.position.y = 1.22;
+    const crownBand = new THREE.Mesh(new THREE.TorusGeometry(0.365, 0.045, 6, 16), hatBand);
+    crownBand.rotation.x = Math.PI / 2; crownBand.position.y = 1.16;
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.33, 0.05, 14), toonMat(PALETA.dorado));
+    top.position.y = 1.38;
+    g.add(brim, crown, crownBand, top);
   }
   // brazos
   const armMat = toonMat(color);
@@ -472,28 +540,105 @@ export function makeStage({ w = 12, d = 6, h = 1.1 } = {}) {
    ========================================================= */
 export function makeBoss() {
   const g = new THREE.Group();
+
+  // ---- torso: torre de altavoces apilados ----
   const torso = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 1.5), toonMat(0x2b2b2b));
   torso.position.y = 2.1;
   g.add(torso);
-  // cono altavoz pecho
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.78, 0.3, 18), toonMat(0x1b1b1b));
-  cone.rotation.x = Math.PI / 2; cone.position.set(0, 2.2, 0.8);
-  const coneRing = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.09, 8, 20), toonMat(PALETA.dorado));
-  coneRing.position.set(0, 2.2, 0.8);
-  g.add(cone, coneRing);
-  // cabeza = pantalla con cara
+  // carcasa lateral (madera oscura) + listones de refuerzo
+  const woodMat = toonMat(0x1c1410);
+  for (const s of [-1, 1]) {
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 1.5), woodMat);
+    side.position.set(s * 1.14, 2.1, 0);
+    g.add(side);
+  }
+  const braceMat = toonMat(0x4a4a4a);
+  for (const y of [1.15, 3.05]) {
+    const brace = new THREE.Mesh(new THREE.BoxGeometry(2.26, 0.12, 1.56), braceMat);
+    brace.position.set(0, y, 0);
+    g.add(brace);
+  }
+  // ---- altavoces apilados del pecho (clúster con borde plateado) ----
+  const coneMat = toonMat(0x111111);
+  const edgeMat = toonMat(0xd9dde2);
+  const mkSpeakerUnit = (x, y, r, z = 0.8) => {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.82, r, 0.3, 18), coneMat);
+    c.rotation.x = Math.PI / 2; c.position.set(x, y, z);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.09, 8, 20), toonMat(PALETA.dorado));
+    ring.position.set(x, y, z);
+    const inner = new THREE.Mesh(new THREE.TorusGeometry(r * 0.72, 0.05, 8, 20), edgeMat);
+    inner.position.set(x, y, z + 0.07);
+    const dust = new THREE.Mesh(new THREE.SphereGeometry(r * 0.26, 12, 10), toonMat(0x232323));
+    dust.position.set(x, y, z + 0.1);
+    g.add(c, ring, inner, dust);
+  };
+  mkSpeakerUnit(0, 2.2, 0.78);                 // el grande, en su sitio original
+  mkSpeakerUnit(0, 3.12, 0.2, 0.72);           // tweeter arriba
+  mkSpeakerUnit(0, 1.28, 0.2, 0.72);           // mid abajo
+  for (const sx of [-1, 1]) {                  // 4 satélites alrededor del grande
+    mkSpeakerUnit(sx * 0.8, 1.7, 0.22, 0.72);
+    mkSpeakerUnit(sx * 0.8, 2.7, 0.22, 0.72);
+  }
+  // esquinas frontales atornilladas (detalle de mueble)
+  const screwMat = toonMat(PALETA.metal);
+  for (const sx of [-1, 1]) for (const sy of [0.98, 3.22]) {
+    const screw = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), screwMat);
+    screw.position.set(sx * 1.04, sy, 0.79);
+    g.add(screw);
+  }
+
+  // ---- cabeza: pantalla con cara (ceño furioso) ----
   const head = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.1, 1.2), toonMat(0x353535));
   head.position.y = 4.0;
   g.add(head);
+  // marco de la pantalla + antena
+  const frameMat = toonMat(0x141414);
+  for (const s of [-1, 1]) {
+    const pil = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.24), frameMat);
+    pil.position.set(s * 0.78, 4.0, 0); g.add(pil);
+  }
+  const browBar = new THREE.Mesh(new THREE.BoxGeometry(1.54, 0.1, 1.24), frameMat);
+  browBar.position.set(0, 4.58, 0); g.add(browBar);
+  const chinBar = new THREE.Mesh(new THREE.BoxGeometry(1.54, 0.1, 1.24), frameMat);
+  chinBar.position.set(0, 3.42, 0); g.add(chinBar);
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.8, 6), toonMat(0x6b6b6b));
+  antenna.position.set(-0.55, 4.95, 0); g.add(antenna);
+  const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshBasicMaterial({ color: PALETA.rojo }));
+  antennaTip.position.set(-0.55, 5.37, 0); g.add(antennaTip);
+
+  // cara: ojos (con pupila que sigue mirando al frente) + cejas enojadas
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2e2e });
   const eyeL = new THREE.Mesh(new THREE.CircleGeometry(0.19, 14), eyeMat);
   const eyeR = eyeL.clone();
   eyeL.position.set(-0.34, 4.14, 0.62); eyeR.position.set(0.34, 4.14, 0.62);
   g.add(eyeL, eyeR);
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.16, 0.08), toonMat(0xffbe0b));
+  const angMat = new THREE.MeshBasicMaterial({ color: 0x7a0c0c });
+  const browL = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.07, 0.04), angMat);
+  const browR = browL.clone();
+  browL.position.set(-0.34, 4.36, 0.62); browL.rotation.z = -0.42;   // ceño: las puntas caen hacia la nariz
+  browR.position.set(0.34, 4.36, 0.62); browR.rotation.z = 0.42;
+  g.add(browL, browR);
+  // boca: rejilla de ampli (líneas verticales) en vez del bloque liso
+  const mouthMat = toonMat(0xffbe0b);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.16, 0.08), mouthMat);
   mouth.position.set(0, 3.72, 0.62);
   g.add(mouth);
-  // brazos con altavoces
+  for (let i = 0; i < 6; i++) {
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), toonMat(0x2b2b2b));
+    tooth.position.set(-0.3 + i * 0.12, 3.72, 0.65);
+    g.add(tooth);
+  }
+  // ---- ojo LED central: brilla en el centro del altavoz grande y parpadea ----
+  const ledEyeMat = new THREE.MeshBasicMaterial({ color: 0x4cc9f0 });
+  const ledEye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), ledEyeMat);
+  ledEye.position.set(0, 2.2, 0.95);
+  ledEye.scale.set(1, 1, 0.5);
+  g.add(ledEye);
+  const ledEyeRing = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.05, 6, 18), toonMat(0x0d0d0d));
+  ledEyeRing.position.set(0, 2.2, 0.97);
+  g.add(ledEyeRing);
+
+  // ---- brazos con altavoces ----
   const armMat = toonMat(0x3a3a3a);
   const mkArm = (side) => {
     const arm = new THREE.Group();
@@ -508,7 +653,26 @@ export function makeBoss() {
   };
   const armL = mkArm(-1), armR = mkArm(1);
   g.add(armL, armR);
-  // piernas
+
+  // ---- cables entre altavoces (serpentean por la torre) ----
+  const cableMat = toonMat(0x101010);
+  const mkCable = (pts, r = 0.05) => {
+    const curve = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
+    return new THREE.Mesh(new THREE.TubeGeometry(curve, 16, r, 6, false), cableMat);
+  };
+  g.add(mkCable([[1.12, 3.4, 0.55], [1.35, 2.8, 0.8], [1.1, 2.2, 1.0], [1.25, 1.5, 0.6], [1.1, 0.9, 0.2]]));
+  g.add(mkCable([[-1.12, 3.5, 0.5], [-1.4, 3.0, 0.9], [-1.15, 2.4, 1.05], [-1.3, 1.8, 0.5]]));
+  g.add(mkCable([[-0.9, 4.45, -0.55], [-1.2, 4.1, -0.85], [-0.6, 3.7, -0.9], [0.2, 3.4, -0.7]]));
+  // clavijas de conexión
+  const plugMat = toonMat(0xff70a6);
+  for (let i = 0; i < 3; i++) {
+    const plug = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 8), plugMat);
+    plug.rotation.z = Math.PI / 2;
+    plug.position.set(-1.05, 3.3 - i * 0.22, 0.62);
+    g.add(plug);
+  }
+
+  // ---- piernas ----
   const legMat = toonMat(0x1f1f1f);
   for (const s of [-1, 1]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 1.1, 10), legMat);
@@ -517,6 +681,17 @@ export function makeBoss() {
     foot.position.set(s * 0.6, 0.11, 0.1);
     g.add(leg, foot);
   }
-  g.userData = { armL, armR, torso, head };
+
+  // ---- parpadeo del ojo LED (solo visual, no toca update()) ----
+  const blink = () => {
+    const cyc = performance.now() * 0.001 % 4.2;
+    const off = cyc < 0.16;
+    ledEye.scale.y = off ? 0.06 : 0.4 + Math.sin(performance.now() * 0.004) * 0.06;
+    ledEyeMat.color.setHex(off ? 0x123a4a : (Math.floor(performance.now() * 0.004) % 2 ? 0x4cc9f0 : 0x2aa8d8));
+    ledEyeRing.rotation.z += 0.001;
+  };
+  ledEye.onBeforeRender = blink;
+
+  g.userData = { armL, armR, torso, head, ledEye, browL, browR, antennaTip };
   return g;
 }

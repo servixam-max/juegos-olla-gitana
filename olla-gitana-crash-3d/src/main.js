@@ -131,7 +131,10 @@ function cineTitle(on, l1 = '', l2 = '') {
 }
 
 /* Reproduce una cutscene de diálogo sencilla (sin cámara especial):
-   se usa al ganar un nivel y al entrar en un jefe. */
+   se usa al ganar un nivel y al entrar en un jefe.
+   IMPORTANTE: hud.show(false) oculta HUD **y controles táctiles**; hay que
+   restaurarlos SIEMPRE al acabar (si no, el jugador se queda sin mandos y
+   parece que el juego está pillado — bug reportado por el usuario). */
 function playCutscene(lineas, { onEnd = null, speaker = null, camara = 'cajaFija', dur = null } = {}) {
   if (!lineas || !lineas.length) { if (onEnd) onEnd(); return; }
   const durTotal = dur || Math.max(4.5, lineas.reduce((a, l) => a + (l.t.length / 21 + (l.hold || 1.4) + 0.35), 0));
@@ -139,7 +142,18 @@ function playCutscene(lineas, { onEnd = null, speaker = null, camara = 'cajaFija
   hud.show(false);
   dialog.speaker = speaker;
   const planos = [{ camara, t: durTotal, dialogos: lineas }];
-  director.start(planos, { cutscene: true, onEnd: () => { dialog.speaker = null; if (onEnd) onEnd(); } });
+  director.start(planos, {
+    cutscene: true,
+    onEnd: () => {
+      dialog.speaker = null;
+      // restaurar mandos si seguimos en partida (no en menú/fin de nivel)
+      if (state.mode !== 'end' && state.mode !== 'over' && state.mode !== 'menu') {
+        state.mode = 'play';
+        hud.show(true);
+      }
+      if (onEnd) onEnd();
+    }
+  });
 }
 
 function showCineTitle(l1, l2, dur = 2.6) {
