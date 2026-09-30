@@ -1648,6 +1648,7 @@ window.__qa = {
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,
     jumps: player.jumps, invuln: +player.invulnT.toFixed(2), aura: player.aura, shield: player.shield,
+    slideT: +player.slideT.toFixed(2), spinT: +player.spinT.toFixed(2), grounded: player.grounded,
     cajas: crates.items.filter((c) => !c.dead).length, tnts: crates.tnts.length,
     enemigos: enemies.list.filter((e) => e.alive).length,
     cajas_moviles: world.boxes.filter((b) => b.moving).length,
