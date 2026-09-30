@@ -30,25 +30,26 @@ canvas#game { display: block; width: 100%; height: 100%; }
 }
 .hudTop { display: flex; align-items: center; gap: 8px; }
 #chipsRow {
-  display: flex; flex: 1; min-width: 0; gap: 6px;
+  display: flex; flex: 1; min-width: 0; gap: 5px;
   flex-wrap: wrap; justify-content: flex-start;
+  row-gap: 5px;
 }
 #chipsRow > .chip { flex: 0 0 auto; }
 .chip {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 4px;
   background: rgba(20, 10, 30, .72);
   border: 2px solid rgba(255, 190, 11, .55);
-  border-radius: 999px; padding: 4px 9px;
+  border-radius: 999px; padding: 4px 6px;
   font-family: 'Luckiest Guy', 'Nunito', sans-serif;
-  font-size: clamp(12.5px, 3.7vw, 16px); letter-spacing: .5px; line-height: 1;
+  font-size: clamp(12px, 3.5vw, 15.5px); letter-spacing: .3px; line-height: 1;
   text-shadow: 0 2px 0 rgba(0,0,0,.55);
   backdrop-filter: blur(3px);
   white-space: nowrap;
 }
 .chip.dim { opacity: .6; }
 .chip .num { color: var(--dorado); font-size: .92em; }
-#lives { display: inline-flex; gap: 3px; }
-.lifeOlla { width: 20px; height: 16px; display: inline-block; }
+#lives { display: inline-flex; gap: 1px; }
+.lifeOlla { width: 15px; height: 15px; display: inline-block; text-align: center; font-size: 14px; }
 .chip.flash { animation: chipFlash .35s ease; }
 @keyframes chipFlash { 0%{transform:scale(1)} 40%{transform:scale(1.22)} 100%{transform:scale(1)} }
 #comboChip { border-color: #c77dff; }
@@ -84,18 +85,18 @@ canvas#game { display: block; width: 100%; height: 100%; }
 }
 #pauseBtn:active { transform: scale(.94); }
 
-/* pista de nivel: pastilla aparte, pegada al borde inferior, no se mezcla con los botones */
+/* pista de nivel: pastilla sutil bajo los chips, no tapa ni los botones ni la acción */
 .chip.hint {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  max-width: 94vw; text-align: center;
+  margin-top: 7px; align-self: flex-start;
+  max-width: 92vw; text-align: left;
   font-size: clamp(11px, 3.2vw, 13.5px);
-  opacity: .78; letter-spacing: .3px;
+  opacity: .72; letter-spacing: .3px;
+  white-space: normal;
 }
 
 /* avisos flotantes */
 #toasts {
-  position: absolute; top: 16%; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 21%; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; gap: 7px; align-items: center;
   pointer-events: none; width: max-content; max-width: 92vw;
 }
@@ -113,6 +114,7 @@ canvas#game { display: block; width: 100%; height: 100%; }
   animation: toastIn .28s cubic-bezier(.2,.9,.3,1.4), toastOut .4s ease 1.75s forwards;
 }
 .toast .tIco { font-size: 1.15em; line-height: 1; filter: drop-shadow(0 2px 2px #0008); }
+.toast .tTxt { min-width: 0; }
 .toast.good { border-color: #38b000; }
 .toast.bad { border-color: #ff5d5d; }
 .toast.record {
@@ -244,12 +246,23 @@ button.btn.wide { flex: 1 1 46%; min-width: 190px; }
 .tag.done { border-color: #38b000; color: #b7f399; }
 .tag.gold { border-color: #ffbe0b; color: #ffe08a; }
 
-/* etiquetas de dificultad: un color por tag */
+/* etiquetas de dificultad: un color por tag
+   (las tarjetas se generan en main.js — intacto — así que el color se mapea por
+   orden de nivel, que es estático: 1 fácil · 2 normal · 3 difícil · 4 normal ·
+   5 jefe · 6 difícil · 7 muy difícil · 8 jefe final) */
 .tag.dif-easy   { border-color: #38b000; color: #c8f7a0; background: rgba(56, 176, 0, .16); }
 .tag.dif-normal { border-color: #4cc9f0; color: #bde9ff; background: rgba(76, 201, 240, .16); }
 .tag.dif-hard   { border-color: #ff8800; color: #ffd9a8; background: rgba(255, 136, 0, .18); }
 .tag.dif-extreme{ border-color: #ff4d4d; color: #ffc2c2; background: rgba(255, 77, 77, .18); }
 .tag.dif-boss   { border-color: #c77dff; color: #e8ccff; background: rgba(157, 78, 221, .22); }
+#levelGrid .lvCard:nth-child(1) .meta .tag:first-child { border-color: #38b000; color: #c8f7a0; background: rgba(56, 176, 0, .16); }
+#levelGrid .lvCard:nth-child(2) .meta .tag:first-child,
+#levelGrid .lvCard:nth-child(4) .meta .tag:first-child { border-color: #4cc9f0; color: #bde9ff; background: rgba(76, 201, 240, .16); }
+#levelGrid .lvCard:nth-child(3) .meta .tag:first-child,
+#levelGrid .lvCard:nth-child(6) .meta .tag:first-child { border-color: #ff8800; color: #ffd9a8; background: rgba(255, 136, 0, .18); }
+#levelGrid .lvCard:nth-child(7) .meta .tag:first-child { border-color: #ff4d4d; color: #ffc2c2; background: rgba(255, 77, 77, .18); }
+#levelGrid .lvCard:nth-child(5) .meta .tag:first-child,
+#levelGrid .lvCard:nth-child(8) .meta .tag:first-child { border-color: #c77dff; color: #e8ccff; background: rgba(157, 78, 221, .22); }
 
 /* controles info */
 .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px 14px; margin-top: 8px; font-size: 14px; }
@@ -287,16 +300,28 @@ label.sw { display: inline-flex; align-items: center; gap: 6px; font-size: 14px;
 /* victoria: borde dorado animado + confeti detrás (el confeti ya lo lanza el juego) */
 #endPanel .panel {
   position: relative; z-index: 1;
-  border-color: #ffd75e;
-  box-shadow: 0 18px 60px rgba(0,0,0,.6), 0 0 34px rgba(255, 190, 11, .38);
+  border-color: rgba(255, 190, 11, .8);
+  animation: panelIn .32s cubic-bezier(.2,.9,.3,1.3), goldGlow 2.6s ease-in-out .35s infinite;
 }
-#endPanel .panel::before {
-  content: ''; position: absolute; inset: -4px; border-radius: 24px; z-index: -1;
-  background: linear-gradient(120deg, #ffbe0b, #fff3c4, #e67e00, #ffbe0b);
-  background-size: 300% 300%;
-  animation: goldFlow 3.4s linear infinite;
+@keyframes goldGlow {
+  0%, 100% { border-color: rgba(255, 190, 11, .65); box-shadow: 0 18px 60px rgba(0,0,0,.6), 0 0 14px rgba(255,190,11,.25); }
+  50%      { border-color: #ffe9a8; box-shadow: 0 18px 60px rgba(0,0,0,.6), 0 0 42px rgba(255,190,11,.8); }
 }
-@keyframes goldFlow { 0% { background-position: 0% 50% } 100% { background-position: 300% 50% } }
+/* anillo interior dorado que fluye (solo donde haya soporte de máscaras) */
+@supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  #endPanel .panel::after {
+    content: ''; position: absolute; inset: 0; border-radius: 17px; padding: 3px;
+    background: linear-gradient(115deg, #8a5a00, #ffd75e, #fff6d8, #ffbe0b, #8a5a00);
+    background-size: 280% 280%;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: goldFlow 2.8s linear infinite;
+    pointer-events: none;
+  }
+}
+@keyframes goldFlow { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
 
 /* derrota: borde menos alegre, sin dorado animado */
 #overPanel .panel { border-color: rgba(230, 57, 70, .7); }
@@ -338,11 +363,32 @@ label.sw { display: inline-flex; align-items: center; gap: 6px; font-size: 14px;
   color: #12081f; background: var(--dorado); border-radius: 8px; padding: 3px 7px;
   box-shadow: 0 2px 0 #7a3c00; margin-top: 1px;
 }
-#loadPanel .advice .advStack { font-size: 12.5px; opacity: .9; line-height: 1.4; }
-#loadPanel .advice .advStack > div { display: none; }
-#loadPanel .advice .advStack > div.on { display: block; animation: advIn .45s ease; }
-@keyframes advIn { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
+#loadPanel .advice .advStack {
+  position: relative; flex: 1; min-height: 52px;
+  font-size: 12.5px; opacity: .92; line-height: 1.4;
+}
+/* los consejos rotan solos (solo CSS): cada uno brilla ~4 s de un ciclo de 18 s */
+#loadPanel .advice .advStack > div {
+  position: absolute; inset: 0; opacity: 0;
+  animation: advRot 18s ease-in-out infinite;
+}
+#loadPanel .advice .advStack > div:nth-child(1) { animation-delay: .25s; }
+#loadPanel .advice .advStack > div:nth-child(2) { animation-delay: 4.75s; }
+#loadPanel .advice .advStack > div:nth-child(3) { animation-delay: 9.25s; }
+#loadPanel .advice .advStack > div:nth-child(4) { animation-delay: 13.75s; }
+@keyframes advRot {
+  0%        { opacity: 0; transform: translateY(6px); }
+  3%, 21%   { opacity: 1; transform: none; }
+  24%, 100% { opacity: 0; transform: translateY(-4px); }
+}
 #loadPanel .advice b { color: var(--dorado); }
+
+/* apaisado estrecho (móvil girado): chips compactos para no invadir el juego */
+@media (orientation: landscape) and (max-height: 480px) {
+  .chip { font-size: 12.5px; padding: 3px 7px; }
+  #chipsRow { gap: 5px; }
+  .chip.hint { display: none; }
+}
 
 /* joystick del menú no: solo juego */
 .hidden { display: none !important; }

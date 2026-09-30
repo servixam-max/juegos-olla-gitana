@@ -1,0 +1,241 @@
+[
+ {
+  "lvl": 0,
+  "id": 1,
+  "mode": "end",
+  "simSec": 28,
+  "vidas": 3,
+  "notas": 2,
+  "dmg": {},
+  "errs": [],
+  "x": -6.62,
+  "z": 148.6,
+  "rep": 0
+ },
+ {
+  "lvl": 0,
+  "id": 1,
+  "mode": "end",
+  "simSec": 28,
+  "vidas": 3,
+  "notas": 2,
+  "dmg": {},
+  "errs": [],
+  "x": -6.62,
+  "z": 148.7,
+  "rep": 1
+ },
+ {
+  "lvl": 1,
+  "id": 2,
+  "mode": "end",
+  "simSec": 28,
+  "vidas": 2,
+  "notas": 8,
+  "dmg": {
+   "blast": 1
+  },
+  "errs": [],
+  "x": -0.29,
+  "z": 157.6,
+  "rep": 0
+ },
+ {
+  "lvl": 1,
+  "id": 2,
+  "mode": "end",
+  "simSec": 28,
+  "vidas": 3,
+  "notas": 11,
+  "dmg": {},
+  "errs": [],
+  "x": 0.03,
+  "z": 157.6,
+  "rep": 1
+ },
+ {
+  "lvl": 2,
+  "id": 3,
+  "mode": "end",
+  "simSec": 32,
+  "vidas": 2,
+  "notas": 13,
+  "dmg": {
+   "blast": 1
+  },
+  "errs": [],
+  "x": -0.47,
+  "z": 201.5,
+  "rep": 0
+ },
+ {
+  "lvl": 2,
+  "id": 3,
+  "mode": "end",
+  "simSec": 32,
+  "vidas": 2,
+  "notas": 13,
+  "dmg": {
+   "blast": 1
+  },
+  "errs": [],
+  "x": -0.47,
+  "z": 201.5,
+  "rep": 1
+ },
+ {
+  "lvl": 3,
+  "id": 4,
+  "mode": "end",
+  "simSec": 26,
+  "vidas": 2,
+  "notas": 13,
+  "dmg": {
+   "enemy": 1
+  },
+  "errs": [],
+  "x": 0.17,
+  "z": 165.4,
+  "rep": 0
+ },
+ {
+  "lvl": 3,
+  "id": 4,
+  "mode": "end",
+  "simSec": 28,
+  "vidas": 1,
+  "notas": 18,
+  "dmg": {
+   "enemy": 1,
+   "blast": 1
+  },
+  "errs": [],
+  "x": 0.03,
+  "z": 165.7,
+  "rep": 1
+ },
+ {
+  "lvl": 4,
+  "id": 5,
+  "mode": "end",
+  "simSec": 36,
+  "vidas": 2,
+  "notas": 5,
+  "dmg": {
+   "enemy": 3,
+   "fermin": 1
+  },
+  "errs": [],
+  "x": 0.24,
+  "z": 85.4,
+  "rep": 0
+ },
+ {
+  "lvl": 4,
+  "id": 5,
+  "mode": "end",
+  "simSec": 34,
+  "vidas": 2,
+  "notas": 5,
+  "dmg": {
+   "enemy": 2,
+   "fermin": 2
+  },
+  "errs": [],
+  "x": -3.62,
+  "z": 78.3,
+  "rep": 1
+ },
+ {
+  "lvl": 5,
+  "id": 6,
+  "mode": "end",
+  "simSec": 30,
+  "vidas": 2,
+  "notas": 11,
+  "dmg": {
+   "blast": 1
+  },
+  "errs": [],
+  "x": -0.69,
+  "z": 173.6,
+  "rep": 0
+ },
+ {
+  "lvl": 5,
+  "id": 6,
+  "mode": "end",
+  "simSec": 30,
+  "vidas": 2,
+  "notas": 12,
+  "dmg": {
+   "blast": 1
+  },
+  "errs": [],
+  "x": -0.65,
+  "z": 173.6,
+  "rep": 1
+ },
+ {
+  "lvl": 6,
+  "id": 7,
+  "mode": "over",
+  "simSec": 24,
+  "vidas": 0,
+  "notas": 12,
+  "dmg": {
+   "enemy": 3
+  },
+  "errs": [],
+  "x": -0.31,
+  "z": 147.8,
+  "rep": 0
+ },
+ {
+  "lvl": 6,
+  "id": 7,
+  "mode": "end",
+  "simSec": 28,
+  "vidas": 2,
+  "notas": 9,
+  "dmg": {
+   "enemy": 1
+  },
+  "errs": [],
+  "x": -0.14,
+  "z": 160.6,
+  "rep": 1
+ },
+ {
+  "lvl": 7,
+  "id": 4,
+  "mode": "end",
+  "simSec": 32,
+  "vidas": 3,
+  "notas": 0,
+  "dmg": {
+   "enemy": 2,
+   "boss": 1
+  },
+  "errs": [],
+  "x": -0.18,
+  "z": -8,
+  "rep": 0
+ },
+ {
+  "lvl": 7,
+  "id": 4,
+  "mode": "end",
+  "simSec": 36,
+  "vidas": 4,
+  "notas": 0,
+  "dmg": {
+   "enemy": 1,
+   "boss": 1
+  },
+  "errs": [],
+  "x": 0.16,
+  "z": -8,
+  "rep": 1
+ }
+]

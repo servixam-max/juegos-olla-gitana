@@ -123,9 +123,20 @@ export class Director {
 
   skip() {
     if (!this.activo) return;
-    // salta al final de la intro (con fundido)
-    this.fade(1, 280);
-    setTimeout(() => { this.finish(); this.fade(0, 380); }, 320);
+    // saltar dispara finish() → onEnd (la intro encadena el título en ese callback),
+    // así que no se llama aquí a cierreConTitulo para no duplicarlo
+    this.finish();
+  }
+
+  /* fundido con el título del juego (cierre de la intro, natural o saltada) */
+  cierreConTitulo(onEnd = null) {
+    this._cierre = true;                        // finish() no debe pisar este fundido
+    this.fade(1, 900);                          // a negro + título
+    setTimeout(() => {
+      this.fade(0, 800);                        // fuera el negro (el título se va solo)
+      this._cierre = false;
+      setTimeout(() => { if (onEnd) onEnd(); }, 700);
+    }, 1500);
   }
 
   finish() {
@@ -135,7 +146,8 @@ export class Director {
     if (this.dialog) this.dialog.abort();
     if (this.onEnd) this.onEnd();
     if (this.skipCb) this.skipCb();
-    this.fade(0, 500);
+    // si el cierre con título está en marcha, NO pisar su fundido
+    if (!this._cierre) this.fade(0, 500);
   }
 
   update(dt, ctx = {}) {

@@ -1,0 +1,797 @@
+[
+ {
+  "level": 4,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 38,
+  "mode": "end",
+  "x": -0.12,
+  "y": 0.64,
+  "z": 82.5,
+  "maxX": -0.12,
+  "vidas": 6,
+  "notas": 6,
+  "cajas": "0/15",
+  "boss": {
+   "hp": 0,
+   "phase": 1,
+   "alive": false,
+   "fermin": true
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0,
+    "y": 0.7,
+    "z": 73.8,
+    "v": 6,
+    "n": 5,
+    "bh": 3
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.1,
+    "y": 0.6,
+    "z": 82.5,
+    "v": 6,
+    "n": 6,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 4,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 32,
+  "mode": "end",
+  "x": -1.38,
+  "y": 3.63,
+  "z": 83.9,
+  "maxX": -1.38,
+  "vidas": 6,
+  "notas": 7,
+  "cajas": "0/15",
+  "boss": {
+   "hp": 0,
+   "phase": 1,
+   "alive": false,
+   "fermin": true
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0,
+    "y": 0.4,
+    "z": 73.8,
+    "v": 6,
+    "n": 4,
+    "bh": 3
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -1.4,
+    "y": 3.6,
+    "z": 83.9,
+    "v": 6,
+    "n": 7,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 4,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 28,
+  "mode": "end",
+  "x": -4.34,
+  "y": 2.68,
+  "z": 75.2,
+  "maxX": -4.34,
+  "vidas": 6,
+  "notas": 5,
+  "cajas": "2/15",
+  "boss": {
+   "hp": 0,
+   "phase": 1,
+   "alive": false,
+   "fermin": true
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0.1,
+    "y": 0.7,
+    "z": 73.8,
+    "v": 6,
+    "n": 5,
+    "bh": 3
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -4.3,
+    "y": 2.7,
+    "z": 75.2,
+    "v": 6,
+    "n": 5,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 4,
+  "god": false,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 28,
+  "mode": "end",
+  "x": -2.52,
+  "y": 0,
+  "z": 82,
+  "maxX": -2.52,
+  "vidas": 2,
+  "notas": 5,
+  "cajas": "0/15",
+  "boss": {
+   "hp": 0,
+   "phase": 1,
+   "alive": false,
+   "fermin": true
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 4,
+  "damageTail": [
+   {
+    "reason": "enemy",
+    "z": 74.1,
+    "x": 0.1,
+    "y": 1.6
+   },
+   {
+    "reason": "enemy",
+    "z": 74.9,
+    "x": 3.2,
+    "y": 1.6
+   },
+   {
+    "reason": "fermin",
+    "z": 74,
+    "x": -0.3,
+    "y": 2.9
+   }
+  ],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0.1,
+    "y": 0.7,
+    "z": 73.8,
+    "v": 4,
+    "n": 5,
+    "bh": 3
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -2.5,
+    "y": 0,
+    "z": 82,
+    "v": 2,
+    "n": 5,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 5,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 55,
+  "mode": "end",
+  "x": -0.54,
+  "y": 2.97,
+  "z": 173.7,
+  "maxX": -3.24,
+  "vidas": 3,
+  "notas": 10,
+  "cajas": "5/28",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -3.2,
+    "y": 2.7,
+    "z": 115,
+    "v": 3,
+    "n": 6,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.5,
+    "y": 3,
+    "z": 173.7,
+    "v": 3,
+    "n": 10,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 5,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 38,
+  "mode": "end",
+  "x": -0.58,
+  "y": 3.95,
+  "z": 173.5,
+  "maxX": -5.51,
+  "vidas": 3,
+  "notas": 6,
+  "cajas": "6/28",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -5.5,
+    "y": 3.3,
+    "z": 121.9,
+    "v": 3,
+    "n": 3,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.6,
+    "y": 3.9,
+    "z": 173.5,
+    "v": 3,
+    "n": 6,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 5,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 27,
+  "mode": "end",
+  "x": -0.72,
+  "y": 3.44,
+  "z": 173.6,
+  "maxX": -4.77,
+  "vidas": 3,
+  "notas": 9,
+  "cajas": "5/28",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -4.8,
+    "y": 3.8,
+    "z": 123.2,
+    "v": 3,
+    "n": 5,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.7,
+    "y": 3.4,
+    "z": 173.6,
+    "v": 3,
+    "n": 9,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 5,
+  "god": false,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 37,
+  "mode": "end",
+  "x": -0.48,
+  "y": 2.68,
+  "z": 173.6,
+  "maxX": -3.24,
+  "vidas": 2,
+  "notas": 10,
+  "cajas": "6/28",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 1,
+  "damageTail": [
+   {
+    "reason": "blast",
+    "z": 70.7,
+    "x": -0.3,
+    "y": 0
+   }
+  ],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -3.2,
+    "y": 2.7,
+    "z": 115,
+    "v": 2,
+    "n": 6,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.5,
+    "y": 2.7,
+    "z": 173.6,
+    "v": 2,
+    "n": 10,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 6,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 39,
+  "mode": "end",
+  "x": -0.21,
+  "y": 3.63,
+  "z": 160.5,
+  "maxX": -0.72,
+  "vidas": 3,
+  "notas": 14,
+  "cajas": "5/21",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -0.7,
+    "y": 5.9,
+    "z": 122.6,
+    "v": 3,
+    "n": 11,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.2,
+    "y": 3.6,
+    "z": 160.5,
+    "v": 3,
+    "n": 14,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 6,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 31,
+  "mode": "end",
+  "x": 0.56,
+  "y": 2.11,
+  "z": 160.5,
+  "maxX": -0.77,
+  "vidas": 3,
+  "notas": 14,
+  "cajas": "4/21",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -0.8,
+    "y": 5.9,
+    "z": 122.6,
+    "v": 3,
+    "n": 11,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": 0.6,
+    "y": 2.1,
+    "z": 160.5,
+    "v": 3,
+    "n": 14,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 6,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 28,
+  "mode": "end",
+  "x": 0.56,
+  "y": 2.11,
+  "z": 160.7,
+  "maxX": -1.04,
+  "vidas": 3,
+  "notas": 12,
+  "cajas": "5/21",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -1,
+    "y": 6.3,
+    "z": 122.4,
+    "v": 3,
+    "n": 10,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": 0.6,
+    "y": 2.1,
+    "z": 160.7,
+    "v": 3,
+    "n": 12,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 6,
+  "god": false,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 27,
+  "mode": "end",
+  "x": 0.59,
+  "y": 3.26,
+  "z": 160.6,
+  "maxX": 0.59,
+  "vidas": 3,
+  "notas": 13,
+  "cajas": "4/21",
+  "boss": null,
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": -0.4,
+    "y": 5.9,
+    "z": 122.1,
+    "v": 3,
+    "n": 11,
+    "bh": null
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": 0.6,
+    "y": 3.3,
+    "z": 160.6,
+    "v": 3,
+    "n": 13,
+    "bh": null
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 7,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 25,
+  "mode": "end",
+  "x": -0.53,
+  "y": 1.1,
+  "z": -8.1,
+  "maxX": -0.53,
+  "vidas": 6,
+  "notas": 0,
+  "cajas": "0/0",
+  "boss": {
+   "hp": 0,
+   "phase": 3,
+   "alive": false
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "cine",
+    "x": 0.3,
+    "y": 1.4,
+    "z": -8.2,
+    "v": 6,
+    "n": 0,
+    "bh": 1
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.5,
+    "y": 1.1,
+    "z": -8.1,
+    "v": 6,
+    "n": 0,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 7,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 14,
+  "mode": "end",
+  "x": 0.31,
+  "y": 1.53,
+  "z": -8.1,
+  "maxX": 0.31,
+  "vidas": 6,
+  "notas": 0,
+  "cajas": "0/0",
+  "boss": {
+   "hp": 0,
+   "phase": 3,
+   "alive": false
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0,
+    "y": 1.4,
+    "z": -7.9,
+    "v": 6,
+    "n": 0,
+    "bh": 2
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": 0.3,
+    "y": 1.5,
+    "z": -8.1,
+    "v": 6,
+    "n": 0,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 7,
+  "god": true,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 14,
+  "mode": "end",
+  "x": -0.16,
+  "y": 1.53,
+  "z": -8,
+  "maxX": -0.16,
+  "vidas": 6,
+  "notas": 0,
+  "cajas": "0/0",
+  "boss": {
+   "hp": 0,
+   "phase": 3,
+   "alive": false
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 0,
+  "damageTail": [],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0,
+    "y": 1.4,
+    "z": -7.9,
+    "v": 6,
+    "n": 0,
+    "bh": 2
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": -0.2,
+    "y": 1.5,
+    "z": -8,
+    "v": 6,
+    "n": 0,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ },
+ {
+  "level": 7,
+  "god": false,
+  "steps": 1200,
+  "simSec": 40,
+  "wallMs": 14,
+  "mode": "end",
+  "x": 0.16,
+  "y": 1.53,
+  "z": -8,
+  "maxX": 0.16,
+  "vidas": 4,
+  "notas": 0,
+  "cajas": "0/0",
+  "boss": {
+   "hp": 0,
+   "phase": 3,
+   "alive": false
+  },
+  "ferminPending": false,
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "nDamage": 2,
+  "damageTail": [
+   {
+    "reason": "enemy",
+    "z": -5.3,
+    "x": 0,
+    "y": 1.5
+   },
+   {
+    "reason": "boss",
+    "z": -8.2,
+    "x": 0,
+    "y": 0
+   }
+  ],
+  "traceTail": [
+   {
+    "t": 20,
+    "mode": "play",
+    "x": 0,
+    "y": 1.4,
+    "z": -7.9,
+    "v": 5,
+    "n": 0,
+    "bh": 2
+   },
+   {
+    "t": 40,
+    "mode": "end",
+    "x": 0.2,
+    "y": 1.5,
+    "z": -8,
+    "v": 4,
+    "n": 0,
+    "bh": 0
+   }
+  ],
+  "traceLen": 2
+ }
+]

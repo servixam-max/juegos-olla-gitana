@@ -1,0 +1,155 @@
+[
+ {
+  "level": 6,
+  "god": false,
+  "secs": 30,
+  "mode": "end",
+  "endPos": {
+   "x": -5.55,
+   "y": 2.36,
+   "z": 165.5
+  },
+  "maxAbsX": 6.59,
+  "maxAbsY": 3.59,
+  "yMin": 0,
+  "nanSeen": false,
+  "badCount": 6,
+  "bad": [
+   {
+    "i": 754,
+    "t": 25.1,
+    "x": -6.54,
+    "y": 0.81,
+    "z": 162.3,
+    "mode": "play"
+   },
+   {
+    "i": 755,
+    "t": 25.2,
+    "x": -6.58,
+    "y": 0.37,
+    "z": 162.5,
+    "mode": "play"
+   },
+   {
+    "i": 756,
+    "t": 25.2,
+    "x": -6.59,
+    "y": 0,
+    "z": 162.8,
+    "mode": "play"
+   },
+   {
+    "i": 757,
+    "t": 25.2,
+    "x": -6.58,
+    "y": 0.33,
+    "z": 163,
+    "mode": "play"
+   },
+   {
+    "i": 758,
+    "t": 25.3,
+    "x": -6.55,
+    "y": 0.64,
+    "z": 163.2,
+    "mode": "play"
+   },
+   {
+    "i": 759,
+    "t": 25.3,
+    "x": -6.5,
+    "y": 0.91,
+    "z": 163.4,
+    "mode": "play"
+   }
+  ],
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "dmg": [
+   {
+    "reason": "enemy",
+    "z": 64.6,
+    "x": -3.4,
+    "y": 1.7
+   },
+   {
+    "reason": "enemy",
+    "z": 125.7,
+    "x": -6,
+    "y": 1.6
+   }
+  ]
+ },
+ {
+  "level": 6,
+  "god": true,
+  "secs": 30,
+  "mode": "end",
+  "endPos": {
+   "x": -3.32,
+   "y": 2.89,
+   "z": 165.6
+  },
+  "maxAbsX": 6.31,
+  "maxAbsY": 3.67,
+  "yMin": 0,
+  "nanSeen": false,
+  "badCount": 0,
+  "bad": [],
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "dmg": []
+ },
+ {
+  "level": 2,
+  "god": false,
+  "secs": 30,
+  "mode": "play",
+  "endPos": {
+   "x": -1.96,
+   "y": 0.05,
+   "z": 195.7
+  },
+  "maxAbsX": 5.08,
+  "maxAbsY": 3.59,
+  "yMin": 0,
+  "nanSeen": false,
+  "badCount": 0,
+  "bad": [],
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "dmg": [
+   {
+    "reason": "van",
+    "z": 188.1,
+    "x": -3.9,
+    "y": 1.1
+   }
+  ]
+ },
+ {
+  "level": 2,
+  "god": true,
+  "secs": 30,
+  "mode": "play",
+  "endPos": {
+   "x": -1.96,
+   "y": 0.05,
+   "z": 195.7
+  },
+  "maxAbsX": 5.08,
+  "maxAbsY": 3.59,
+  "yMin": 0,
+  "nanSeen": false,
+  "badCount": 0,
+  "bad": [],
+  "errs": [],
+  "cerr": [],
+  "cwarn": [],
+  "dmg": []
+ }
+]

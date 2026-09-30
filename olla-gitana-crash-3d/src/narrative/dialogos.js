@@ -1,6 +1,6 @@
 /* GUION — Olla Gitana 3D: GIRA MUNDIAL
    Todo el texto narrativo del juego (bocadillos, sin voces).
-   Tono: murciano, rumbero y con gracia. Nunca mencionar el servidor. */
+   Tono: murciano, rumbero y con gracia. Solo cosas de Murcia y de la banda. */
 
 export const PERSONAJES = {
   olla: 'La Olla',
@@ -50,7 +50,7 @@ export const INTRO = {
 export const ENTRE_NIVELES = {
   1: [
     { t: '¡Primera nota recuperada! 🎵', tone: 'exito', gap: 0.2 },
-    { t: 'El Cacharro la escondió en el ensayo… y ya no está.', tone: 'radio', gap: 0.2 },
+    { t: 'El Cacharro la escondió entre los altavoces del ensayo.', tone: 'radio', gap: 0.2 },
     { t: 'Quedan seis. ¡Al festi!', tone: 'grito' }
   ],
   2: [
@@ -60,7 +60,7 @@ export const ENTRE_NIVELES = {
   ],
   3: [
     { t: '¡Tercera! Casi me pilla esa furgo. 🚐💨', tone: 'exito', gap: 0.2 },
-    { t: 'Le he oído al Cacharro que va a la Procesión.', tone: 'normal', gap: 0.2 },
+    { t: 'Al Cacharro le he oído: «¡me voy pa la Procesión, con velas y to!».', tone: 'normal', gap: 0.2 },
     { t: '¡Allá que vamos!', tone: 'grito' }
   ],
   4: [
@@ -90,7 +90,7 @@ export const JEFE = {
   entrada: [
     { t: 'Así que tú eres la ollita…', tone: 'radio', hold: 2.0 },
     { t: '¡Aquí no gana nadie sin mi permiso!', tone: 'grito', hold: 2.0 },
-    { t: '¡Aplícate el cuento! ⚡', tone: 'grito', hold: 1.6 }
+    { t: '¡Y menos una olla con patas! ⚡', tone: 'grito', hold: 1.6 }
   ],
   fases: {
     2: [{ t: '¡Te vas a enterar! ¡Fase dos! ⚡⚡', tone: 'grito', hold: 1.4 }],
@@ -117,14 +117,14 @@ export const JEFE_INTERMEDIO = {
 /* ---------- FINAL ---------- */
 export const FINAL = [
   { t: '¡¡LO HEMOS CONSEGUIDO!! 🎉🎸', tone: 'exito', hold: 2.4 },
-  { t: 'Las siete notas vuelven a casa.', tone: 'normal', hold: 2.2 },
+  { t: 'Las siete notas vuelven a casa y el patio se viene abajo. 🎉', tone: 'normal', hold: 2.4 },
   { t: 'La banda toca como nunca. Y tú, en primera fila.', tone: 'normal', hold: 2.4 },
   { t: '¡Que no pare la rumba, zagal! 🥘🔥', tone: 'grito', hold: 2.6 }
 ];
 
 /* ---------- FRASES CORTAS DE JUEGO (toasts hablados) ---------- */
 export const FRASES = {
-  nota: ['¡Esa es!', '¡Toma nota!', '¡Suena bien!', '¡Así se hace!', '¡Otra más!'],
+  nota: ['¡Esa es!', '¡Toma nota!', '¡Suena bien!', '¡Pa la saca!', '¡Otra más!'],
   caja: ['¡Pum!', '¡Crac!', '¡A tomar por… el cajón!', '¡Madera va!'],
   mask: ['¡Máscara!', '¡Rumba pura!'],
   aura: ['¡¡AURA RUMBERA!! 🎸', '¡IMPARABLE!'],

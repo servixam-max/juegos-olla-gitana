@@ -34,7 +34,13 @@ export class Hud {
     this.setPower('aura', 0); this.setPower('ghost', 0); this.setPower('shield', 0);
     this.setPressure(false);
   }
-  setHint(t) { this.el.hint.textContent = t; }
+  setHint(t) {
+    const el = this.el.hint;
+    if (!el) return;
+    const txt = (t || '').trim();
+    el.textContent = txt ? '💡 ' + txt : '';
+    el.classList.toggle('hidden', !txt);
+  }
 
   setLives(n) {
     if (n === this.lastLives) return;
@@ -74,7 +80,7 @@ export class Hud {
     const el = this.el['pw' + kind[0].toUpperCase() + kind.slice(1)];
     if (!el) return;
     el.classList.toggle('hidden', frac <= 0);
-    const bar = el.querySelector('i');
+    const bar = el.querySelector('.track > i') || el.querySelector('i');
     if (bar) bar.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
   }
   setPressure(on) {
@@ -99,9 +105,27 @@ export class Hud {
   toast(text, kind = '') {
     const d = document.createElement('div');
     d.className = 'toast ' + kind;
-    d.textContent = text;
+    const raw = String(text);
+    const PICTO = '(?:\\p{Extended_Pictographic}[\\uFE0F\\u200D\\p{Emoji_Modifier}]*)+';
+    // 1) si el aviso empieza por emoji, ese va al hueco de icono
+    const head = raw.match(new RegExp('^(' + PICTO + ')\\s*', 'u'));
+    // 2) si el emoji está al final, se mueve al hueco de icono (no se duplica)
+    const tail = head ? null : raw.match(new RegExp('\\s*(' + PICTO + ')\\s*$', 'u'));
+    let ico = head ? head[1] : (tail ? tail[1] : '');
+    let rest = head ? raw.slice(head[0].length) : (tail ? raw.slice(0, tail.index) : raw);
+    // 3) sin emoji: uno según el tipo de aviso
+    if (!ico) ico = kind === 'record' ? '🏆' : kind === 'good' ? '✅' : kind === 'bad' ? '💥' : '💬';
+    // pintar siempre el icono en versión emoji (✔ o ⏱ salen apagados sin el FE0F)
+    if (!/\uFE0F/u.test(ico) && !/\p{Emoji_Presentation}/u.test(ico)) ico += '\uFE0F';
+    const i = document.createElement('span');
+    i.className = 'tIco';
+    i.textContent = ico;
+    const s = document.createElement('span');
+    s.className = 'tTxt';
+    s.textContent = rest;
+    d.append(i, s);
     this.el.toasts.appendChild(d);
-    setTimeout(() => d.remove(), 2100);
+    setTimeout(() => d.remove(), 2250);
   }
 
   damage() {
