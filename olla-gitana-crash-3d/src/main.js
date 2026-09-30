@@ -617,35 +617,37 @@ function checkFerminAppear() {  if (!state.ferminPending) return;
 function updateCamera(dt) {
   const lv = state.level;
   const p = player.pos;
+  // pantalla vertical (móvil): cámara más alta y cerca, mira más adelante
+  const portrait = window.innerHeight > window.innerWidth;
   if (lv && lv.arena) {
     // arena: cámara alta y alejada siguiendo al jugador.
     // La cámara mira hacia -Z (está en el lado +Z), así que el yaw para el
     // movimiento relativo es π: pantalla-arriba = -Z (hacia el jefe).
-    const tx = p.x * 0.55, tz = p.z + 12.5;
+    const tx = p.x * 0.55, tz = p.z + (portrait ? 10.5 : 12.5);
     camState.x += (tx - camState.x) * Math.min(1, dt * 3);
     camState.z += (tz - camState.z) * Math.min(1, dt * 3);
-    camState.y += (10.5 - camState.y) * Math.min(1, dt * 3);
+    camState.y += ((portrait ? 9.5 : 10.5) - camState.y) * Math.min(1, dt * 3);
     camera.position.set(camState.x, camState.y, camState.z);
     camera.lookAt(p.x * 0.4, 1.4, p.z * 0.35);
     camState.yaw = Math.PI;
   } else if (lv && lv.chase) {
     // persecución: cámara detrás pero más alta y atrás (la furgo asoma por abajo)
-    const tz = p.z - 10.2;
+    const tz = p.z - (portrait ? 8.8 : 10.2);
     camState.x += (p.x * 0.55 - camState.x) * Math.min(1, dt * 4);
     camState.z += (tz - camState.z) * Math.min(1, dt * 4);
-    camState.y += (4.7 - camState.y) * Math.min(1, dt * 4);
+    camState.y += ((portrait ? 5.0 : 4.7) - camState.y) * Math.min(1, dt * 4);
     camera.position.set(camState.x, camState.y, camState.z);
-    camera.lookAt(p.x * 0.5, 1.2, p.z + 5.5);
+    camera.lookAt(p.x * 0.5, portrait ? 1.4 : 1.2, p.z + 5.5);
     camState.yaw = 0;
   } else {
     // raíl: detrás y arriba, yaw fijo
-    const behind = 7.2, up = 4.15;
+    const behind = portrait ? 6.2 : 7.2, up = portrait ? 4.6 : 4.15;
     const tx = p.x * 0.72, tz = p.z - behind;
     camState.x += (tx - camState.x) * Math.min(1, dt * 2.6);
     camState.z += (tz - camState.z) * Math.min(1, dt * 2.6);
     camState.y += (up - camState.y) * Math.min(1, dt * 2.4);
     camera.position.set(camState.x, camState.y, camState.z);
-    camera.lookAt(p.x * 0.8, 1.0, p.z + 3.6);
+    camera.lookAt(p.x * 0.8, portrait ? 1.3 : 1.0, p.z + (portrait ? 4.2 : 3.6));
     camState.yaw = 0;
   }
   if (fx.shake > 0) {
@@ -881,8 +883,9 @@ function botStep(dt) {
   // Atascado contra una plataforma móvil/andamio: soltar el objetivo por
   // delante y saltar INSISTENTEMENTE hacia arriba (los andamios no tienen
   // rampa y la plataforma oscila; quedarse empujando no desencalla nunca).
-  // Bug conocido y reproducido: N2 (Ruta al Festi) z≈134 en ~30% de rondas.
-  if (b.stuckT > 1.6 && !state.level.arena) {
+  // Bug conocido y reproducido: N2 (Ruta al Festi) z≈134 (y 117-120) ~30% de rondas.
+  const atascado = b.stuckT > 1.6 && !state.level.arena;
+  if (atascado) {
     out.x = Math.sin(b.t * 3) * 0.5;   // zigzag suave en los saltos
     out.z = 1;
     if (b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.32; }
@@ -972,8 +975,13 @@ function botStep(dt) {
     }
     if ((crateAhead || wallAhead || gapAhead || b.stuckT > 1.4) && (player.grounded || player.jumps < 2)) {
       out.jump = true;
-      out.jumpP = b.jumpCd <= 0;
-      if (out.jumpP) b.jumpCd = 0.34;
+      // si ya venimos con el salto anti-atasco, no pisar la bandera (era el bug
+      // por el que el bot no saltaba al quedarse clavado: el CD recién puesto
+      // dejaba jumpP=false y el salto nunca salía)
+      if (!atascado) {
+        out.jumpP = b.jumpCd <= 0;
+        if (out.jumpP) b.jumpCd = 0.34;
+      }
     }
     if (b.spinCd <= 0 && (crateAhead || b.stuckT > 0.7)) { out.spinP = true; b.spinCd = 0.55; }
   }
