@@ -89,7 +89,9 @@ const state = {
   superVidas: SUPER_VIDAS_INICIAL,
   continues: CONTINUES,
   mascara: 0,           // nivel de la máscara compañera (0-3)
-  invT: 0               // invulnerabilidad de la máscara dorada (s)
+  invT: 0,              // invulnerabilidad de la máscara dorada (s)
+  pendingRanking: false, // subir al ranking solo al pasarse el juego (jefe final)
+  esFinalGuardado: false // ya guardó su nombre en la pantalla final (para volver del ranking)
 };
 
 const records = loadRecords();
@@ -1022,13 +1024,17 @@ function endLevel(win, extra = {}) {
     $('playerName').value = loadPrefs().name || '';
     state.pendingScore = { id: lv.id, score: earnedNotes, stars, time };
     $('endPanel').classList.remove('hidden');
-    // si ya había nombre guardado, se sube igualmente (el botón lo actualiza si lo cambian)
-    if (loadPrefs().name) postScore(lv.id, earnedNotes, stars, time, loadPrefs().name);
-    // diálogo al ganar el mundo (se lanza al pulsar Siguiente/Repetir)
-    state.postWin = ENTRE_NIVELES[lv.id] || null; if (extra.boss) state.postWin = FINAL;
     // ¿ha ganado el JUEGO? (jefe final derrotado) → al guardar el nombre sale el
     // FINAL del concierto con la banda (petición del usuario)
     state.esFinal = !!extra.boss;
+    // RANKING: solo se muestra el botón si acabas de pasarte EL JUEGO (jefe final
+    // derrotado). Así el ranking solo tiene a quien se lo ha pasado de verdad.
+    const btnRF = $('btnRankFinal');
+    if (btnRF) btnRF.classList.toggle('hidden', !extra.boss);
+    // el envío al ranking SOLO ocurre al pasarse el juego (aquí), no en cada nivel
+    if (extra.boss) state.pendingRanking = true;
+    // diálogo al ganar el mundo (se lanza al pulsar Siguiente/Repetir)
+    state.postWin = ENTRE_NIVELES[lv.id] || null; if (extra.boss) state.postWin = FINAL;
   } else {
     $('overBest').textContent = prevForBest && prevForBest.tiempo ? `${Math.floor(prevForBest.tiempo / 60)}:${String(prevForBest.tiempo % 60).padStart(2, '0')}` : '—';
     $('overNotes').textContent = `${earnedNotes}/${totalNotes}`;
@@ -1036,8 +1042,8 @@ function endLevel(win, extra = {}) {
     state.pendingScore = { id: lv.id, score: earnedNotes, stars: 0, time };
     $('playerNameOver').value = loadPrefs().name || '';
     $('overPanel').classList.remove('hidden');
-    // la puntuación también se guarda al perder (puntuación en TODOS los finales)
-    if (loadPrefs().name) postScore(lv.id, earnedNotes, 0, time, loadPrefs().name);
+    // OJO: al perder NO se sube nada al ranking — solo se pasa al ranking
+    // cuando se derrota al jefe final (petición del usuario)
   }
 }
 
@@ -1051,11 +1057,13 @@ function apiBase() {
 }
 
 function postScore(levelId, score, stars, time, name) {
-  // Ranking propio del juego (separado de los otros juegos por el nombre "crash3d")
+  // Ranking propio del juego (separado de los otros juegos por el nombre "crash3d").
+  // Petición del usuario: SOLO sube al ranking quien se ha PASADO EL JUEGO
+  // (derrotado al Cacharro). Los récords por nivel se quedan en local.
   try {
     fetch(`${apiBase()}/score`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ game: 'crash3d', diff: `n${levelId}`, name: String(name || loadPrefs().name || 'Zagal').slice(0, 12), score, stars, time })
+      body: JSON.stringify({ game: 'crash3d', diff: 'final', name: String(name || loadPrefs().name || 'Zagal').slice(0, 12), score, stars, time })
     }).catch(() => {});
   } catch (_) {}
 }
@@ -1632,16 +1640,16 @@ function crateInteractions() {
     const dx = Math.abs(c.mesh.position.x - player.pos.x);
     const dz = Math.abs(c.mesh.position.z - player.pos.z);
     const dy = Math.abs(c.mesh.position.y - (player.pos.y + 0.5));
-    // checkpoint: activa también de FRENTE (dz<1.1), no solo cayendo encima
-    // (el auditor midió que de frente te bloqueaba sin dar el premio)
-    if (c.crateType === 'checkpoint' && dx < 1.0 && dz < 1.1 && dy < 1.3) {
+    // CHECKPOINT: se activa de forma MUY generosa (petición del usuario: "a veces
+    // no me lo hace"): radio amplio 1.9, en cualquier altura razonable y sin
+    // exigir caer encima. Es una caja de vida: quedársela nunca debe fallar.
+    if (c.crateType === 'checkpoint' && dx < 1.9 && dz < 1.9 && dy < 2.6) {
       crates.checkpoint(c); useCheckpoint(c.mesh.position.z);
       continue;
     }
     if (dx < 0.8 && dz < 0.8 && dy < 1.0) {
       if (c.crateType === 'nitro') { crates.nitro(c); damagePlayer('nitro'); }
       else if (c.crateType === 'tnt' && !c.lit) crates.igniteTnt(c);
-      else if (c.crateType === 'checkpoint') { crates.checkpoint(c); useCheckpoint(c.mesh.position.z); }
     }
     // explosiones de TNT que toquen al jugador
     if (c.explodedNear && Math.hypot(c.mesh.position.x - player.pos.x, c.mesh.position.z - player.pos.z) < 3.4) damagePlayer('tnt');
@@ -2128,7 +2136,10 @@ if (btnHudMute) btnHudMute.onclick = (e) => { e.stopPropagation(); toggleMute();
 $('btnMute3') && ($('btnMute3').onclick = () => toggleMute());
 $('btnMute4') && ($('btnMute4').onclick = () => toggleMute());
 pintaBotonesSonido();            // estado inicial del icono (según preferencia guardada)
-$('btnRank').onclick = () => showRank();
+/* RANKING: solo desde la pantalla final (cuando te has pasado el juego).
+   El botón del menú ya no existe: los récords por nivel se ven en local. */
+const btnRankFinal = $('btnRankFinal');
+if (btnRankFinal) btnRankFinal.onclick = () => { Audio.sfx('ui'); showRank(); };
 /* logros: panel del menú (conseguidos en color, bloqueados en gris con pista) */
 $('btnLogros').onclick = () => {
   Audio.sfx('ui');
@@ -2141,7 +2152,13 @@ $('btnLogrosBack').onclick = () => {
   $('logrosPanel').classList.add('hidden');
   $('menuPanel').classList.remove('hidden');
 };
-$('btnRankBack').onclick = () => { $('rankPanel').classList.add('hidden'); $('menuPanel').classList.remove('hidden'); };
+$('btnRankBack').onclick = () => {
+  $('rankPanel').classList.add('hidden');
+  // si venimos del panel final (nos hemos pasado el juego), volvemos ahí;
+  // si venimos del menú (o de cualquier otro sitio), volvemos al menú
+  if (state.mode === 'end' && state.esFinalGuardado) $('endPanel').classList.remove('hidden');
+  else $('menuPanel').classList.remove('hidden');
+};
 /* vídeo de presentación */
 $('btnVideo').onclick = () => {
   Audio.sfx('ui');
@@ -2162,13 +2179,17 @@ function guardarPuntuacion(inputId) {
   const nombre = ($(inputId).value || '').trim().slice(0, 14) || 'Zagal';
   savePrefs({ name: nombre });
   const ps = state.pendingScore;
-  if (ps) postScore(ps.id, ps.score, ps.stars, ps.time, nombre);
-  hud.toast('¡Puntuación guardada! 🏆', 'record');
+  // Al ranking SOLO se sube si te has pasado el juego (jefe final derrotado).
+  // Los récords por nivel se quedan en local (records).
+  if (ps && state.pendingRanking) postScore(ps.id, ps.score, ps.stars, ps.time, nombre);
+  hud.toast(state.pendingRanking ? '¡En el ranking de los que se lo han pasao! 🏆' : '¡Puntuación guardada! 🏆', 'record');
   Audio.sfx('levelup');
   // FINAL DEL JUEGO: si acabas de derrotar al Cacharro, tras guardar el nombre
   // arranca el concierto final con la banda (y luego el mensaje de despedida)
   if (state.esFinal) {
     state.esFinal = false;
+    state.esFinalGuardado = true;      // para que el ranking sepa volver aquí
+    state.pendingRanking = false;      // ya ha subido; no repetir
     savePrefs({ finalVisto: true });   // desbloquea el botón "Ver final" del menú
     hideOverlays();
     state.mode = 'cine';
@@ -2177,7 +2198,7 @@ function guardarPuntuacion(inputId) {
     // entre la banda y el público (el usuario lo describía como "cosas raras"
     // en el suelo del final). Se vacía el nivel ANTES de construir el concierto.
     clearLevel();
-    state.pending.push({ after: 0.9, fn: () => { Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); showMenu(); Audio.playMenuMusic(); }); } });
+    state.pending.push({ after: 0.9, fn: () => { Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); showMenu(); Audio.playMenuMusic(); }) } });
   }
 }
 $('btnSaveScore').onclick = () => guardarPuntuacion('playerName');
@@ -2215,25 +2236,27 @@ if (volRange) {
 }
 
 function showRank() {
+  // RANKING DEL JUEGO COMPLETO: solo aparecen los que se han PASADO EL JUEGO
+  // (diff 'final': el POST solo se manda al derrotar al Cacharro). Petición del
+  // usuario: "el ranking solo te lo debería poner en la última pantalla, o sea
+  // que solo salgan los que se han pasao el juego de verdad".
   $('menuPanel').classList.add('hidden');
+  $('endPanel').classList.add('hidden');
   const box = $('rankBody');
   box.innerHTML = '<p class="small">Cargando…</p>';
   $('rankPanel').classList.remove('hidden');
-  // diff=* → todas las dificultades/niveles del juego (cada nivel guarda su diff nX)
-  fetch(`${apiBase()}/top?game=crash3d&diff=*&limit=15`, { cache: 'no-store' }).then((r) => r.json()).then((data) => {
+  fetch(`${apiBase()}/top?game=crash3d&diff=final&limit=20`, { cache: 'no-store' }).then((r) => r.json()).then((data) => {
     const rows = (data.scores || data.top || data || []);
-    if (!Array.isArray(rows) || !rows.length) { box.innerHTML = '<p class="small">Todavía no hay puntuaciones. ¡Sé el primero!</p>'; return; }
+    if (!Array.isArray(rows) || !rows.length) {
+      box.innerHTML = '<p class="small">Todavía nadie se ha pasao el juego. ¡Sé el primero en callar al Cacharro! 🎸</p>';
+      return;
+    }
     box.innerHTML = '<ol>' + rows.map((r) => {
-      const lvl = LEVELS[Number(String(r.diff || '').replace('n', '')) - 1];
-      const nom = lvl ? lvl.nombre : (r.diff || '');
-      return `<li><b>${escapeHtml(r.name || '?')}</b> — ${r.score ?? 0} notas · ${escapeHtml(nom)}</li>`;
+      const t = r.time ? `${Math.floor(r.time / 60)}:${String(r.time % 60).padStart(2, '0')}` : '';
+      return `<li><b>${escapeHtml(r.name || '?')}</b> — ${r.score ?? 0} notas${t ? ` · ${t}` : ''}</li>`;
     }).join('') + '</ol>';
   }).catch(() => {
-    const local = Object.entries(records).map(([k, v]) => ({ name: loadPrefs().name || 'Tú', score: v.notas, diff: k }));
-    box.innerHTML = local.length ? '<ol>' + local.map((r) => {
-      const lvl = LEVELS[Number(r.diff) - 1];
-      return `<li><b>${escapeHtml(r.name)}</b> — ${r.score} notas · ${escapeHtml(lvl ? lvl.nombre : 'nivel ' + r.diff)}</li>`;
-    }).join('') + '</ol><p class="small">Sin conexión: mostrando tus récords de este dispositivo.</p>' : '<p class="small">Sin conexión y sin récords aún.</p>';
+    box.innerHTML = '<p class="small">Sin conexión: no se puede cargar el ranking.</p>';
   });
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }

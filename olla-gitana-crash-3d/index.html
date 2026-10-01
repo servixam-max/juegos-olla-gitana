@@ -79,7 +79,6 @@
       <button class="btn ghost hidden" id="btnFinal">🎸 Ver final</button>
       <button class="btn ghost" id="btnHelp">❓ Controles</button>
       <button class="btn ghost" id="btnMute2">🔊 Sonido</button>
-      <button class="btn ghost" id="btnRank">🏆 Ranking</button>
       <button class="btn ghost" id="btnLogros">🏅 Logros</button>
     </div>
     <div class="keys small" id="gamepadHint"></div>
@@ -141,6 +140,7 @@
     <div class="row">
       <button class="btn" id="btnNext">▶ Siguiente</button>
       <button class="btn alt" id="btnRetry">⟲ Repetir</button>
+      <button class="btn ghost hidden" id="btnRankFinal">🏆 Ranking</button>
       <button class="btn ghost" id="btnLevels2">🗺️ Niveles</button>
       <button class="btn ghost" id="btnMute3">🔊 Sonido</button>
     </div>
@@ -183,10 +183,11 @@
   </div>
 </div>
 
-<!-- ================= Ranking ================= -->
+<!-- ================= Ranking (solo los que se han pasado el juego) ================= -->
 <div class="overlay hidden" id="rankPanel">
   <div class="panel">
-    <h2>🏆 Ranking</h2>
+    <h2>🏆 Los que se han pasao el juego</h2>
+    <p class="small center" id="rankSub">Solo aparecen los zagales que han derrotado al Cacharro 🎸</p>
     <div id="rankBody" class="small"></div>
     <div class="row"><button class="btn" id="btnRankBack">Volver</button></div>
   </div>

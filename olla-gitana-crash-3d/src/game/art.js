@@ -1,11 +1,6 @@
 /* Arte procedimental: mallas low-poly con toon shading, personajes, cajas,
    coleccionables y atrezzo de los 3 mundos. Todo generado en código (sin assets). */
 import * as THREE from 'three';
-import {
-  texMadera as _txMadera, texMetal as _txMetal, texMarmol as _txMarmol, texLadrillo as _txLadrillo,
-  texCesped as _txCesped, texArena as _txArena, texTierra as _txTierra, texAgua as _txAgua,
-  texTapiz as _txTapiz, texNoche as _txNoche, texFollaje as _txFollaje, uvPorCara
-} from '../engine/textures.js';
 
 /* ---------- gradiente compartido para el toon ---------- */
 let GRAD = null;
@@ -25,42 +20,6 @@ export function toonGradient() {
 export function toonMat(color, opts = {}) {
   return new THREE.MeshToonMaterial({ color, gradientMap: toonGradient(), ...opts });
 }
-
-/* ---------- materiales con TEXTURA (mapa estático por estilo) ----------
-   `texturedMat(estilo)` devuelve un material toon con textura procedural
-   cacheado por estilo (una sola instancia por estilo: los materiales con la
-   misma textura se comparten y el render no gana draw calls). El UV va
-   medido en METROS por cara (uvPorCara), así una caja de 0,92 m, un cajón de
-   1,3 m y un escenario de 18 m tienen el grano del mismo tamaño: nada se
-   estira. Estilos: 'madera', 'metal', 'marmol', 'ladrillo', 'cesped', 'arena',
-   'tierra', 'agua', 'tapiz'. `esc` (opcional) = metros por repetición. */
-const MATS_TEX = new Map();
-export function texturedMat(estilo, esc = null, color = null) {
-  const colHex = color == null ? 'x' : ('#' + color.toString(16).padStart(6, '0'));
-  const key = estilo + '|' + esc + '|' + colHex;
-  if (MATS_TEX.has(key)) return MATS_TEX.get(key);
-  const ESC = {
-    madera: 1.1, metal: 1.0, marmol: 1.2, ladrillo: 1.4, cesped: 1.6,
-    arena: 2.0, tierra: 1.8, agua: 2.4, tapiz: 1.6, noche: 3.0, follaje: 0.9
-  };
-  const e = esc == null ? (ESC[estilo] || 1.2) : esc;
-  const mapa = TEXTURA_POR_ESTILO[estilo];
-  if (!mapa) return toonMat(color == null ? 0xffffff : color);
-  const t = mapa();
-  t.repeat.set(1, 1);
-  const m = new THREE.MeshToonMaterial({ map: t, color: color == null ? 0xffffff : color, gradientMap: toonGradient() });
-  uvPorCara(m, e);
-  MATS_TEX.set(key, m);
-  return m;
-}
-/* import diferido-compatible: se resuelve en tiempo de módulo (sin ciclos:
-   textures.js no importa art.js) */
-const TEXTURA_POR_ESTILO = {
-  madera: () => _txMadera(), metal: () => _txMetal(), marmol: () => _txMarmol('crema'),
-  ladrillo: () => _txLadrillo(), cesped: () => _txCesped(), arena: () => _txArena(),
-  tierra: () => _txTierra(), agua: () => _txAgua(), tapiz: () => _txTapiz(),
-  noche: () => _txNoche(), follaje: () => _txFollaje()
-};
 const flat = (geo) => { geo.computeVertexNormals(); return geo; };
 
 export function group(...children) {
@@ -122,16 +81,14 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
   g.add(eyeW, eyeW2);
   const pup = new THREE.Mesh(new THREE.SphereGeometry(0.082, 10, 8), darkMat);
   const pup2 = pup.clone();
-  // pupilas CENTRADAS y simétricas: antes iban a -0.16/+0.19 (desviadas, los dos
-  // ojos miraban de lado y la cara parecía torcida)
-  pup.position.set(-0.175, 0.70, 0.675); pup2.position.set(0.175, 0.70, 0.675);
+  pup.position.set(-0.16, 0.70, 0.675); pup2.position.set(0.19, 0.70, 0.675);
   g.add(pup, pup2);
-  // chispita de luz (una sola, simple): MISMA posición relativa en los dos ojos
+  // chispita de luz (una sola, simple)
   const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const shine = new THREE.Mesh(new THREE.SphereGeometry(0.026, 6, 6), shineMat);
   const shine2 = shine.clone();
-  shine.position.set(-0.15, 0.745, 0.735);
-  shine2.position.set(0.2, 0.745, 0.735);
+  shine.position.set(-0.135, 0.745, 0.735);
+  shine2.position.set(0.215, 0.745, 0.735);
   g.add(shine, shine2);
   // naricilla
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 8), toonMat(0xa8341f));
@@ -151,14 +108,11 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
     m1.position.set(-0.115, 0.525, 0.63);
     const m2 = m1.clone();
     m2.position.set(0.115, 0.525, 0.63);
-    // puntas enroscadas hacia arriba (bucle) — la derecha es el ESPEJO EXACTO
-    // de la izquierda: mismo rotation.z + rotation.y = PI (reflejo en X de una
-    // geometría simétrica en Z). Con el giro anterior la punta derecha salía
-    // torcida y el bigote quedaba asimétrico.
+    // puntas enroscadas hacia arriba (bucle)
     const tip = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.032, 6, 12, Math.PI * 1.3), darkMat);
     tip.position.set(-0.29, 0.565, 0.62); tip.rotation.z = 0.5;
     const tip2 = new THREE.Mesh(tip.geometry, darkMat);
-    tip2.position.set(0.29, 0.565, 0.62); tip2.rotation.set(0, Math.PI, 0.5);
+    tip2.position.set(0.29, 0.565, 0.62); tip2.rotation.z = Math.PI - 0.5; tip2.rotation.y = Math.PI;
     g.add(m1, m2, tip, tip2);
     // pañuelo de la banda: doble vuelta, lunares y nudo al costado
     const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.062, 6, 18), toonMat(PALETA.rojoOsc));
@@ -175,10 +129,14 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
       d.position.set(Math.sin(a) * 0.42, 0.2, Math.cos(a) * 0.42);
       g.add(d);
     }
-  // nudo lateral + colas al viento: RETIRADOS (limpieza final del personaje
-  // pedida por el usuario). Eran tres cajas rojas sueltas que colgaban del
-  // pañuelo y se veían como pegotes descolgados/flotando al costado.
-  // El pañuelo con lunares ya da toda la identidad de banda.
+    // nudo lateral + colas al viento
+    const knot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.1), toonMat(PALETA.rojo));
+    knot.position.set(-0.42, 0.2, 0.06); knot.rotation.z = 0.4;
+    const tailA = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.05), toonMat(PALETA.rojo));
+    tailA.position.set(-0.5, 0.08, 0.12); tailA.rotation.z = 0.55;
+    const tailB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), toonMat(PALETA.rojoOsc));
+    tailB.position.set(-0.52, 0.13, -0.02); tailB.rotation.z = 0.95;
+    g.add(knot, tailA, tailB);
     // botones del pecho: RETIRADOS (limpieza del personaje pedida por el
     // usuario: "sigue habiendo algún detalle más que no se ha quitado").
     // La cara simple + el pañuelo + el puro bastan como identidad.
@@ -214,9 +172,18 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
   const laurel = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.13, 5), toonMat(0x2d6a1f));
   laurel.position.set(0.1, 1.05, -0.08); laurel.rotation.z = 1.2;
   g.add(laurel);
-  // vapor del guiso: RETIRADO (limpieza final del personaje). Eran dos esferas
-  // translúcidas flotando sobre la olla que en juego se leían como manchas
-  // grises y tapaban la cara al mirarla de frente. Resto del pack roquero.
+  // vapor del guiso (dos columnas suaves)
+  const vapMat = new THREE.MeshBasicMaterial({ color: 0xfff5e1, transparent: true, opacity: 0.22, depthWrite: false });
+  const vaporG = new THREE.Group();
+  for (let i = 0; i < 2; i++) {
+    const v = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), vapMat);
+    v.position.set((i ? 0.12 : -0.1), 0.14 + i * 0.16, (i ? -0.05 : 0.04));
+    v.scale.set(1, 1.25, 1);
+    vaporG.add(v);
+  }
+  vaporG.position.y = 1.02;
+  g.add(vaporG);
+  g.userData.vapor = vaporG;
   g.userData.ings = ings;
   // toque ROCKERO: cadena dorada al cuello con colgante de púa de guitarra
   // RETIRADOS (petición del usuario: "sigue habiendo algún detalle más del
@@ -292,10 +259,7 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
     g.add(gb, neck);
   }
 
-  // OJO: aquí se FUSIONA con lo ya asignado (ings) en vez de reemplazar el
-  // objeto userData: antes `g.userData = {...}` borraba `ings`/`vapor` y la
-  // animación de los ingredientes del guiso era código muerto.
-  g.userData = { ...g.userData, armL, armR, legL, legR, body, eyes: [eyeW, eyeW2], pupils: [pup, pup2] };
+  g.userData = { armL, armR, legL, legR, body, eyes: [eyeW, eyeW2], pupils: [pup, pup2] };
   return g;
 }
 
@@ -316,16 +280,12 @@ export function makeCrate(type = 'normal') {
   else if (type === 'arrow') { faceColor = 0xfff5e1; edgeColor = PALETA.maderaOsc; label = '▲'; }
   else if (type === 'outline') { faceColor = 0xfff5e1; edgeColor = 0xa89b7a; }
 
-  /* caja de madera: el cuerpo y los tablones llevan la veta (texturedMat cachea
-     por color de estilo, así 50 cajas comparten material y el UV en metros
-     evita que el grano se estire en cajas grandes o pequeñas) */
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.92, 0.92),
-    metal ? texturedMat('metal', 0.75, faceColor) : texturedMat('madera', 0.75, faceColor));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.92, 0.92), toonMat(faceColor));
   g.add(body);
 
   if (!metal) {
     // tablones
-    const plank = texturedMat('madera', 1.15, edgeColor);
+    const plank = toonMat(edgeColor);
     const bar = new THREE.BoxGeometry(1.0, 0.13, 0.13);
     const barV = new THREE.BoxGeometry(0.13, 1.0, 0.13);
     for (const z of [-0.47, 0.47]) {
@@ -486,9 +446,7 @@ export function makePuro() {
 export function makeSpeaker({ big = false, color = 0x2b2b2b } = {}) {
   const g = new THREE.Group();
   const s = big ? 1.7 : 1;
-  // caja de altavoz: chapa de madera oscura con la veta visible (texturedMat,
-  // UV en metros => el grano no se estira con el tamaño `big`)
-  const box = new THREE.Mesh(new THREE.BoxGeometry(0.9 * s, 1.2 * s, 0.7 * s), texturedMat('madera', 0.9, color));
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.9 * s, 1.2 * s, 0.7 * s), toonMat(color));
   box.position.y = 0.6 * s;
   g.add(box);
   const coneMat = toonMat(0x1b1b1b);
@@ -552,7 +510,7 @@ export function makeMicStand() {
 
 export function makeBarrel({ color = PALETA.rojo } = {}) {
   const g = new THREE.Group();
-  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.9, 14), texturedMat('metal', 0.9, color));
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.9, 14), toonMat(color));
   b.position.y = 0.45;
   const ring = toonMat(0x545454);
   for (const y of [0.18, 0.72]) {
@@ -651,7 +609,7 @@ export function sfxMecanicas(engine, name) {
    aros metálicos y una franja roja de aviso en el centro. */
 export function makeBarrelRodante({ color = PALETA.madera } = {}) {
   const g = new THREE.Group();
-  const mat = texturedMat('madera', 1.0, color);
+  const mat = toonMat(color);
   const matOsc = toonMat(PALETA.maderaOsc);
   // cuerpo tumbado (eje X): rueda girando sobre x
   const cuerpo = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 1.05, 14), mat);
@@ -747,7 +705,7 @@ export function makeOutlineCrate() {
    tiembla al pisarla y se desploma. Lleva marcas de grieta visibles. */
 export function makePlataformaRuina() {
   const g = new THREE.Group();
-  const tablon = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), texturedMat('madera', 1.0, 0x8a6a3f));
+  const tablon = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), toonMat(0x8a6a3f));
   g.add(tablon);
   // grietas (líneas oscuras cruzando la cara superior)
   for (const [x, z, ry] of [[-0.18, 0, 0.5], [0.2, -0.12, -0.4], [0.04, 0.22, 1.1]]) {
@@ -850,11 +808,9 @@ export function makeCone() {
 
 export function makeVan({ color = PALETA.crema } = {}) {
   const g = new THREE.Group();
-  // furgoneta: chapa metálica remachada (texturedMat con UV en metros: el
-  // mismo material para el cuerpo de 3,2 m y la cabina de 1,2 m)
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 3.2), texturedMat('metal', 1.0, color));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 3.2), toonMat(color));
   body.position.y = 1.0;
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.85, 1.2), texturedMat('metal', 1.0, color));
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.85, 1.2), toonMat(color));
   cab.position.set(0, 0.78, -1.95);
   const win = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.5, 0.12), toonMat(0x4cc9f0));
   win.position.set(0, 1.12, -2.5);
@@ -874,11 +830,9 @@ export function makeVan({ color = PALETA.crema } = {}) {
 
 export function makeTree({ scale = 1 } = {}) {
   const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.4, 8), texturedMat('madera', 0.7, 0x7c4519));
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.4, 8), toonMat(0x7c4519));
   trunk.position.y = 0.7;
-  // copa: esferas de follaje con textura (UV en metros; el seto/olivo lee
-  // "hojas" en vez de color verde plano)
-  const leaves = texturedMat('follaje', 0.55, 0x86c04a);
+  const leaves = toonMat(0x2d6a4f);
   for (let i = 0; i < 4; i++) {
     const s = new THREE.Mesh(new THREE.SphereGeometry(0.5 + Math.random() * 0.3, 10, 8), leaves);
     s.position.set((Math.random() - 0.5) * 0.6, 1.5 + Math.random() * 0.7, (Math.random() - 0.5) * 0.6);
@@ -891,13 +845,9 @@ export function makeTree({ scale = 1 } = {}) {
 
 export function makeStage({ w = 12, d = 6, h = 1.1 } = {}) {
   const g = new THREE.Group();
-  // tarima: tablones con veta (escala 1,2 m por repetición — al medir el UV en
-  // metros, el mismo material sirve para el escenario de la arena (18×8) y el
-  // de la intro/final (24×11) sin estirar el patrón)
-  const base = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), texturedMat('madera', 1.2, 0x6b4a2a));
+  const base = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toonMat(0x4a3728));
   base.position.y = h / 2;
   g.add(base);
-  // (el fondo del escenario NO lleva textura: es la pantalla/lona del concierto)
   const backdrop = new THREE.Mesh(new THREE.BoxGeometry(w, 4.2, 0.3), toonMat(PALETA.morado));
   backdrop.position.set(0, 2.1, -d / 2 - 0.2);
   g.add(backdrop);

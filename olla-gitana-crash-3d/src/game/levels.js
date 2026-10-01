@@ -284,13 +284,7 @@ function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 2.2, w = 4.
   }
   // la separación de salida es SIEMPRE un número (con un array, el "+"
   // concatenaba strings y todas las z del nivel acababan siendo NaN)
-  const salidaReal = salida == null ? ultSep : salida;
-  const fin = z + +salidaReal;
-  /* NOTA GUÍA en el salto de SALIDA del tramo: apunta al centro del hueco para
-     que el bot (y el jugador) cruce RECTO. Sin ella, el único objetivo por
-     delante era una nota de arco lejana a x=±2.4 y el bot se desviaba de lado
-     en el aire y caía al vacío en bucle (medido en N7 z≈143,7 y N3 z≈253). */
-  if (notes) notes.push(buildNote(world, scene, { x: 0, y: 1.4, z: +(fin - salidaReal / 2).toFixed(2) }));
+  const fin = z + +(salida == null ? ultSep : salida);
   return { fin, losa: puestas };
 }
 
@@ -357,12 +351,6 @@ function puenteCajas(world, scene, crates, notes, {
     }
   }
   const ret = +(z0 + gIn + n * 0.92 + (n - 1) * sep + gEnd).toFixed(2);
-  /* NOTAS GUÍA de entrada y salida: sin ellas el bot (que persigue la nota más
-     cercana por delante) puede quedarse pegado al borde del vacío mirando al
-     lado; estas dos marcan "salta aquí" y "sigue por allí" y el cruce lo hace
-     siempre por la línea de cajas. */
-  notes.push(buildNote(world, scene, { x: 0, y: 1.25, z: +(z0 - 1.1).toFixed(2) }));
-  notes.push(buildNote(world, scene, { x: 0, y: 1.25, z: +(ret + 1.1).toFixed(2) }));
   return ret;
 }
 
@@ -396,30 +384,38 @@ function grupoTnt(world, scene, crates, { z, n = 3, desde = -9, hasta = 9 }) {
   return null;   // sin sitio seguro: no se coloca (nada pegado a un hueco)
 }
 
-/* CAJA DE VIDA ÚNICA (una por nivel, petición del usuario): se coloca en el
-   PUNTO MEDIO del recorrido sobre calzada firme. Se elige el tramo firme más
-   cercano a la mitad, dentro de él un z que no pise ninguna otra caja y que
-   deje firme también el punto de reaparición (z-3, que es donde respawnea
-   main.js tras morir). Si no hay ningún tramo válido, devuelve null. */
+/* CAJAS DE VIDA (ahora DOS por nivel, petición del usuario: "pon dos por
+   pantalla"). Se colocan repartidas: una cerca del PRIMER tercio y otra cerca
+   del SEGUNDO — así, al morir, nunca toca repetir media pantalla entera.
+   Cada una sobre calzada firme, sin pisar otras cajas y dejando firme el punto
+   de reaparición (z-3, donde respawnea main.js tras morir). */
 function checkpointUnico(world, scene, crates, checkpoints, { mid, tramos }) {
   const hayCaja = (zz) => crates.some((c) => c.mesh && Math.abs(c.mesh.position.z - zz) < 3.4 && Math.abs(c.mesh.position.x) < 2.4);
+  // ¿ya hay un checkpoint cerca? (para que los dos queden separados)
+  const hayCheckpoint = (zz) => checkpoints.some((cp) => Math.abs(cp.z - zz) < 40);
   const lista = tramos.filter(([a, b]) => b - a >= 7)
     .slice()
     .sort((p, q) => Math.abs((p[0] + p[1]) / 2 - mid) - Math.abs((q[0] + q[1]) / 2 - mid));
-  for (const [a, b] of lista) {
-    const cz0 = Math.min(b - 2.5, Math.max(a + 4, mid));
-    for (let k = 0; k <= 10; k++) {
-      for (const s of (k === 0 ? [0] : [k * 0.5, -k * 0.5])) {
-        const cz = Math.round((cz0 + s) * 10) / 10;
-        if (cz < a + 4 || cz > b - 2.5) continue;
-        if (hayCaja(cz)) continue;
-        crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
-        checkpoints.push({ z: cz });
-        return cz;
+  const poner = (objetivo) => {
+    for (const [a, b] of lista) {
+      const cz0 = Math.min(b - 2.5, Math.max(a + 4, objetivo));
+      for (let k = 0; k <= 14; k++) {
+        for (const s of (k === 0 ? [0] : [k * 0.5, -k * 0.5])) {
+          const cz = Math.round((cz0 + s) * 10) / 10;
+          if (cz < a + 4 || cz > b - 2.5) continue;
+          if (hayCaja(cz) || hayCheckpoint(cz)) continue;
+          crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
+          checkpoints.push({ z: cz });
+          return cz;
+        }
       }
     }
-  }
-  return null;
+    return null;
+  };
+  // dos cajas de vida: ~35% y ~70% del recorrido (antes solo la del 50%)
+  const c1 = poner(mid * 0.7);
+  const c2 = poner(mid * 1.45);
+  return [c1, c2].filter((v) => v != null);
 }
 
 /* =========================================================
