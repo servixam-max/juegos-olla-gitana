@@ -564,11 +564,17 @@ function buildAmbientDecor(level) {
     scene.add(bu); ambientDecor.push(bu);
   }
   // (6) PÓSTERES de la gira en la calle, la procesión y la huerta
+  //     Pegados al muro REAL de cada tramo (antes x fija ±5.5: en los pasillos
+  //     estrechos el póster quedaba DENTRO del muro — reportado por la auditoría)
   if (m === 1 || m === 4 || m === 6) {
     for (let z = 44, i = 0; z < len - 20; z += 48, i++) {
       const po = makePoster({ text: ['FESTI', 'VERBENA', 'ROMERIA', 'FESTIVAL'][i % 4], color: [PALETA.morado, PALETA.rojo, PALETA.azul][i % 3], h: 2.8, w: 1.4 });
+      const s = i % 2 ? -1 : 1;
       po.rotation.y = i % 2 ? Math.PI * 0.42 : -Math.PI * 0.42;
-      place(i % 2 ? -5.5 : 5.5, 0, z, po);
+      const bs = bordeSuelo(z), bm = bordeMuro(z);
+      const limite = Math.min(bs === null ? 6.6 : bs, bm === null ? 6.6 : bm);
+      const x = s * Math.min(5.5, Math.max(3.2, limite - 0.05));
+      if (soporteSuelo(x, z)) place(x, 0, z, po);
     }
   }
   // (7) ATRREZZO NUEVO por mundo (todo pegado a las paredes o colgado alto:
