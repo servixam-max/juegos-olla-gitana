@@ -1925,7 +1925,13 @@ function botStep(dt) {
   // ¿hay que saltar? cajas, muros o huecos justo delante
     const crateAhead = crates.nearest({ x: p.x, y: p.y, z: p.z + 1.1 }, 1.6, (c) => !c.dead && !c.disabled && c.mesh && c.mesh.visible);
     const wallAhead = world.overlap({ minX: p.x - 0.3, maxX: p.x + 0.3, minZ: p.z + 0.45, maxZ: p.z + 1.15, minY: p.y + 0.15, maxY: p.y + 0.7 });
-    const gapAhead = !world.groundUnder({ minX: p.x - 0.25, maxX: p.x + 0.25, minZ: p.z + 1.3, maxZ: p.z + 2.1, minY: -50, maxY: 0.1 });
+    // HUECO delante: sondas FINAS (0,5-0,8 / 1,1-1,4 / 1,7-2,0). La sonda ancha
+    // antigua (1,3→2,1) veía el suelo del OTRO lado de un hueco de 1,5-1,8 m y
+    // decía "hay suelo": el bot no saltaba y caía en bucle infinito (flake
+    // documentado en N3 z≈296 / N4 / N6 z≈294-318). La altura se mide respecto
+    // al jugador (+0,35) para que las losas a 0,24 cuenten como suelo también.
+    const sinSuelo = (a, b) => !world.groundUnder({ minX: p.x - 0.22, maxX: p.x + 0.22, minZ: p.z + a, maxZ: p.z + b, minY: -50, maxY: p.y + 0.35 });
+    const gapAhead = sinSuelo(0.5, 0.8) || sinSuelo(1.1, 1.4) || sinSuelo(1.7, 2.0);
     // cajas peligrosas (nitro/tnt): esquivarlas en vez de tocarlas
     const peligrosa = crates.items.find((c) => !c.dead && !c.disabled && c.mesh && c.mesh.visible
       && (c.crateType === 'nitro' || (c.crateType === 'tnt' && !c.lit))
