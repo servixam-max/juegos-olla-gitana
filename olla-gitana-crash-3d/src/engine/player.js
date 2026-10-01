@@ -274,7 +274,8 @@ export class Player {
       const longJump = this.longJumpWindow > 0 && (this.vel.x || this.vel.z);
       if ((this.coyote > 0 || this.grounded) && this.jumps === 0) {
         this.jumps = 1;
-        this.vel.y = JUMP_V * (longJump ? 1.06 : 1);
+        // jumpBoost: el buff del PURO (2 puros) hace saltar más alto
+        this.vel.y = JUMP_V * (longJump ? 1.06 : 1) * (this.jumpBoost || 1);
         if (longJump) {
           const sp = Math.hypot(this.vel.x, this.vel.z) || 1;
           this.vel.x = (this.vel.x / sp) * maxS * LONGJUMP_BOOST_X;

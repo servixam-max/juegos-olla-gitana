@@ -16,7 +16,7 @@
 import * as THREE from 'three';
 import { Box } from '../engine/physics.js';
 import {
-  PALETA, makeCrate, makeNote, makeMask, makeSpeaker, makeAmp, makeGuitar, makeMicStand,
+  PALETA, makeCrate, makeNote, makeMask, makePuro, makeSpeaker, makeAmp, makeGuitar, makeMicStand,
   makeBarrel, makeLampPost, makeFloodlight, makePlanter, makePuddle, makeCone, makeTree,
   toonMat, makeStage, makeOlla, makeArrowCrate, makeOutlineCrate
 } from './art.js';
@@ -69,7 +69,8 @@ function buildNote(world, scene, { x, y = 0.8, z }) {
   return { obj: g, pos: { x, y, z }, taken: false };
 }
 function buildMask(world, scene, { x, y = 1.0, z }) {
-  const g = makeMask(); g.position.set(x, y, z); scene.add(g);
+  // PUROS voladores (antes máscaras, petición del usuario)
+  const g = makePuro(); g.position.set(x, y, z); scene.add(g);
   return { obj: g, pos: { x, y, z }, taken: false };
 }
 const enemy = (type, opts) => ({ type, ...opts });

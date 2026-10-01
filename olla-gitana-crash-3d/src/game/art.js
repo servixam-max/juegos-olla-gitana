@@ -137,17 +137,9 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
     const tailB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), toonMat(PALETA.rojoOsc));
     tailB.position.set(-0.52, 0.13, -0.02); tailB.rotation.z = 0.95;
     g.add(knot, tailA, tailB);
-    // botones de la banda (como una chaquetilla): 3 dorados en el pecho
-    const btnMat = new THREE.MeshBasicMaterial({ color: PALETA.dorado });
-    const btnRing = toonMat(PALETA.maderaOsc);
-    for (let i = 0; i < 3; i++) {
-      const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.035, 10), btnMat);
-      btn.rotation.x = Math.PI / 2;
-      btn.position.set(0, 0.44 - i * 0.13, 0.62 + i * 0.012);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.014, 6, 12), btnRing);
-      ring.position.set(0, 0.44 - i * 0.13, 0.625 + i * 0.012);
-      g.add(btn, ring);
-    }
+    // botones del pecho: RETIRADOS (limpieza del personaje pedida por el
+    // usuario: "sigue habiendo algún detalle más que no se ha quitado").
+    // La cara simple + el pañuelo + el puro bastan como identidad.
   }
   // SIN sombrero (petición del usuario): se quiere ver la olla llena de
   // ingredientes desde arriba. El toque rockero lo dan el pañuelo, la cadena
@@ -194,14 +186,22 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
   g.userData.vapor = vaporG;
   g.userData.ings = ings;
   // toque ROCKERO: cadena dorada al cuello con colgante de púa de guitarra
-  const chainMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
-  const chain = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.022, 5, 22, Math.PI * 1.15), chainMat);
-  chain.rotation.x = Math.PI / 2 + 0.35; chain.rotation.z = -0.2;
-  chain.position.set(0, 0.86, 0.14);
-  g.add(chain);
-  const pua = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.16, 3), toonMat(PALETA.crema));
-  pua.rotation.x = Math.PI; pua.position.set(0, 0.6, 0.66);
-  g.add(pua);
+  // RETIRADOS (petición del usuario: "sigue habiendo algún detalle más del
+  // personaje que no se ha quitado"). Con la cara simple, la cadena y la púa
+  // añadían ruido sobre el pecho. Se quedan detrás de un flag.
+  if (typeof window !== 'undefined' && window.__OG3D_ROCKERO === 1) {
+    const chainMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+    const chain = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.022, 5, 22, Math.PI * 1.15), chainMat);
+    chain.rotation.x = Math.PI / 2 + 0.35; chain.rotation.z = -0.2;
+    chain.position.set(0, 0.86, 0.14);
+    g.add(chain);
+    const pua = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.16, 3), toonMat(PALETA.crema));
+    pua.rotation.x = Math.PI; pua.position.set(0, 0.6, 0.66);
+    g.add(pua);
+  }
+  /* El PURO de la boca lo coloca MaskCompanion (mask.js) cuando el jugador
+     consigue 2 puros: vuela, se pone en la boca y enciende el humo. Aquí no
+     se modela nada para no duplicarlo. */
   // gafas de sol de roquero: RETIRADAS (petición del usuario: "la cara se queda
   // rara, quiero algo más simple"). Las gafas tapaban los ojos y el bigote, que
   // son los rasgos que identifican al personaje. Se mantiene la cadena y la púa.
@@ -391,6 +391,52 @@ export function makeMask() {
   const feather = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 6), toonMat(PALETA.amarillo));
   feather.position.set(0, 0.85, -0.05);
   g.add(feather);
+  return g;
+}
+
+/* PURO volador (sustituye a la máscara, petición del usuario):
+   un cigarro puro con anilla dorada, brasa encendida y humo. Vuela flotando
+   y se balancea; al cogerlo la olla se lo pone en la boca y suelta una
+   bocanada de humo. Con 2 puros: invulnerable 30 s, más rápido y salta más. */
+export function makePuro() {
+  const g = new THREE.Group();
+  const cuerpoMat = toonMat(0x6b4423);          // capa marrón tabaco
+  const cuerpo = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.105, 0.62, 12), cuerpoMat);
+  cuerpo.rotation.z = Math.PI / 2 - 0.22;        // ligeramente inclinado
+  g.add(cuerpo);
+  // anilla dorada de la vitola
+  const anilla = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.022, 6, 14), toonMat(PALETA.dorado));
+  anilla.rotation.y = Math.PI / 2 - 0.22;
+  anilla.position.set(0.1, 0.02, 0);
+  g.add(anilla);
+  // brasa encendida (brilla sola: se ve en los niveles oscuros)
+  const brasa = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.092, 0.06, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff5a2b }));
+  brasa.rotation.z = Math.PI / 2 - 0.22;
+  brasa.position.set(-0.32, 0.07, 0);
+  g.add(brasa);
+  // punta quemada (ceniza)
+  const ceniza = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.08, 0.05, 12), toonMat(0x2a2a2a));
+  ceniza.rotation.z = Math.PI / 2 - 0.22;
+  ceniza.position.set(-0.36, 0.08, 0);
+  g.add(ceniza);
+  // humo: 3 bolas translúcidas que suben
+  const humoMat = new THREE.MeshBasicMaterial({ color: 0xf2f2f2, transparent: true, opacity: 0.35, depthWrite: false });
+  const humo = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.075 + i * 0.02, 8, 6), humoMat);
+    b.position.set(-0.44 - i * 0.1, 0.14 + i * 0.1, 0);
+    humo.add(b);
+  }
+  g.add(humo);
+  g.userData.humo = humo;
+  // aura de premio (se ve de lejos, como la de las notas)
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.028, 6, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.5 }));
+  halo.rotation.x = Math.PI / 2; halo.position.y = -0.02;
+  g.add(halo);
+  g.userData.halo = halo;
+  g.scale.setScalar(1.25);
   return g;
 }
 

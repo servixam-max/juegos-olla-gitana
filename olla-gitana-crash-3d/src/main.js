@@ -797,7 +797,7 @@ function startLevel(index, { keepLives = false } = {}) {
   crates.publish();                                        // re-sincroniza el contador de cajones
   hud.setLives(state.lives);
   hud.setSuper(progreso.superVidas, progreso.continues);
-  maskCompanion.reset();                                   // la máscara no sobrevive entre niveles
+  maskCompanion.reset();                                   // el puro no sobrevive entre niveles
   state.invT = 0;
   state.invicto = false;                                   // sin jefe muerto: hay peligro
   // la meta NO se ve hasta cumplir el objetivo del nivel (matar al jefe si lo hay)
@@ -865,18 +865,23 @@ function startLevel(index, { keepLives = false } = {}) {
   // caja ? agotada: cierre dorado
   crates.onBounceUnlock = () => { Audio.sfx('combo'); };
   pickups.onMask = () => {
-    // la máscara se vuelve compañera (tipo Aku Aku)
+    // PUROS voladores (antes máscaras): nivel 1 = a la boca, nivel 2 = BUFF
     const nivel = maskCompanion.add();
     logros3d.registrar('mascara', { nivel });
-    const txt = nivel === 3 ? '🎭 ¡MÁSCARA DORADA! 1 min invulnerable' : `🎭 Máscara nivel ${nivel}`;
+    // el puro FIJO de la boca se esconde: el compañero (MaskCompanion) ya pone
+    // el puro real en la boca, y si no, se verían dos superpuestos
+    if (player.obj && player.obj.userData.puroBoca) player.obj.userData.puroBoca.visible = false;
+    const txt = nivel >= 2
+      ? '🚬 ¡2 PUROS! 30 s invulnerable, más rápido y salto extra 🔥'
+      : '🚬 ¡Puro en la boca! Consigue otro para el subidón';
     hud.toast(txt, 'record');
-    if (nivel === 3) Audio.sfx('aura');
-    // estallido dorado al recoger la máscara (se ve desde lejos)
+    if (nivel >= 2) Audio.sfx('aura');
+    // bocanada de humo al cogerlo (feedback claro)
     const mp = { x: player.pos.x, y: player.pos.y + 1.1, z: player.pos.z };
-    fx.flash(mp, { color: 0xffe9a8, size: 2.6, life: 0.36 });
-    fx.ring(mp, { color: PALETA.dorado, r0: 0.4, r1: 3.0, life: 0.55 });
-    fx.burst(mp, { count: 14, speed: 4.5, up: 5.5, life: 0.9, size: 1, colors: [PALETA.dorado, 0xffe9a8, PALETA.morado, 0xffffff] });
-    fx.addShake(nivel === 3 ? 0.3 : 0.15);
+    fx.flash(mp, { color: 0xf5f5f5, size: 2.6, life: 0.36 });
+    fx.ring(mp, { color: 0xffd9a0, r0: 0.4, r1: 3.0, life: 0.55 });
+    fx.burst(mp, { count: 14, speed: 4.5, up: 5.5, life: 0.9, size: 1, colors: [0xf5f5f5, 0xffd9a0, 0xd7d7d7, 0xffffff] });
+    fx.addShake(nivel >= 2 ? 0.3 : 0.15);
     if (!dialog.active) { dialog.speaker = player.obj; dialog.play([{ t: pick(FRASES.mask), tone: 'exito', tail: 'down', hold: 0.9 }]); }
   };
   pickups.onAura = () => {
@@ -2029,6 +2034,9 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     actualizarMetaVisible(true);
     maskCompanion.update(dt, player, camera);
     maskCompanion.invT > 0 && (state.invT = maskCompanion.invT);
+    // BUFF DEL PURO (2 puros): más velocidad y más salto mientras dure (30 s)
+    player.speedBoost = maskCompanion.velocidadExtra;
+    player.jumpBoost = maskCompanion.saltoExtra;
     fx.update(dt);
     updateCamera(dt);
     fx.ambient(null, dt, camera, state.level);   // partículas ambientales del mundo
@@ -2311,6 +2319,9 @@ window.__qa = {
   })),
   /* QA: notas y máscaras (posición y si están cogidas) */
   notasPos: () => pickups.notes.map((n) => ({ x: +n.pos.x.toFixed(1), y: +n.pos.y.toFixed(1), z: +n.pos.z.toFixed(1), cogida: !!n.taken })),
+  /* QA: puros del nivel (posiciones, si están cogidos) + estado del buff */
+  purosPos: () => pickups.masks.map((p) => ({ x: +p.pos.x.toFixed(1), y: +p.pos.y.toFixed(1), z: +p.pos.z.toFixed(1), cogido: !!p.taken })),
+  puroBuff: () => ({ nivel: maskCompanion.nivel, invT: +maskCompanion.invT.toFixed(1), speed: player.speedBoost, jump: player.jumpBoost || 1 }),
   /* QA: piezas de las mecánicas Crash (ruinas y estado de los contornos) */
   mecanicas: () => ({
     ruinas: world.boxes.filter((b) => b.ruina).map((b) => ({ x: +b.pos.x.toFixed(1), z: +b.pos.z.toFixed(1), y: +b.pos.y.toFixed(2), caida: b.ruina.caida, t: +b.ruina.t.toFixed(2), solida: !!b.solid })),
