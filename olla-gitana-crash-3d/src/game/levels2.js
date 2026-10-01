@@ -503,7 +503,7 @@ export function buildLevel4(world, scene, fx) {
     id: 4, nombre: 'La Procesión',
     tip: 'Tranvías rojos: móntate o salta. Cajas flecha ▲ suben a los balcones (ojo, se desmoronan).',
     length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 377 },
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, bg: 4, colorTecho: 0x1a0f2e, lampIntensity: 1.15
   };
 }
@@ -653,7 +653,7 @@ export function buildLevel5(world, scene, fx) {
     id: 5, nombre: 'El Entierro de la Sardina',
     tip: 'Esquiva el humo y los barriles. Sube con las cajas flecha ▲: arriba está la máscara.',
     length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 238 },
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, bossIntermedio: 'fermin', bossIntermedioZ: 215,
     bg: 5, colorTecho: 0x120a24, lampIntensity: 1.3
   };
@@ -888,7 +888,7 @@ export function buildLevel6(world, scene, fx) {
     id: 6, nombre: 'La Huerta Perdida',
     tip: 'El agua frena: cruza por los troncos. Cajas flecha ▲ al pajar y ojo con los barriles.',
     length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 378 },
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, bg: 6, colorTecho: 0x1c2a1a, lampIntensity: 1.0
   };
 }
@@ -1138,7 +1138,7 @@ export function buildLevel7(world, scene, fx) {
     id: 7, nombre: 'El Casino de Murcia',
     tip: 'El suelo resbala: frena antes de saltar. Cajas flecha ▲ al reservado y cuidado con los barriles.',
     length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: 400 },
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, resbalon: true,
     bg: 7, colorTecho: 0x2a2418, lampIntensity: 1.45
   };

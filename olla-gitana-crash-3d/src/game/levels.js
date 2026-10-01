@@ -559,7 +559,7 @@ export function buildLevel1(world, scene, fx) {
   return {
     id: 1, nombre: 'El Ensayo Callejero',
     tip: 'Salta los baches y busca las cajas flecha ▲: suben a la cornisa y al andamio secreto.',
-    length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal, crates, notes, masks, checkpoints, puddles, enemies, switches,
+    length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal, crates, notes, masks, checkpoints, puddles, enemies, switches, lamps, deco,
     chase: false, arena: false, bg: 1, colorTecho: 0x2a1b40,
     lampIntensity: 1.0
   };
@@ -797,7 +797,7 @@ export function buildLevel2(world, scene, fx) {
     id: 2, nombre: 'Ruta al Festi',
     tip: 'Cajas flecha ▲ para volar alto. La caja ! materializa el andamio invisible: ahí va el atajo.',
     length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal: { z: 364, x: 0 },
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, lamps, deco,
     chase: false, arena: false, bg: 2, colorTecho: 0x1c0f2e, lampIntensity: 1.25
   };
 }
@@ -1000,7 +1000,7 @@ export function buildLevel3(world, scene, fx) {
     id: 3, nombre: 'Furgoneta Desbocada',
     tip: '¡Corre hacia la cámara! Esquiva los barriles que ruedan y usa las cajas flecha ▲ para ir por lo alto.',
     length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: 399, x: 0 },
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: true, arena: false, bg: 3, colorTecho: 0x101a2e, lampIntensity: 0.9,
     van: { startZ: -8, speed: 6.0, accel: 0.12, catchUp: true }
   };
@@ -1048,7 +1048,7 @@ export function buildBossArena(world, scene, fx) {
     id: 8, nombre: 'Duelo en el Escenario',
     tip: 'Devuelve los cajones con el giro cuando te los lance. Esquiva las ondas y escóndete tras los pilares.',
     length: 0, spawn: { x: 0, y: 0.1, z: 14 }, goal: null,
-    crates, notes, masks, checkpoints, puddles, enemies, switches,
+    crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: true, bg: 4, colorTecho: 0x120a24, lampIntensity: 1.4
   };
 }

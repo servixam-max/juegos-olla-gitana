@@ -388,6 +388,13 @@ function clearLevel() {
   boss.alive = false;
   clearAmbientDecor();
   traps.clear();                                      // cuchillas de la arena
+  // DECORACIÓN DE LOS NIVELES (levels.js/levels2.js): los `deco.push()` de los
+  // constructores NO se limpiaban aquí → al montar el concierto final encima de
+  // la arena del jefe quedaban pilares, guitarras y vallas del nivel 8 flotando
+  // tras la banda (el usuario lo veía como "cosas raras" en el suelo del final).
+  if (state.level && Array.isArray(state.level.deco)) {
+    for (const d of state.level.deco) if (d && d.parent) scene.remove(d);
+  }
 }
 
 /* ================= decoración ambiental (solo visual) =================
@@ -2092,6 +2099,7 @@ $('btnFinal').onclick = () => {
   Audio.sfx('ui');
   hideOverlays();
   state.mode = 'cine';
+  clearLevel();             // sin restos del nivel en el escenario del concierto
   Audio.setConcert(true);   // el "Ver final" también toca la canción real
   state.pending.push({ after: 0.2, fn: () => finalScene.play(() => { Audio.setConcert(false); showMenu(); Audio.playMenuMusic(); }) });
 };
@@ -2147,6 +2155,11 @@ function guardarPuntuacion(inputId) {
     savePrefs({ finalVisto: true });   // desbloquea el botón "Ver final" del menú
     hideOverlays();
     state.mode = 'cine';
+    // LIMPIEZA: el concierto se monta en su propio escenario; si el nivel 8
+    // (arena del jefe) siguiera cargado, sus pilares, vallas y suelo flotarían
+    // entre la banda y el público (el usuario lo describía como "cosas raras"
+    // en el suelo del final). Se vacía el nivel ANTES de construir el concierto.
+    clearLevel();
     state.pending.push({ after: 0.9, fn: () => { Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); showMenu(); Audio.playMenuMusic(); }); } });
   }
 }
@@ -2235,7 +2248,7 @@ window.__qa = {
   /* cuchillas de la arena (QA) */
   trapsInfo: () => ({ n: traps.traps.length, activas: traps.traps.filter((t) => t.activa).length, fase: traps.fase, pos: traps.traps.filter((t) => t.activa).map((t) => +t.obj.position.x.toFixed(1)) }),
   /* arranca el concierto final directamente (QA); con la canción real de la banda */
-  finalPlay: (cb) => { state.mode = 'cine'; hud.show(false); hideOverlays(); Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); if (cb) cb(); }); },
+  finalPlay: (cb) => { state.mode = 'cine'; hud.show(false); hideOverlays(); clearLevel(); Audio.setConcert(true); finalScene.play(() => { Audio.setConcert(false); if (cb) cb(); }); },
   /* diagnóstico para los agentes de QA: estado interno del motor */
   diag: () => ({
     grounded: player.grounded, vel: { ...player.vel }, facing: player.facing,

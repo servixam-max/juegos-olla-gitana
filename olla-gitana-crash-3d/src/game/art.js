@@ -72,51 +72,47 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
   const h2 = new THREE.Mesh(handleGeo, rimMat); h2.position.set(0.62, 0.66, 0); h2.rotation.z = -Math.PI / 2;
   g.add(h1, h2);
 
-  // ojos grandes
-  const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), toonMat(0xffffff));
+  // ===== CARA SIMPLE estilo Mario (rediseño pedido por el usuario) =====
+  // Antes: cejas de 4 piezas + pestañas + chispas + mejillas + gafas = ruido.
+  // Ahora: ojos con pupila, bigote con puntas, lengua/boquita. Nada más.
+  const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.165, 12, 10), toonMat(0xffffff));
   const eyeW2 = eyeW.clone();
-  eyeW.position.set(-0.18, 0.68, 0.54); eyeW2.position.set(0.18, 0.68, 0.54);
+  eyeW.position.set(-0.175, 0.70, 0.545); eyeW2.position.set(0.175, 0.70, 0.545);
   g.add(eyeW, eyeW2);
-  const pup = new THREE.Mesh(new THREE.SphereGeometry(0.078, 10, 8), darkMat);
+  const pup = new THREE.Mesh(new THREE.SphereGeometry(0.082, 10, 8), darkMat);
   const pup2 = pup.clone();
-  pup.position.set(-0.16, 0.68, 0.68); pup2.position.set(0.2, 0.68, 0.68);
+  pup.position.set(-0.16, 0.70, 0.675); pup2.position.set(0.19, 0.70, 0.675);
   g.add(pup, pup2);
-  // cejas expresivas (arco + punta) — mucho más "personaje"
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.06, 0.07), darkMat);
-  const brow2 = brow.clone();
-  brow.position.set(-0.175, 0.885, 0.575); brow.rotation.z = 0.30;
-  brow2.position.set(0.175, 0.885, 0.575); brow2.rotation.z = -0.30;
-  g.add(brow, brow2);
-  const browTip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.06), darkMat);
-  const browTip2 = browTip.clone();
-  browTip.position.set(-0.275, 0.915, 0.5); browTip.rotation.z = 0.7;
-  browTip2.position.set(0.275, 0.915, 0.5); browTip2.rotation.z = -0.7;
-  g.add(browTip, browTip2);
-  // chispita de luz en cada pupila (mirada viva)
+  // chispita de luz (una sola, simple)
   const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const shine = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), shineMat);
+  const shine = new THREE.Mesh(new THREE.SphereGeometry(0.026, 6, 6), shineMat);
   const shine2 = shine.clone();
-  shine.position.set(-0.132, 0.719, 0.741);
-  shine2.position.set(0.172, 0.719, 0.741);
+  shine.position.set(-0.135, 0.745, 0.735);
+  shine2.position.set(0.215, 0.745, 0.735);
   g.add(shine, shine2);
-  // mejillas sonrosadas
-  const blushMat = toonMat(0xff8fa5, { emissive: new THREE.Color(0x772233).multiplyScalar(0.35) });
-  const blushL = new THREE.Mesh(new THREE.SphereGeometry(0.095, 10, 8), blushMat);
-  blushL.scale.set(1, 0.8, 0.45); blushL.position.set(-0.33, 0.56, 0.5); blushL.rotation.y = -0.52;
-  const blushR = blushL.clone();
-  blushR.position.set(0.33, 0.56, 0.5); blushR.rotation.y = 0.52;
-  g.add(blushL, blushR);
-  // bigote rumbero
+  // naricilla
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 8), toonMat(0xa8341f));
+  nose.scale.set(1.15, 0.85, 0.9);
+  nose.position.set(0, 0.585, 0.66);
+  g.add(nose);
+  // boca sonriente (media luna bajo el bigote) — pequeña y sutil, para que el
+  // bigote y los ojos sigan siendo los protagonistas (petición: cara simple)
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.03, 6, 14, Math.PI), toonMat(0x3b1a12));
+  mouth.rotation.z = Math.PI;
+  mouth.position.set(0, 0.468, 0.662);
+  g.add(mouth);
+  // bigote rumbero GRANDE y claro (seña de identidad, estilo Mario)
   if (band) {
-    const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.06), darkMat);
+    const m1 = new THREE.Mesh(new THREE.SphereGeometry(0.155, 12, 8), darkMat);
+    m1.scale.set(1.35, 0.5, 0.5);
+    m1.position.set(-0.115, 0.525, 0.63);
     const m2 = m1.clone();
-    m1.position.set(-0.1, 0.5, 0.62); m1.rotation.z = 0.18;
-    m2.position.set(0.1, 0.5, 0.62); m2.rotation.z = -0.18;
-    // puntas del bigote: le dan el gesto rumbero
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 6), darkMat);
-    tip.position.set(-0.22, 0.53, 0.6); tip.rotation.z = 1.05;
-    const tip2 = tip.clone();
-    tip2.position.set(0.22, 0.53, 0.6); tip2.rotation.z = -1.05;
+    m2.position.set(0.115, 0.525, 0.63);
+    // puntas enroscadas hacia arriba (bucle)
+    const tip = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.032, 6, 12, Math.PI * 1.3), darkMat);
+    tip.position.set(-0.29, 0.565, 0.62); tip.rotation.z = 0.5;
+    const tip2 = new THREE.Mesh(tip.geometry, darkMat);
+    tip2.position.set(0.29, 0.565, 0.62); tip2.rotation.z = Math.PI - 0.5; tip2.rotation.y = Math.PI;
     g.add(m1, m2, tip, tip2);
     // pañuelo de la banda: doble vuelta, lunares y nudo al costado
     const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.062, 6, 18), toonMat(PALETA.rojoOsc));
@@ -206,8 +202,11 @@ export function makeOlla({ color = PALETA.rojo, rim = PALETA.dorado, band = true
   const pua = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.16, 3), toonMat(PALETA.crema));
   pua.rotation.x = Math.PI; pua.position.set(0, 0.6, 0.66);
   g.add(pua);
-  // gafas de sol de roquero (montura negra + cristal reflectante)
-  if (band && !guitar) {
+  // gafas de sol de roquero: RETIRADAS (petición del usuario: "la cara se queda
+  // rara, quiero algo más simple"). Las gafas tapaban los ojos y el bigote, que
+  // son los rasgos que identifican al personaje. Se mantiene la cadena y la púa.
+  // (Se deja el bloque detrás de un flag por si se quiere recuperar en el futuro.)
+  if (band && !guitar && typeof window !== 'undefined' && window.__OG3D_GAFAS === 1) {
     const montMat = toonMat(0x141414);
     const cristalMat = new THREE.MeshBasicMaterial({ color: 0x2b3a55 });
     for (const s of [-1, 1]) {

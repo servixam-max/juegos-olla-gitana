@@ -9,21 +9,18 @@ import * as THREE from 'three';
 import { INTRO } from '../narrative/dialogos.js';
 
 export const GUION = [
-  { id: 'titulo1', t: 3.0, camara: 'titulo', texto: { l1: 'OLLA GITANA 3D', l2: 'GIRA MUNDIAL' } },
-  { id: 'intro1', t: 7.0, camara: 'paneoEscenario', dialogo: 'luces' },
-  { id: 'intro2', t: 7.5, camara: 'lateralEscenario', dialogo: 'concierto' },
-  { id: 'intro3', t: 5.5, camara: 'zoomPantalla', dialogo: 'silencio' },
-  { id: 'intro4', t: 10.0, camara: 'frenteCacharro', dialogo: 'cacharro' },
-  { id: 'intro5', t: 6.5, camara: 'seguimientoOlla', dialogo: 'huida' },
-  { id: 'n1', t: 10.0, nivel: 0, camara: 'rail' },
-  { id: 'n2', t: 8.5, nivel: 1, camara: 'rail' },
-  { id: 'n3', t: 8.5, nivel: 2, camara: 'chase' },
-  { id: 'n4', t: 7.5, nivel: 3, camara: 'rail' },
-  { id: 'n5', t: 9.0, nivel: 4, camara: 'bossfermin' },
-  { id: 'n6', t: 7.5, nivel: 5, camara: 'rail' },
-  { id: 'n7', t: 7.5, nivel: 6, camara: 'rail' },
-  { id: 'boss', t: 13.0, nivel: 7, camara: 'bossfinal' },
-  { id: 'fin', t: 5.0, camara: 'titulo', texto: { l1: '¡QUE NO PARE LA RUMBA!', l2: 'SERVI.TAIL31979D.TS.NET/OLLAGITANA' } }
+  // Versión CORTA (~40 s): intro condensada + pasillo por 4 mundos con
+  // rótulos de mecánicas (salto, barrida, giro) y el duelo final. Los textos
+  // `l3` explican la mecánica como pide el usuario ("un poco de explicación").
+  { id: 'titulo1', t: 2.0, camara: 'titulo', texto: { l1: 'OLLA GITANA 3D', l2: 'GIRA MUNDIAL' } },
+  { id: 'intro1', t: 4.5, camara: 'paneoEscenario', dialogo: 'luces' },
+  { id: 'intro4', t: 6.0, camara: 'frenteCacharro', dialogo: 'cacharro' },
+  { id: 'intro5', t: 4.5, camara: 'seguimientoOlla', dialogo: 'huida' },
+  { id: 'n1', t: 4.5, nivel: 0, camara: 'rail', texto: { l1: 'MUNDO 1', l2: 'EL ENSAYO', l3: 'Salta los baches' } },
+  { id: 'n3', t: 4.0, nivel: 2, camara: 'chase', texto: { l1: 'MUNDO 3', l2: 'LA FURGONETA', l3: '¡Corre hacia la cámara!' } },
+  { id: 'n5', t: 4.0, nivel: 4, camara: 'bossfermin', texto: { l1: 'MUNDO 5', l2: 'JEFE: FERMÍN', l3: 'Salta encima cuando se ponga rojo' } },
+  { id: 'boss', t: 7.0, nivel: 7, camara: 'bossfinal', texto: { l1: 'DUELO FINAL', l2: 'EL CACHARRO', l3: 'Devuelve los cajones con el giro' } },
+  { id: 'fin', t: 3.5, camara: 'titulo', texto: { l1: '¡QUE NO PARE LA RUMBA!', l2: 'SERVI.TAIL31979D.TS.NET/OLLAGITANA' } }
 ];
 
 export class DemoDirector {
@@ -84,7 +81,7 @@ export class DemoDirector {
         const dl = p.dialogo ? INTRO.dialogos[p.dialogo] : null;
         if (dl && this.dialog) this.dialog.play(dl);
       }
-      if (p.texto) this.game.showCineTitle(p.texto.l1, p.texto.l2, p.t);
+      if (p.texto) this.game.showCineTitle(p.texto.l1, p.texto.l2, p.t, p.texto.l3 || '');
       return;
     }
     // planos de juego: oculta la escena de la intro y para los bocadillos
@@ -98,7 +95,7 @@ export class DemoDirector {
       this.game.botOn();
       this.game.godOn();
     }
-    if (p.texto) this.game.showCineTitle(p.texto.l1, p.texto.l2, p.t);
+    if (p.texto) this.game.showCineTitle(p.texto.l1, p.texto.l2, p.t, p.texto.l3 || '');
   }
 
   update(dt) {
