@@ -1,0 +1,10 @@
+[
+  { "lv": 0, "pasos": 130, "out": "detalle_n1_asfalto", "p": [0, 2.0, 20],  "l": [0, 0.05, 40] },
+  { "lv": 1, "pasos": 130, "out": "detalle_n2_albero",  "p": [0, 2.0, 20],  "l": [0, 0.05, 40] },
+  { "lv": 2, "pasos": 130, "out": "detalle_n3_asfalto", "p": [0, 2.0, 20],  "l": [0, 0.05, 40] },
+  { "lv": 5, "pasos": 130, "out": "detalle_n6_cesped",  "p": [0, 2.0, 20],  "l": [0, 0.05, 40] },
+  { "lv": 6, "pasos": 130, "out": "detalle_n7_marmol",  "p": [0, 2.0, 20],  "l": [0, 0.05, 40] },
+  { "lv": 6, "pasos": 130, "out": "detalle_n7_losas",   "p": [0, 6.0, 92],  "l": [0, 1.0, 120] },
+  { "lv": 7, "pasos": 130, "out": "detalle_n8_ring",    "p": [0, 2.0, 6],   "l": [0, 0.05, 22] },
+  { "lv": 7, "pasos": 130, "out": "detalle_n8_stage",   "p": [0, 3.0, -3],  "l": [0, 1.2, -12] }
+]

@@ -1,0 +1,12 @@
+[
+  { "lv": 0, "pasos": 130, "out": "antes_n1_calle",     "p": [0, 3.0, 6],    "l": [0, 1.2, 24] },
+  { "lv": 0, "pasos": 130, "out": "antes_n1_suelo",     "p": [2.5, 1.5, 26], "l": [0, 0.05, 36] },
+  { "lv": 1, "pasos": 130, "out": "antes_n2_festi",     "p": [0, 3.6, 14],   "l": [0, 1.4, 36] },
+  { "lv": 2, "pasos": 130, "out": "antes_n3_carretera", "p": [0, 3.6, 10],   "l": [0, 1.2, 34] },
+  { "lv": 3, "pasos": 130, "out": "antes_n4_procesion", "p": [0, 3.6, 10],   "l": [0, 1.2, 34] },
+  { "lv": 4, "pasos": 130, "out": "antes_n5_sardina",   "p": [0, 3.6, 10],   "l": [0, 1.2, 34] },
+  { "lv": 5, "pasos": 130, "out": "antes_n6_huerta",    "p": [0, 3.6, 8],    "l": [0, 1.2, 30] },
+  { "lv": 6, "pasos": 130, "out": "antes_n7_casino",    "p": [0, 3.6, 6],    "l": [0, 1.4, 28] },
+  { "lv": 7, "pasos": 130, "out": "antes_n8_arena",     "p": [0, 7.0, 6],    "l": [0, 1.5, -13] },
+  { "lv": 7, "pasos": 130, "out": "antes_n8_suelo",     "p": [3.0, 1.6, 2],  "l": [0, 0.05, 10] }
+]
