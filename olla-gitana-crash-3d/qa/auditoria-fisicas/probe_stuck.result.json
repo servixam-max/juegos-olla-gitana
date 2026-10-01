@@ -1,0 +1,114 @@
+{
+ "probe": "probe_stuck.js",
+ "wall_s": 15.9,
+ "result": {
+  "niveles": {
+   "N3": [
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 408.7,
+     "stuck": null
+    },
+    {
+     "ok": true,
+     "mode": "end",
+     "endZ": 462.3,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 31.2,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 182.3,
+     "stuck": null
+    }
+   ],
+   "N4": [
+    {
+     "ok": true,
+     "mode": "end",
+     "endZ": 436.6,
+     "stuck": null
+    },
+    {
+     "ok": true,
+     "mode": "end",
+     "endZ": 436.9,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 99.7,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 292.8,
+     "stuck": null
+    }
+   ],
+   "N6": [
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 66.5,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 297.9,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 66.8,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 341.1,
+     "stuck": null
+    }
+   ],
+   "N7": [
+    {
+     "ok": true,
+     "mode": "end",
+     "endZ": 466.1,
+     "stuck": null
+    },
+    {
+     "ok": true,
+     "mode": "end",
+     "endZ": 466.2,
+     "stuck": null
+    },
+    {
+     "ok": false,
+     "mode": "play",
+     "endZ": 353.2,
+     "stuck": null
+    },
+    {
+     "ok": true,
+     "mode": "end",
+     "endZ": 466.1,
+     "stuck": null
+    }
+   ]
+  },
+  "errores": []
+ },
+ "error": null
+}

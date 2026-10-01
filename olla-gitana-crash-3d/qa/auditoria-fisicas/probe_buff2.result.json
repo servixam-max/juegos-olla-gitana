@@ -1,0 +1,84 @@
+{
+ "probe": "probe_buff2.js",
+ "wall_s": 0.4,
+ "result": {
+  "pasos": [],
+  "errors": [],
+  "coger": {
+   "nivel": 2,
+   "mascara": {
+    "nivel": 2,
+    "invT": 29.6,
+    "invulnerable": true,
+    "visible": true
+   },
+   "buff": {
+    "nivel": 2,
+    "invT": 29.6,
+    "speed": 1.35,
+    "jump": 1.22
+   }
+  },
+  "damage3": {
+   "v0": 3,
+   "vidas": 3,
+   "invuln": 0.4,
+   "danLog": 0,
+   "buff": {
+    "nivel": 2,
+    "invT": 25.6,
+    "invulnerable": true,
+    "visible": true
+   }
+  },
+  "caida": {
+   "vidas": 3,
+   "y": 0,
+   "z": 2,
+   "buff": {
+    "nivel": 2,
+    "invT": 23.6,
+    "invulnerable": true,
+    "visible": true
+   }
+  },
+  "enemigo": {
+   "vidas": 3,
+   "invuln": 0.4,
+   "danLog": 0,
+   "buff": {
+    "nivel": 2,
+    "invT": 17.6,
+    "invulnerable": true,
+    "visible": true
+   }
+  },
+  "trasExpirar": {
+   "mascara": {
+    "nivel": 0,
+    "invT": 0,
+    "invulnerable": false,
+    "visible": false
+   },
+   "buff": {
+    "nivel": 0,
+    "invT": 0,
+    "speed": 1,
+    "jump": 1
+   },
+   "invulnA": 1.67,
+   "invulnB": 0,
+   "invulnC": 0
+  },
+  "post_damage": {
+   "antes": 3,
+   "vidas": 2,
+   "invuln": 2.1
+  },
+  "post_damage2": {
+   "vidas": 1,
+   "invuln": 2.1
+  }
+ },
+ "error": null
+}

@@ -1,0 +1,44 @@
+{
+ "probe": "probe_fisica_basica.js",
+ "wall_s": 0.4,
+ "result": {
+  "tests": {
+   "barrida_muro": {
+    "x": -4.58,
+    "z": 12.4,
+    "maxX_ok": true
+   },
+   "giro_muro": {
+    "x": -4.58,
+    "maxX_ok": true
+   },
+   "saltolargo_muro": {
+    "maxX": -4.262,
+    "ok": true
+   },
+   "sin_techo_datos": {
+    "y": 0
+   },
+   "caida_alta": {
+    "landed": true,
+    "y": 0.24,
+    "frames": 45,
+    "velYmax": -30,
+    "x": 0,
+    "z": 100
+   },
+   "caida_muro": {
+    "x": 0,
+    "y": 1.15,
+    "ok": true
+   },
+   "bache": {
+    "zAntes": 20,
+    "zDespues": 7,
+    "y": 0
+   }
+  },
+  "errors": []
+ },
+ "error": null
+}

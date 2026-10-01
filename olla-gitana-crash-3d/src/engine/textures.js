@@ -551,3 +551,261 @@ function pintarNoche(ctx) {
 export function texNoche(repX = 1, repY = 1) {
   return servir(crear('noche', pintarNoche), repX, repY);
 }
+
+/* Trazo de brizna TILEABLE: la brizna se repite desplazada ±TAM (igual que
+   blob) para que la que cruza el borde reaparezca por el otro lado y el
+   patrón no muestre costuras al repetir. */
+function brizna(ctx, x, y, alto, incl, color, grosor) {
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const px = x + dx * TAM;
+      const py = y + dy * TAM;
+      if (px < -12 || px > TAM + 12 || py < -12 || py > TAM + 12) continue;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.quadraticCurveTo(px + incl * 0.5, py - alto * 0.55, px + incl, py - alto);
+      ctx.lineWidth = grosor;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+  }
+}
+
+/* ============================== 9) CÉSPED ================================ */
+
+/* Hierba de huerta: matas tupidas, tréboles y calvas de tierra. TILEABLE. */
+function pintarCesped(ctx) {
+  const R = rnd(9090);
+  const base = '#3f5a2a';
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, TAM, TAM);
+
+  // 1) manchas de tono (zonas más secas / más frescas)
+  const verdes = ['#2f4a20', '#4a6b32', '#587a36', '#33502a', '#63863c'];
+  for (let i = 0; i < 60; i++) {
+    const r = 12 + R() * 34;
+    blob(ctx, R() * TAM, R() * TAM, r, r * (0.45 + R() * 0.5), R() * 3,
+      rgba(verdes[Math.floor(R() * verdes.length)], 0.20 + R() * 0.26));
+  }
+
+  // 2) calvas de tierra (pocas, pequeñas: la huerta está viva)
+  for (let i = 0; i < 7; i++) {
+    const x = R() * TAM, y = R() * TAM, r = 5 + R() * 11;
+    blob(ctx, x, y, r, r * (0.5 + R() * 0.4), R() * 3, rgba('#6b5433', 0.34 + R() * 0.22));
+    for (let k = 0; k < 10; k++) {
+      blob(ctx, x + (R() - 0.5) * r * 1.4, y + (R() - 0.5) * r * 1.2, 0.7 + R() * 1.1, 0.5 + R() * 0.8, 0,
+        rgba(R() < 0.5 ? '#7d6540' : '#54421f', 0.4));
+    }
+  }
+
+  // 3) Briznas: tallos curvos con punta clara (lo que da la lectura de hierba)
+  const puntas = ['#7fb03c', '#8fc44a', '#6a9c34', '#a3ce5c'];
+  for (let i = 0; i < 320; i++) {
+    const x = R() * TAM, y = R() * TAM;
+    const alto = 5 + R() * 9;
+    const incl = (R() - 0.5) * 2.6;
+    const c = puntas[Math.floor(R() * puntas.length)];
+    brizna(ctx, x, y, alto, incl, rgba(c, 0.45 + R() * 0.45), 0.8 + R() * 0.9);
+  }
+
+  // 4) tréboles / flores de campo
+  for (let i = 0; i < 16; i++) {
+    const x = R() * TAM, y = R() * TAM;
+    const c = R() < 0.7 ? '#e9e26a' : '#ffffff';
+    for (let p = 0; p < 3; p++) {
+      const a = (p / 3) * Math.PI * 2 + R();
+      blob(ctx, x + Math.cos(a) * 1.6, y + Math.sin(a) * 1.6, 1.5, 1.5, 0, rgba(c, 0.75 + R() * 0.25));
+    }
+    blob(ctx, x, y, 0.9, 0.9, 0, rgba('#f2c14e', 0.9));
+  }
+
+  // 5) sombra de base entre la hierba (asienta el volumen)
+  for (let i = 0; i < 90; i++) {
+    blob(ctx, R() * TAM, R() * TAM, 1 + R() * 3, 0.6 + R() * 1.6, R() * 3, rgba('#14210c', 0.10 + R() * 0.12));
+  }
+}
+
+/* Hierba de huerta (suelo de La Huerta Perdida, jardineras, taludes) */
+export function texCesped(repX = 1, repY = 1) {
+  return servir(crear('cesped', pintarCesped), repX, repY);
+}
+
+/* ============================== 10) MÁRMOL =============================== */
+
+/* Mármol pulido en losas con junta: vetas, calima y brillo. TILEABLE. */
+function pintarMarmol(ctx, base) {
+  const R = rnd(10100 + base.length * 13);
+  const losa = TAM / 2;              // 2×2 losas por textura
+  const junta = 5;
+
+  // fondo (color de la junta, oscurecido)
+  ctx.fillStyle = shade(base, 0.62);
+  ctx.fillRect(0, 0, TAM, TAM);
+
+  for (let ly = 0; ly < 2; ly++) {
+    for (let lx = 0; lx < 2; lx++) {
+      const x = lx * losa, y = ly * losa;
+      // veta diagonal larga (cada losa corta la misma veta en distinto punto,
+      // como en el mármol real)
+      const v = 0.94 + R() * 0.12;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x + junta / 2, y + junta / 2, losa - junta, losa - junta);
+      ctx.clip();
+      ctx.fillStyle = shade(base, v);
+      ctx.fillRect(x, y, losa, losa);
+
+      // nubes del pulido
+      for (let i = 0; i < 26; i++) {
+        const r = 10 + R() * 32;
+        blob(ctx, x + R() * losa, y + R() * losa, r, r * (0.35 + R() * 0.4), R() * 3,
+          rgba(R() < 0.55 ? shade(base, 1.10) : shade(base, 0.86), 0.10 + R() * 0.14));
+      }
+      // vetas: líneas sinusoidales finas cruzando la losa en diagonal
+      for (let i = 0; i < 5; i++) {
+        const y0 = y + R() * losa;
+        const fase = R() * Math.PI * 2;
+        const amp = 3 + R() * 7;
+        const per = 1 + Math.floor(R() * 2);
+        const k = (Math.PI * 2 * per) / losa;
+        const oscura = R() < 0.6;
+        ctx.beginPath();
+        for (let t = 0; t <= losa; t += 4) {
+          const yy = y0 + Math.sin(t * k + fase) * amp;
+          if (t === 0) ctx.moveTo(x + t, yy); else ctx.lineTo(x + t, yy);
+        }
+        ctx.lineWidth = 0.7 + R() * 1.9;
+        ctx.strokeStyle = oscura
+          ? rgba(shade(base, 0.55), 0.16 + R() * 0.22)
+          : rgba('#e8e0cf', 0.20 + R() * 0.26);
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+      // vena dorada ocasional (mármol de salón)
+      if (R() < 0.6) {
+        const y0 = y + losa * (0.25 + R() * 0.5);
+        ctx.beginPath();
+        for (let t = 0; t <= losa; t += 4) {
+          const yy = y0 + Math.sin(t * 0.06 + R() * 0.2) * 3.5;
+          if (t === 0) ctx.moveTo(x + t, yy); else ctx.lineTo(x + t, yy);
+        }
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = rgba('#c9a227', 0.28 + R() * 0.22);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // bisel de la losa: luz arriba/izquierda, sombra abajo/derecha
+      ctx.fillStyle = rgba('#ffffff', 0.18);
+      ctx.fillRect(x + junta / 2, y + junta / 2, losa - junta, 1.6);
+      ctx.fillStyle = rgba('#000000', 0.14);
+      ctx.fillRect(x + junta / 2, y + losa - junta / 2 - 1.6, losa - junta, 1.6);
+    }
+  }
+
+  // motas de desgaste finas (uso del salón)
+  for (let i = 0; i < 220; i++) {
+    blob(ctx, R() * TAM, R() * TAM, 0.5 + R() * 1.3, 0.4 + R() * 0.9, 0,
+      rgba(R() < 0.5 ? shade(base, 1.18) : shade(base, 0.72), 0.08 + R() * 0.12));
+  }
+}
+
+/* Mármol de losas (Casino de Murcia, escalinatas, columnatas).
+   tono: '' (crema), 'gris', 'dorado', 'oscuro'… o color CSS */
+const TONOS_MARMOL = {
+  '': '#d9d2c4', base: '#d9d2c4', crema: '#d9d2c4',
+  gris: '#b9bcc0', dorado: '#d8c49a', verde: '#9fb098', rojo: '#c8a09a', oscuro: '#8f8a80'
+};
+export function texMarmol(tono = '', repX = 1, repY = 1) {
+  const k = String(tono || '').trim().toLowerCase();
+  const base = TONOS_MARMOL[k] || ((k[0] === '#' || k.startsWith('rgb')) ? k : TONOS_MARMOL['']);
+  return servir(crear('marmol|' + base, (ctx) => pintarMarmol(ctx, base)), repX, repY);
+}
+
+/* ============================== 11) ARENA ================================ */
+
+/* Tierra pisada de recinto (Festi): grano fino, rodadas y piedras. TILEABLE. */
+function pintarArena(ctx) {
+  const R = rnd(11110);
+  const base = '#c2a878';
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, TAM, TAM);
+
+  // 1) rodadas / bandas de paso de vehículos y gente
+  for (let i = 0; i < 3; i++) {
+    const y0 = (i + 0.5) * (TAM / 3) + (R() - 0.5) * 26;
+    const amp = 4 + R() * 9;
+    const per = 1 + Math.floor(R() * 2);
+    const fase = R() * Math.PI * 2;
+    onda(ctx, y0 + 3, amp, per, fase, rgba(shade(base, 0.76), 0.22 + R() * 0.16), 7 + R() * 7);
+    onda(ctx, y0, amp, per, fase, rgba(shade(base, 1.14), 0.16 + R() * 0.12), 2.6);
+  }
+
+  // 2) manchas de humedad / sombra de pisadas
+  for (let i = 0; i < 44; i++) {
+    const r = 12 + R() * 40;
+    blob(ctx, R() * TAM, R() * TAM, r, r * (0.4 + R() * 0.5), R() * 3,
+      rgba(R() < 0.5 ? shade(base, 0.84) : shade(base, 1.10), 0.10 + R() * 0.14));
+  }
+
+  // 3) grano de arena: muchísimas motas (la clave del look de albero)
+  for (let i = 0; i < 1500; i++) {
+    const r = 0.4 + R() * 1.5;
+    const c = R() < 0.55
+      ? rgba(shade(base, 1.26), 0.25 + R() * 0.4)
+      : rgba(shade(base, 0.66), 0.22 + R() * 0.34);
+    blob(ctx, R() * TAM, R() * TAM, r, r * (0.6 + R() * 0.5), 0, c);
+  }
+
+  // 4) piedras sueltas con su sombra
+  for (let i = 0; i < 34; i++) {
+    const x = R() * TAM, y = R() * TAM, r = 1.2 + R() * 2.8;
+    blob(ctx, x + 1, y + 1.1, r, r * 0.7, R() * 3, 'rgba(0,0,0,0.22)');
+    blob(ctx, x, y, r, r * 0.72, R() * 3, rgba(R() < 0.6 ? '#d8c8a4' : '#9c8a68', 0.7 + R() * 0.3));
+  }
+
+  // 5) briznas y rastrojos secos sueltos (tileables: sin costuras al repetir)
+  for (let i = 0; i < 40; i++) {
+    const x = R() * TAM, y = R() * TAM, alto = 3 + R() * 6;
+    const incl = (R() - 0.5) * 3;
+    brizna(ctx, x, y, alto, incl, rgba('#a89a5e', 0.24 + R() * 0.26), 0.7 + R() * 0.6);
+  }
+}
+
+/* Tierra pisada de recinto ferial (Ruta al Festi, plazas, carpa) */
+export function texArena(repX = 1, repY = 1) {
+  return servir(crear('arena', pintarArena), repX, repY);
+}
+
+/* ======================= UV POR CARA (anti-estirón) ====================== */
+
+/* Reescribe el UV del material para medirlo EN METROS en la propia cara del
+   objeto (mapeado tipo caja): el patrón no se estira por mucho que la caja sea
+   larga y estrecha, y todas las superficies de la escena comparten la misma
+   escala (escalaMetros = tamaño en metros de una repetición de la textura).
+   Pensado para geometrías de caja (suelos, muros, plataformas, cajas, losas).
+   En v0.186 MeshToonMaterial calcula vMapUv en <uv_vertex>: se sustituye por
+   la proyección por cara usando la `position` local (que está en metros). */
+export function uvPorCara(mat, escalaMetros = 2) {
+  const k = 1 / Math.max(0.05, escalaMetros);
+  if (!mat) return mat;
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uUvEscala = { value: k };
+    sh.vertexShader = 'uniform float uUvEscala;\n' + sh.vertexShader.replace(
+      '#include <uv_vertex>',
+      `#ifdef USE_MAP
+	vec3 nAbs = abs( normal );
+	vec2 uvCara;
+	if ( nAbs.y >= nAbs.x && nAbs.y >= nAbs.z ) uvCara = vec2( position.x, position.z );
+	else if ( nAbs.x >= nAbs.z ) uvCara = vec2( position.z, position.y );
+	else uvCara = vec2( position.x, position.y );
+	vMapUv = uvCara * uUvEscala;
+#endif`
+    );
+  };
+  // clave propia de programa: evita compartir el shader con otros toon sin UV de cara
+  mat.customProgramCacheKey = () => 'uvCara|' + k.toFixed(4);
+  mat.needsUpdate = true;
+  return mat;
+}

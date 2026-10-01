@@ -1,0 +1,59 @@
+{
+ "probe": "probe_caida_dano.js",
+ "wall_s": 0.3,
+ "result": {
+  "caidas": [
+   {
+    "antes": 3,
+    "despues": 2,
+    "y": 0,
+    "z": 2,
+    "modo": "play"
+   },
+   {
+    "antes": 2,
+    "despues": 1,
+    "y": 0,
+    "z": 2,
+    "modo": "play"
+   },
+   {
+    "antes": 1,
+    "despues": 0,
+    "y": -25,
+    "z": 60,
+    "modo": "cine"
+   }
+  ],
+  "errors": [],
+  "inicio": {
+   "vidas": 3
+  },
+  "caida_alta_sin_dano": {
+   "antes": 3,
+   "despues": 3,
+   "y": 0.24
+  },
+  "log": [
+   {
+    "reason": "fall",
+    "z": 60,
+    "x": 0,
+    "y": -25
+   },
+   {
+    "reason": "fall",
+    "z": 60,
+    "x": 0,
+    "y": -25
+   },
+   {
+    "reason": "fall",
+    "z": 60,
+    "x": 0,
+    "y": -25
+   }
+  ]
+ },
+ "error": null
+}

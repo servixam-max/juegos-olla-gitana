@@ -267,7 +267,7 @@ function calzada(world, scene, { z0, z1, w = 13, color = PALETA.asfalto, saltos 
    separadas por agujeros al vacío. Losas de 6,6-8,6 m y saltos de 2,2 m (salto
    normal), 4-6 bloques encadenados. `tops` alterna la altura (0 / 0.24) y `zig`
    las desplaza en x para corregir en el aire. */
-function islas(world, scene, { z0, n = 4, d = 7, sep = 2.2, w = 4.6, tops = [0, 0.24], zig = 1.0, color = PALETA.madera, tag = 'platform', salida = null }) {
+function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 2.2, w = 4.6, tops = [0, 0.24], zig = 1.0, color = PALETA.madera, tag = 'platform', salida = null }) {
   const puestas = [];
   let z = +z0;
   let ultSep = Array.isArray(sep) ? +sep[0] : +sep;
@@ -284,7 +284,13 @@ function islas(world, scene, { z0, n = 4, d = 7, sep = 2.2, w = 4.6, tops = [0, 
   }
   // la separación de salida es SIEMPRE un número (con un array, el "+"
   // concatenaba strings y todas las z del nivel acababan siendo NaN)
-  const fin = z + +(salida == null ? ultSep : salida);
+  const salidaReal = salida == null ? ultSep : salida;
+  const fin = z + +salidaReal;
+  /* NOTA GUÍA en el salto de SALIDA del tramo: apunta al centro del hueco para
+     que el bot (y el jugador) cruce RECTO. Sin ella, el único objetivo por
+     delante era una nota de arco lejana a x=±2.4 y el bot se desviaba de lado
+     en el aire y caía al vacío en bucle (medido en N7 z≈143,7 y N3 z≈253). */
+  if (notes) notes.push(buildNote(world, scene, { x: 0, y: 1.4, z: +(fin - salidaReal / 2).toFixed(2) }));
   return { fin, losa: puestas };
 }
 
@@ -309,6 +315,111 @@ function notasEnTramos(notes, world, scene, { tramos, paso = 9, fase = 0 }) {
       notes.push(buildNote(world, scene, { x: arc, y: 0.9 + Math.abs(Math.sin((z + fase) * 0.12)) * 1.5, z }));
     }
   }
+}
+
+/* ---------- "SOLO CAJAS": puentes, bombas y la caja de vida única ---------- */
+
+/* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (petición del usuario:
+   "a veces solo cajas y tener que ir rebotando de caja en caja"). El suelo
+   desaparece y se cruza SALTANDO de caja en caja: la LÍNEA de cruce es toda de
+   ACERO (hp 2, aguanta el apoyo y no se desestabiliza) y la caja de REBOTE va
+   AL LADO, fuera de la línea, como ATAJO ALTO opcional: si se revienta al
+   rebotar, el camino de cruce sigue intacto (antes el bot destruía una caja de
+   rebote de la propia cadena y el tramo quedaba incruzable en bucle).
+   `z0` es el BORDE del vacío; devuelve el z donde vuelve el suelo firme (la
+   siguiente calzada debe empezar ahí). Cada caja lleva su nota encima (la ruta
+   segura que sigue el bot). Las cajas altas se apoyan en un pilar que baja al
+   abismo: nada queda flotando. */
+function puenteCajas(world, scene, crates, notes, {
+  z0, n = 5, sep = 1.5, zig = 0.8, alturas = [0, 0.3, 0], atajos = null,
+  gIn = 1.3, gEnd = 1.3
+}) {
+  const paso = 0.92 + sep;
+  // posiciones (1-based) con caja de rebote al lado; por defecto, dos a lo largo
+  const setAtajos = atajos || [2, Math.max(2, n - 2)];
+  for (let i = 0; i < n; i++) {
+    const alt = +(Array.isArray(alturas) ? alturas[i % alturas.length] : alturas);
+    const zz = +(z0 + gIn + 0.46 + i * paso).toFixed(2);
+    const xx = zig ? Math.round(Math.sin(i * 1.25 + 0.5) * zig * 10) / 10 : 0;
+    if (alt > 0.02) {
+      // pilar de apoyo hasta el abismo: la caja alta NO flota sobre el vacío
+      // (decorativo y SIN colisión: un pilar sólido bloqueaba el salto del bot)
+      solid(world, scene, { x: xx, y: -7, z: zz, w: 0.62, h: 7 + alt, d: 0.62, color: 0x4a4458, tag: 'pilar', solid: false });
+    }
+    // caja SÓLIDA de la línea de cruce (acero: aguanta el apoyo)
+    crates.push(buildCrate(world, scene, { x: xx, y: alt, z: zz, type: 'steel' }));
+    notes.push(buildNote(world, scene, { x: xx, y: alt + 1.55, z: zz }));
+    // ATAJO ALTO: caja de rebote FUERA de la línea (al lado del borde interior)
+    if (setAtajos.includes(i + 1)) {
+      const bx = Math.round((xx >= 0 ? xx - 1.6 : xx + 1.6) * 10) / 10;
+      crates.push(buildCrate(world, scene, { x: bx, y: 0, z: zz, type: 'bounce' }));
+      notes.push(buildNote(world, scene, { x: bx, y: 2.7, z: zz }));
+    }
+  }
+  const ret = +(z0 + gIn + n * 0.92 + (n - 1) * sep + gEnd).toFixed(2);
+  /* NOTAS GUÍA de entrada y salida: sin ellas el bot (que persigue la nota más
+     cercana por delante) puede quedarse pegado al borde del vacío mirando al
+     lado; estas dos marcan "salta aquí" y "sigue por allí" y el cruce lo hace
+     siempre por la línea de cajas. */
+  notes.push(buildNote(world, scene, { x: 0, y: 1.25, z: +(z0 - 1.1).toFixed(2) }));
+  notes.push(buildNote(world, scene, { x: 0, y: 1.25, z: +(ret + 1.1).toFixed(2) }));
+  return ret;
+}
+
+/* GRUPO DE CAJAS BOMBA (2-4 TNT) en calzada FIRME y con vía de escape: el grupo
+   va pegado a un lado y deja SIEMPRE un carril libre de 2 m al otro; nunca se
+   coloca junto a un hueco (la explosión no puede tirar al vacío sin salida). */
+function grupoTnt(world, scene, crates, { z, n = 3, desde = -9, hasta = 9 }) {
+  const xs = [];
+  for (let i = 0; i < n; i++) xs.push(-2.6 + i * 1.0);
+  const escape = xs[xs.length - 1] + 0.6 + 2.0;
+  const max = Math.max(Math.abs(desde), Math.abs(hasta));
+  for (let k = 0; k <= max; k++) {
+    for (const s of (k === 0 ? [0] : [k, -k])) {
+      const zz = Math.round((z + s) * 10) / 10;
+      if (zz < z + desde || zz > z + hasta) continue;
+      let ok = true;
+      for (const xc of xs) {
+        for (const dz of [-1.4, 0, 1.4]) {
+          if (!haySuelo(world, { x: xc, z: zz + dz, w: 0.9, d: 0.9, soloFirme: true })) { ok = false; break; }
+        }
+        if (!ok) break;
+      }
+      if (ok) for (const dz of [-1.6, 0, 1.6]) {
+        if (!haySuelo(world, { x: escape, z: zz + dz, w: 1.0, d: 0.9, soloFirme: true })) { ok = false; break; }
+      }
+      if (!ok) continue;
+      for (const xx of xs) crates.push(buildCrate(world, scene, { x: xx, z: zz, type: 'tnt' }));
+      return zz;
+    }
+  }
+  return null;   // sin sitio seguro: no se coloca (nada pegado a un hueco)
+}
+
+/* CAJA DE VIDA ÚNICA (una por nivel, petición del usuario): se coloca en el
+   PUNTO MEDIO del recorrido sobre calzada firme. Se elige el tramo firme más
+   cercano a la mitad, dentro de él un z que no pise ninguna otra caja y que
+   deje firme también el punto de reaparición (z-3, que es donde respawnea
+   main.js tras morir). Si no hay ningún tramo válido, devuelve null. */
+function checkpointUnico(world, scene, crates, checkpoints, { mid, tramos }) {
+  const hayCaja = (zz) => crates.some((c) => c.mesh && Math.abs(c.mesh.position.z - zz) < 3.4 && Math.abs(c.mesh.position.x) < 2.4);
+  const lista = tramos.filter(([a, b]) => b - a >= 7)
+    .slice()
+    .sort((p, q) => Math.abs((p[0] + p[1]) / 2 - mid) - Math.abs((q[0] + q[1]) / 2 - mid));
+  for (const [a, b] of lista) {
+    const cz0 = Math.min(b - 2.5, Math.max(a + 4, mid));
+    for (let k = 0; k <= 10; k++) {
+      for (const s of (k === 0 ? [0] : [k * 0.5, -k * 0.5])) {
+        const cz = Math.round((cz0 + s) * 10) / 10;
+        if (cz < a + 4 || cz > b - 2.5) continue;
+        if (hayCaja(cz)) continue;
+        crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
+        checkpoints.push({ z: cz });
+        return cz;
+      }
+    }
+  }
+  return null;
 }
 
 /* =========================================================
@@ -338,7 +449,7 @@ export function buildLevel1(world, scene, fx) {
   tramosFirmes.push(...A.tramos);
 
   // ---- B: SOLO BLOQUES 1 · cuatro losas sobre el vacío ----
-  const B = islas(world, scene, { z0: 66, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const B = islas(world, scene, { notes, z0: 66, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   B.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -388,7 +499,7 @@ export function buildLevel1(world, scene, fx) {
   }
 
   // ---- E: SOLO BLOQUES 2 · cinco losas sobre el vacío ----
-  const E = islas(world, scene, { z0: D.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const E = islas(world, scene, { notes, z0: D.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   E.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 3) crates.push(buildCrate(world, scene, { x: l.x, y: l.y, z: l.z, type: 'steel' }));
@@ -412,7 +523,7 @@ export function buildLevel1(world, scene, fx) {
      separación 2,2 (al límite del salto normal) y zig en x. Es el pico de
      dificultad del nivel; cada losa lleva SU nota (ruta segura) y solo dos
      cajas repartidas, una cada dos losas. */
-  const G2a = islas(world, scene, { z0: 240, n: 4, d: [8.4, 6.6, 6.6, 7.0], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const G2a = islas(world, scene, { notes, z0: 240, n: 4, d: [8.4, 6.6, 6.6, 7.0], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   G2a.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -426,7 +537,7 @@ export function buildLevel1(world, scene, fx) {
   tramosFirmes.push(...R2.tramos);
 
   /* ---- G2b: SOLO BLOQUES 4 · segunda travesía (291,4-337,8) ---- */
-  const G2b = islas(world, scene, { z0: R2.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const G2b = islas(world, scene, { notes, z0: R2.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   G2b.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -441,7 +552,35 @@ export function buildLevel1(world, scene, fx) {
     { z: G2b.fin + 7.2, w: 3.4, plataforma: { axis: 'x', w: 4.2, amp: 1.5, speed: 1.0 } }
   ] });
   tramosFirmes.push(...H2.tramos);
-  const L = H2.fin;
+
+  /* ============ EXTENSIÓN FINAL (petición del usuario: más largo y más
+     difícil) ============ Tramo nuevo del Ensayo Callejero: calzada con
+     bombas, el PUENTE DE CAJAS sobre el vacío (solo cajas, saltando de una en
+     una), respiro corto y una última travesía de losas ESTRECHAS. */
+  const S1 = calzada(world, scene, { z0: H2.fin, z1: H2.fin + 10, rnd, saltos: [
+    { z: H2.fin + 4.6, w: 3.4, plataforma: { axis: 'x', w: 4.2, amp: 1.7, speed: 1.05 } }
+  ] });
+  tramosFirmes.push(...S1.tramos);
+
+  /* PUENTE DE CAJAS: el suelo desaparece; se cruza saltando de caja en caja */
+  const PB1 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 5, sep: 1.5, zig: 0.7, alturas: [0, 0.3, 0] });
+
+  const S2 = calzada(world, scene, { z0: PB1, z1: PB1 + 6, rnd });
+  tramosFirmes.push(...S2.tramos);
+
+  /* Losas ESTRECHAS (w 3.6) y con zig: el tramo más fino del nivel */
+  const S3 = islas(world, scene, { notes, z0: S2.fin, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: PALETA.madera });
+  S3.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x - 1.1, y: l.y, z: l.z, type: 'bounce' }));
+  });
+
+  const S4 = calzada(world, scene, { z0: S3.fin, z1: S3.fin + 7, rnd, saltos: [
+    { z: S3.fin + 3.6, w: 1.7 }
+  ] });
+  tramosFirmes.push(...S4.tramos);
+  const L = S4.fin;
 
   // paredes laterales (callejones)
   for (let zi = 0; zi < L; zi += 12) {
@@ -490,7 +629,8 @@ export function buildLevel1(world, scene, fx) {
     { z: 164, kind: 'line', type: 'steel', n: 3 },
     { z: 178, kind: 'mix' },
     { z: 214, kind: 'line', type: 'normal', n: 3 },
-    { z: 280, kind: 'pyramid', type: 'normal' }
+    { z: 280, kind: 'pyramid', type: 'normal' },
+    { z: G2b.fin + 3.4, kind: 'line', type: 'bounce', n: 3 }
   ];
   for (const c of clusters) {
     if (c.kind === 'line') {
@@ -520,17 +660,18 @@ export function buildLevel1(world, scene, fx) {
   // máscaras (una al ras del suelo)
   masks.push(buildMask(world, scene, { x: 0, y: 1.2, z: 46 }));
 
-  // checkpoints (antes de cada tramo de saltos, sobre suelo firme; en los
-  // tramos nuevos: 232 antes de las losas de 240, 286 en el valle de respiro
-  // y 334,5 antes del último hueco)
-  [36, 60, C.fin - 6, D.fin - 6, 232, 286, 334.5].forEach((cz) => {
-    crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
-    checkpoints.push({ z: cz });
-  });
+  // bombas: grupos de TNT en calzada firme con carril de escape (explosión segura)
+  grupoTnt(world, scene, crates, { z: C.fin + 12, n: 3 });
+  grupoTnt(world, scene, crates, { z: 205, n: 4 });
+  grupoTnt(world, scene, crates, { z: H2.fin + 2.4, n: 3 });
+
+  /* CAJA DE VIDA ÚNICA del nivel (petición del usuario): punto medio del
+     recorrido, sobre calzada firme. N1 mide ~350: la caja va por el centro. */
+  checkpointUnico(world, scene, crates, checkpoints, { mid: 176, tramos: tramosFirmes });
 
   // interruptor (!) que abre el muro final y suelta notas
-  crates.push(buildCrate(world, scene, { x: 0, y: 0, z: 344.5, type: 'switch' }));
-  switches.push({ z: 344.5, doorZ: 347 });
+  crates.push(buildCrate(world, scene, { x: 0, y: 0, z: S4.fin - 5.5, type: 'switch' }));
+  switches.push({ z: S4.fin - 5.5, doorZ: S4.fin - 3 });
 
   // enemigos: amplis patrulleros (nunca dentro de los tramos de losas)
   enemies.push(enemy('patrol', { x: -2.4, z: 26, span: 8, speed: 3.1, axis: 'x' }));
@@ -554,7 +695,7 @@ export function buildLevel1(world, scene, fx) {
   enemies.push(enemy('patrol', { x: -2.6, z: 210, span: 6, speed: 3.4, axis: 'x' }));
 
   // meta
-  const goal = { z: 345.5, x: 0 };
+  const goal = { z: S4.fin - 1.5, x: 0 };
 
   return {
     id: 1, nombre: 'El Ensayo Callejero',
@@ -614,7 +755,7 @@ export function buildLevel2(world, scene, fx) {
   }
 
   // ---- C: SOLO BLOQUES 1 · cinco tablones sobre el vacío ----
-  const C = islas(world, scene, { z0: 96, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const C = islas(world, scene, { notes, z0: 96, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   C.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i % 2 === 1) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -665,7 +806,7 @@ export function buildLevel2(world, scene, fx) {
   }
 
   // ---- F: SOLO BLOQUES 2 · seis tablones sobre el vacío ----
-  const F = islas(world, scene, { z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.7, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const F = islas(world, scene, { notes, z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.7, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   F.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -686,7 +827,7 @@ export function buildLevel2(world, scene, fx) {
   tramosFirmes.push(...P1.tramos);
 
   /* ---- P2: SOLO BLOQUES 3 · cuatro tablones sobre el vacío ---- */
-  const P2 = islas(world, scene, { z0: P1.fin, n: 4, d: [8.4, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const P2 = islas(world, scene, { notes, z0: P1.fin, n: 4, d: [8.4, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   P2.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -697,7 +838,7 @@ export function buildLevel2(world, scene, fx) {
   tramosFirmes.push(...R2.tramos);
 
   /* ---- P3: SOLO BLOQUES 4 · los últimos tres tablones ---- */
-  const P3 = islas(world, scene, { z0: R2.fin, n: 3, d: [8.4, 6.6, 6.6], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const P3 = islas(world, scene, { notes, z0: R2.fin, n: 3, d: [8.4, 6.6, 6.6], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   P3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -706,7 +847,32 @@ export function buildLevel2(world, scene, fx) {
   /* ---- H2: recta final de cierre ---- */
   const H2 = calzada(world, scene, { z0: P3.fin, z1: P3.fin + 12, rnd, color: 0x4b4550 });
   tramosFirmes.push(...H2.tramos);
-  const L = H2.fin;
+
+  /* ============ EXTENSIÓN FINAL (más largo y más difícil) ============
+     Calzada con huecos anchos, el PUENTE DE CAJAS sobre el vacío y una
+     travesía de tablones ESTRECHOS antes de la meta. */
+  const S1 = calzada(world, scene, { z0: H2.fin, z1: H2.fin + 16, rnd, color: 0x4b4550, saltos: [
+    { z: H2.fin + 6.2, w: 3.4, plataforma: { axis: 'x', w: 4.2, amp: 1.7, speed: 1.0 } },
+    { z: H2.fin + 12.4, w: 1.7 }
+  ] });
+  tramosFirmes.push(...S1.tramos);
+
+  /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (7 cajas) */
+  const PB2 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+
+  /* Tablones ESTRECHOS (w 3.6) con zig, alturas alternas y cajas de apoyo */
+  const S3 = islas(world, scene, { notes, z0: PB2, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: PALETA.madera });
+  S3.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x - 1.1, y: l.y, z: l.z, type: 'bounce' }));
+  });
+
+  const S4 = calzada(world, scene, { z0: S3.fin, z1: S3.fin + 6, rnd, color: 0x4b4550, saltos: [
+    { z: S3.fin + 3.4, w: 1.7 }
+  ] });
+  tramosFirmes.push(...S4.tramos);
+  const L = S4.fin;
 
   // focos móviles (giran y apuntan)
   for (const fz of [26, 62, 104, 146, 190, 236, 268, 312, 352]) {
@@ -741,7 +907,8 @@ export function buildLevel2(world, scene, fx) {
     { z: 200, kind: 'pyramid', type: 'normal' },
     { z: 248, kind: 'line', type: 'steel', n: 3 },
     { z: 258, kind: 'pyramid', type: 'normal' },
-    { z: 332, kind: 'mix' }
+    { z: 332, kind: 'mix' },
+    { z: H2.fin + 3, kind: 'pyramid', type: 'normal' }
   ];
   for (const c of clusters) {
     if (c.kind === 'line') for (let i = 0; i < c.n; i++) crates.push(buildCrate(world, scene, { x: -2 + i, z: c.z, type: c.type }));
@@ -762,7 +929,7 @@ export function buildLevel2(world, scene, fx) {
     } else {
       crates.push(buildCrate(world, scene, { x: -2.4, z: c.z, type: 'normal' }));
       crates.push(buildCrate(world, scene, { x: -1.4, y: 0.96, z: c.z, type: 'normal' }));
-      crates.push(buildCrate(world, scene, { x: 1.2, z: c.z, type: 'checkpoint' }));
+      crates.push(buildCrate(world, scene, { x: 1.2, z: c.z, type: 'normal' }));
       crates.push(buildCrate(world, scene, { x: 2.4, z: c.z, type: 'steel' }));
     }
   }
@@ -772,13 +939,16 @@ export function buildLevel2(world, scene, fx) {
   masks.push(buildMask(world, scene, { x: -2.6, y: 3.6, z: 66 }));
   masks.push(buildMask(world, scene, { x: 3.0, y: 4.8, z: 148 }));
 
-  [34, 92, 146, 246, 278, 356].forEach((cz) => {
-    crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
-    checkpoints.push({ z: cz });
-  });
+  // bombas: grupos de TNT con carril de escape (nunca junto a un hueco)
+  grupoTnt(world, scene, crates, { z: 104, n: 3 });
+  grupoTnt(world, scene, crates, { z: 232, n: 4 });
+  grupoTnt(world, scene, crates, { z: H2.fin + 2.6, n: 3 });
 
-  crates.push(buildCrate(world, scene, { x: 0, z: 361, type: 'switch' }));
-  switches.push({ z: 361, doorZ: 364 });
+  /* CAJA DE VIDA ÚNICA del nivel: punto medio (~183 de los ~367 m) */
+  checkpointUnico(world, scene, crates, checkpoints, { mid: 183, tramos: tramosFirmes });
+
+  crates.push(buildCrate(world, scene, { x: 0, z: S4.fin - 5, type: 'switch' }));
+  switches.push({ z: S4.fin - 5, doorZ: S4.fin - 3 });
 
   enemies.push(enemy('patrol', { x: -2.6, z: 22, span: 5, speed: 3.0, axis: 'x' }));
   enemies.push(enemy('patrol', { x: 2.6, z: 52, span: 6, speed: 3.4, axis: 'x' }));
@@ -796,7 +966,7 @@ export function buildLevel2(world, scene, fx) {
   return {
     id: 2, nombre: 'Ruta al Festi',
     tip: 'Cajas flecha ▲ para volar alto. La caja ! materializa el andamio invisible: ahí va el atajo.',
-    length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal: { z: 364, x: 0 },
+    length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal: { z: S4.fin - 1.5, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, lamps, deco,
     chase: false, arena: false, bg: 2, colorTecho: 0x1c0f2e, lampIntensity: 1.25
   };
@@ -829,7 +999,7 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...A.tramos);
 
   // ---- B: OBRAS 1: calzada cortada, pilares para cruzar ----
-  const B = islas(world, scene, { z0: 70, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
+  const B = islas(world, scene, { notes, z0: 70, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
   B.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -844,7 +1014,7 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...C.tramos);
 
   // ---- D: OBRAS 2: cinco pilares encadenados sobre el vacío ----
-  const D = islas(world, scene, { z0: C.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: 0x6b7280 });
+  const D = islas(world, scene, { notes, z0: C.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: 0x6b7280 });
   D.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 3) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -865,7 +1035,7 @@ export function buildLevel3(world, scene, fx) {
   }
 
   // ---- F: OBRAS 3: cinco pilares más (el tramo más exigente) ----
-  const F = islas(world, scene, { z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
+  const F = islas(world, scene, { notes, z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
   F.losa.forEach((l) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
   });
@@ -887,7 +1057,7 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...R3.tramos);
 
   /* ---- N3b: OBRAS 4 · cinco pilares seguidos (el cierre exigente) ---- */
-  const N3b = islas(world, scene, { z0: 346, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
+  const N3b = islas(world, scene, { notes, z0: 346, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
   N3b.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -899,7 +1069,32 @@ export function buildLevel3(world, scene, fx) {
     { z: N3b.fin + 6, w: 1.7 }
   ] });
   tramosFirmes.push(...H2.tramos);
-  const L = H2.fin;
+
+  /* ============ EXTENSIÓN FINAL (más largo y más difícil) ============
+     La carrera sigue: cortes de obra con vagoneta, el PUENTE DE CAJAS sobre el
+     vacío (la furgo no puede seguirte ahí) y pilares ESTRECHOS antes de meta. */
+  const S1 = calzada(world, scene, { z0: H2.fin, z1: H2.fin + 17, w: 11, color: 0x474c53, rnd, saltos: [
+    { z: H2.fin + 6.6, w: 3.4, plataforma: { axis: 'x', w: 4.2, amp: 1.7, speed: 1.05 } },
+    { z: H2.fin + 12.8, w: 1.7 }
+  ] });
+  tramosFirmes.push(...S1.tramos);
+
+  /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (8 cajas) */
+  const PB3 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+
+  /* Pilares ESTRECHOS (w 3.6) del cierre */
+  const S3 = islas(world, scene, { notes, z0: PB3, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: 0x6b7280 });
+  S3.losa.forEach((l, i) => {
+    notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
+    if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
+    if (i === 2) crates.push(buildCrate(world, scene, { x: l.x - 1.1, y: l.y, z: l.z, type: 'bounce' }));
+  });
+
+  const S4 = calzada(world, scene, { z0: S3.fin, z1: S3.fin + 6, w: 11, color: 0x3c4148, rnd, saltos: [
+    { z: S3.fin + 3.4, w: 1.7 }
+  ] });
+  tramosFirmes.push(...S4.tramos);
+  const L = S4.fin;
   // manchas de barro/baches visuales
   for (let i = 0; i < 18; i++) {
     const p = makePuddle(1.0 + rnd() * 0.8);
@@ -954,7 +1149,6 @@ export function buildLevel3(world, scene, fx) {
   // cajas: pocas (es una carrera), casi todas TNT/Nitro para esquivar
   crates.push(buildCrate(world, scene, { x: -1.5, z: 34, type: 'normal' }));
   crates.push(buildCrate(world, scene, { x: 1.5, z: 34, type: 'normal' }));
-  crates.push(buildCrate(world, scene, { x: 0, z: 108, type: 'checkpoint' }));
   crates.push(buildCrate(world, scene, { x: -2.4, z: 130, type: 'tnt' }));
   crates.push(buildCrate(world, scene, { x: 2.4, z: 130, type: 'tnt' }));
   crates.push(buildCrate(world, scene, { x: 0, z: 172, type: 'bounce' }));
@@ -965,6 +1159,9 @@ export function buildLevel3(world, scene, fx) {
   crates.push(buildCrate(world, scene, { x: -1.5, z: 340, type: 'normal' }));
   crates.push(buildCrate(world, scene, { x: 1.5, z: 340, type: 'normal' }));
   crates.push(buildCrate(world, scene, { x: 0, z: 384, type: 'normal' }));
+  crates.push(buildCrate(world, scene, { x: -1.4, z: H2.fin + 8.6, type: 'normal' }));
+  crates.push(buildCrate(world, scene, { x: 1.4, z: H2.fin + 8.6, type: 'normal' }));
+  crates.push(buildCrate(world, scene, { x: 0, z: S4.fin - 4.6, type: 'bounce' }));
 
   // notas: grupos de arco SOLO sobre los tramos firmes (nunca sobre el vacío)
   notasEnTramos(notes, world, scene, { tramos: tramosFirmes, paso: 8 });
@@ -991,15 +1188,18 @@ export function buildLevel3(world, scene, fx) {
     }
   }
 
-  [66, 144, 240, 308, 340].forEach((cz) => {
-    crates.push(buildCrate(world, scene, { x: 0, z: cz, type: 'checkpoint' }));
-    checkpoints.push({ z: cz });
-  });
+  // bombas: grupos de TNT con carril de escape (nunca junto a un hueco)
+  grupoTnt(world, scene, crates, { z: 84, n: 3 });
+  grupoTnt(world, scene, crates, { z: 272, n: 4 });
+  grupoTnt(world, scene, crates, { z: H2.fin + 2.6, n: 3 });
+
+  /* CAJA DE VIDA ÚNICA del nivel: punto medio (~200 de los ~400 m) */
+  checkpointUnico(world, scene, crates, checkpoints, { mid: 200, tramos: tramosFirmes });
 
   return {
     id: 3, nombre: 'Furgoneta Desbocada',
     tip: '¡Corre hacia la cámara! Esquiva los barriles que ruedan y usa las cajas flecha ▲ para ir por lo alto.',
-    length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: 399, x: 0 },
+    length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: S4.fin - 1.5, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: true, arena: false, bg: 3, colorTecho: 0x101a2e, lampIntensity: 0.9,
     van: { startZ: -8, speed: 6.0, accel: 0.12, catchUp: true }

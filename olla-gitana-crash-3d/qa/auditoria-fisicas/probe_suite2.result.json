@@ -1,0 +1,136 @@
+{
+ "probe": "probe_suite2.js",
+ "wall_s": 8.9,
+ "result": {
+  "rondas": [
+   {
+    "ronda": 1,
+    "ok": 5,
+    "total": 8,
+    "detalle": {
+     "0": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1650,
+      "notas": 32,
+      "endZ": 402.9
+     },
+     "1": {
+      "ok": true,
+      "mode": "end",
+      "steps": 2910,
+      "notas": 31,
+      "endZ": 423.8
+     },
+     "2": {
+      "ok": false,
+      "mode": "play",
+      "steps": 5400,
+      "notas": 33,
+      "endZ": 199.4
+     },
+     "3": {
+      "ok": false,
+      "mode": "play",
+      "steps": 5400,
+      "notas": 38,
+      "endZ": 297.8
+     },
+     "4": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1710,
+      "notas": 17,
+      "endZ": 222.2
+     },
+     "5": {
+      "ok": false,
+      "mode": "play",
+      "steps": 5400,
+      "notas": 10,
+      "endZ": 47.3
+     },
+     "6": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1800,
+      "notas": 36,
+      "endZ": 466.1
+     },
+     "7": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1170,
+      "notas": 0,
+      "endZ": -8.4
+     }
+    }
+   },
+   {
+    "ronda": 2,
+    "ok": 5,
+    "total": 8,
+    "detalle": {
+     "0": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1620,
+      "notas": 29,
+      "endZ": 402.7
+     },
+     "1": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1680,
+      "notas": 29,
+      "endZ": 423.8
+     },
+     "2": {
+      "ok": false,
+      "mode": "play",
+      "steps": 5400,
+      "notas": 41,
+      "endZ": 172.9
+     },
+     "3": {
+      "ok": false,
+      "mode": "play",
+      "steps": 5400,
+      "notas": 38,
+      "endZ": 286.1
+     },
+     "4": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1740,
+      "notas": 16,
+      "endZ": 217.9
+     },
+     "5": {
+      "ok": true,
+      "mode": "end",
+      "steps": 4620,
+      "notas": 36,
+      "endZ": 437.6
+     },
+     "6": {
+      "ok": false,
+      "mode": "play",
+      "steps": 5400,
+      "notas": 46,
+      "endZ": 44.2
+     },
+     "7": {
+      "ok": true,
+      "mode": "end",
+      "steps": 1170,
+      "notas": 0,
+      "endZ": -8
+     }
+    }
+   }
+  ],
+  "errores": []
+ },
+ "error": null
+}

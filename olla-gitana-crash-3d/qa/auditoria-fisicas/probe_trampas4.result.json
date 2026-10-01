@@ -1,0 +1,26 @@
+{
+ "probe": "probe_trampas4.js",
+ "wall_s": 0.1,
+ "result": {
+  "errors": [],
+  "grace": {
+   "desdeFrame": 0,
+   "danosGrace": 0,
+   "vidas": 3
+  },
+  "contacto": {
+   "v0": 3,
+   "vidas": 2,
+   "hit": 1,
+   "log": [
+    {
+     "reason": "trampa",
+     "z": 8,
+     "x": 0,
+     "y": 0.1
+    }
+   ]
+  }
+ },
+ "error": null
+}

@@ -1,0 +1,164 @@
+{
+ "probe": "probe_vidas_buff.js",
+ "wall_s": 1,
+ "result": {
+  "vidas": {
+   "inicio": {
+    "lives": 3,
+    "progreso": {
+     "desbloqueados": 8,
+     "superVidas": 12,
+     "continues": 3
+    }
+   },
+   "dano1": {
+    "antes": 3,
+    "despues": 2,
+    "inmediato2": 2,
+    "resta1": true,
+    "invT_activo": 2.13
+   },
+   "dano2": {
+    "tras_esperar_invT": 1,
+    "invT_antes": 2.17,
+    "baja": true
+   },
+   "ciclo": {
+    "superInicial": 12,
+    "contInicial": 3
+   },
+   "tras3golpes": {
+    "lives": 1,
+    "mode": "play",
+    "superVidas": 12
+   },
+   "supervida": {
+    "lives": 1,
+    "mode": "play",
+    "superVidas": 12,
+    "pos": {
+     "x": 0,
+     "y": 0,
+     "z": 2
+    }
+   },
+   "continue": {
+    "vueltas": 12,
+    "progreso": {
+     "desbloqueados": 8,
+     "superVidas": 0,
+     "continues": 3
+    },
+    "lives": 3,
+    "mode": "play"
+   },
+   "continueFin": {
+    "progreso": {
+     "desbloqueados": 8,
+     "superVidas": 0,
+     "continues": 3
+    },
+    "lives": 3,
+    "mode": "play"
+   }
+  },
+  "buff": {
+   "purosNivel0": [
+    {
+     "x": 3.6,
+     "y": 3.3,
+     "z": 139.4,
+     "cogido": false
+    },
+    {
+     "x": 0.1,
+     "y": 1.2,
+     "z": 311.7,
+     "cogido": false
+    },
+    {
+     "x": 0,
+     "y": 1.2,
+     "z": 46,
+     "cogido": false
+    }
+   ],
+   "trasCoger": {
+    "cogidos": 2,
+    "mascara": {
+     "nivel": 2,
+     "invT": 29.8,
+     "invulnerable": true,
+     "visible": true
+    },
+    "puroBuff": {
+     "nivel": 2,
+     "invT": 29.8,
+     "speed": 1.35,
+     "jump": 1.22
+    }
+   },
+   "estado": {
+    "mascara": {
+     "nivel": 2,
+     "invT": 29.7,
+     "invulnerable": true,
+     "visible": true
+    },
+    "puroBuff": {
+     "nivel": 2,
+     "invT": 29.7,
+     "speed": 1.35,
+     "jump": 1.22
+    },
+    "speedBoost": 1.35
+   },
+   "invulnerabilidad": {
+    "invulnerable": true,
+    "invT": 29.7,
+    "vidaAntes": 3
+   },
+   "damage_x3": {
+    "vidas": 3,
+    "danLog": 38,
+    "invT": 29.5
+   },
+   "caida": {
+    "vidas": 3,
+    "y": 0,
+    "z": 2
+   },
+   "caida2": {
+    "vidas": 3,
+    "y": 0
+   },
+   "enemigo_contacto": {
+    "vidas": 3,
+    "buff": {
+     "nivel": 2,
+     "invT": 18.8,
+     "invulnerable": true,
+     "visible": true
+    }
+   },
+   "nota_trampas": "las cuchillas solo existen en la arena (nivel 8); se prueban allí",
+   "tras30s": {
+    "mascara": {
+     "nivel": 0,
+     "invT": 0,
+     "invulnerable": false,
+     "visible": false
+    },
+    "vidas": 0,
+    "speed": 1,
+    "jump": 1
+   },
+   "dano_post": {
+    "vidaAntes": 0,
+    "vidaDespues": 0
+   }
+  },
+  "errors": []
+ },
+ "error": null
+}

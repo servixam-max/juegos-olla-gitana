@@ -1,0 +1,102 @@
+{
+ "probe": "probe_trampas_buff.js",
+ "wall_s": 0.4,
+ "result": {
+  "trampas": {
+   "graceInicial": {
+    "fase": 1,
+    "activas": 2,
+    "posX": [
+     -4,
+     -2.9
+    ]
+   },
+   "contacto": {
+    "danos": 0,
+    "vidas": 3,
+    "log": []
+   },
+   "sinBuff": {
+    "antes": 2,
+    "vidas": 2,
+    "log": [
+     {
+      "reason": "qa",
+      "z": 14,
+      "x": 0,
+      "y": 0
+     }
+    ]
+   }
+  },
+  "buff": {
+   "puros": [],
+   "cogidos": {
+    "nivel": 0,
+    "mascara": {
+     "nivel": 0,
+     "invT": 0,
+     "invulnerable": false,
+     "visible": false
+    },
+    "puroBuff": {
+     "nivel": 0,
+     "invT": 0,
+     "speed": 1,
+     "jump": 1
+    }
+   },
+   "damage_x3": {
+    "antes": 3,
+    "vidas": 2,
+    "danLog": 1,
+    "mascara": {
+     "nivel": 0,
+     "invT": 0,
+     "invulnerable": false,
+     "visible": false
+    }
+   },
+   "cuchillas": {
+    "vidas": 2,
+    "log": [
+     {
+      "reason": "qa",
+      "z": 14,
+      "x": 0,
+      "y": 0
+     }
+    ],
+    "mascara": {
+     "nivel": 0,
+     "invT": 0,
+     "invulnerable": false,
+     "visible": false
+    }
+   },
+   "tras30": {
+    "mascara": {
+     "nivel": 0,
+     "invT": 0,
+     "invulnerable": false,
+     "visible": false
+    }
+   }
+  },
+  "errors": [],
+  "inicio": {
+   "mode": "play",
+   "traps": {
+    "n": 11,
+    "activas": 2,
+    "fase": 1,
+    "pos": [
+     -7.1,
+     9
+    ]
+   },
+   "invicto": null
+  }
+ },
+ "error": null
+}

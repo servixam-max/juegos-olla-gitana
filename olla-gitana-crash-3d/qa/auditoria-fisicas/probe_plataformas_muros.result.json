@@ -1,0 +1,63 @@
+{
+ "probe": "probe_plataformas_muros.js",
+ "wall_s": 1.2,
+ "result": {
+  "plataformas": {
+   "vagoneta_N1": {
+    "frames": 180,
+    "jitterX": 0,
+    "media": -0.2,
+    "groundedPct": 100,
+    "fin": {
+     "x": -1.6573574584400823,
+     "y": 0.2,
+     "z": 54
+    }
+   },
+   "barrido_contra_jugador": {
+    "minDist": {
+     "dx": 1.486,
+     "px": 1.2,
+     "mx": -0.29,
+     "py": 0.2
+    },
+    "frames_dentro_solido": 0,
+    "fin": {
+     "x": 1.3337226260985537,
+     "y": 0.2,
+     "z": 54
+    },
+    "grounded": true
+   }
+  },
+  "muros": {
+   "N1_z30": {
+    "maxAbsX_barrida": 4.58,
+    "maxAbsX_giro": 4.58,
+    "frames_dentro_solido": 0
+   },
+   "N1_z100": {
+    "maxAbsX_barrida": 4.58,
+    "maxAbsX_giro": 4.58,
+    "frames_dentro_solido": 0
+   },
+   "N2_z30": {
+    "maxAbsX_barrida": 14.846,
+    "maxAbsX_giro": 12.606,
+    "frames_dentro_solido": 0
+   },
+   "N5_z30": {
+    "maxAbsX_barrida": 6.58,
+    "maxAbsX_giro": 6.58,
+    "frames_dentro_solido": 0
+   },
+   "N7_z30": {
+    "maxAbsX_barrida": 16.33,
+    "maxAbsX_giro": 14.039,
+    "frames_dentro_solido": 0
+   }
+  },
+  "errors": []
+ },
+ "error": null
+}

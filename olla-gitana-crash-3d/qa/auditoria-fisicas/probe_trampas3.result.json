@@ -1,0 +1,43 @@
+{
+ "probe": "probe_trampas3.js",
+ "wall_s": 0,
+ "result": {
+  "errors": [],
+  "intro": {
+   "espera": 0,
+   "mode": "play",
+   "traps": {
+    "n": 11,
+    "activas": 2,
+    "fase": 1,
+    "pos": [
+     0,
+     0
+    ]
+   }
+  },
+  "grace": {
+   "graceT": null
+  },
+  "a": {
+   "vidas": 2,
+   "v0": 3,
+   "hit": 1,
+   "frames": 58,
+   "log": [
+    {
+     "reason": "trampa",
+     "z": 8,
+     "x": 0,
+     "y": 0.1
+    }
+   ]
+  },
+  "b": {
+   "v1": 2,
+   "vidas": 2,
+   "danosFuera": 0
+  }
+ },
+ "error": null
+}

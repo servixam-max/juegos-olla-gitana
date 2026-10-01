@@ -1,0 +1,496 @@
+{
+ "probe": "probe_trace2.js",
+ "wall_s": 0.3,
+ "result": {
+  "N1": {
+   "nivel": 1,
+   "z": 30,
+   "maxX": 0,
+   "minX": -4.58,
+   "minY": -11.7,
+   "maxY": 1.26,
+   "fin": {
+    "x": -4.58,
+    "y": 0,
+    "z": 8.3
+   },
+   "movilesZ": [],
+   "solidos": [
+    [
+     4,
+     null,
+     null,
+     null
+    ],
+    [
+     5,
+     "wall",
+     5.6,
+     0.6
+    ],
+    [
+     6,
+     "wall",
+     5.6,
+     0.6
+    ],
+    [
+     6.5,
+     null,
+     null,
+     null
+    ],
+    [
+     7,
+     null,
+     null,
+     null
+    ],
+    [
+     7.5,
+     null,
+     null,
+     null
+    ],
+    [
+     8,
+     null,
+     null,
+     null
+    ],
+    [
+     10,
+     null,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null,
+     null
+    ]
+   ],
+   "suelo": [
+    [
+     5,
+     5.4,
+     "wall"
+    ],
+    [
+     6,
+     5.4,
+     "wall"
+    ],
+    [
+     7,
+     null,
+     null
+    ],
+    [
+     8,
+     null,
+     null
+    ],
+    [
+     10,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null
+    ]
+   ]
+  },
+  "N2": {
+   "nivel": 2,
+   "z": 30,
+   "maxX": 0,
+   "minX": -14.56,
+   "minY": -11.7,
+   "maxY": 1.26,
+   "fin": {
+    "x": -9.23,
+    "y": -2.2,
+    "z": 11.2
+   },
+   "movilesZ": [
+    {
+     "tag": "mover",
+     "x": -0.82,
+     "z": 30,
+     "mov": {
+      "axis": "x",
+      "amp": 1.5,
+      "speed": 0.85,
+      "phase": 0.55787691520527
+     }
+    }
+   ],
+   "solidos": [
+    [
+     4,
+     null,
+     null,
+     null
+    ],
+    [
+     5,
+     null,
+     null,
+     null
+    ],
+    [
+     6,
+     null,
+     null,
+     null
+    ],
+    [
+     6.5,
+     null,
+     null,
+     null
+    ],
+    [
+     7,
+     null,
+     null,
+     null
+    ],
+    [
+     7.5,
+     null,
+     null,
+     null
+    ],
+    [
+     8,
+     null,
+     null,
+     null
+    ],
+    [
+     10,
+     null,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null,
+     null
+    ]
+   ],
+   "suelo": [
+    [
+     5,
+     null,
+     null
+    ],
+    [
+     6,
+     null,
+     null
+    ],
+    [
+     7,
+     null,
+     null
+    ],
+    [
+     8,
+     null,
+     null
+    ],
+    [
+     10,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null
+    ]
+   ]
+  },
+  "N5": {
+   "nivel": 5,
+   "z": 30,
+   "maxX": 0,
+   "minX": -6.58,
+   "minY": -11.7,
+   "maxY": 1.26,
+   "fin": {
+    "x": -6.58,
+    "y": 0,
+    "z": 11.6
+   },
+   "movilesZ": [
+    {
+     "tag": "mover",
+     "x": 0,
+     "z": 30,
+     "mov": {
+      "axis": "y",
+      "amp": 0.45,
+      "speed": 1.4,
+      "phase": 0.6990326754748821
+     }
+    }
+   ],
+   "solidos": [
+    [
+     4,
+     null,
+     null,
+     null
+    ],
+    [
+     5,
+     null,
+     null,
+     null
+    ],
+    [
+     6,
+     null,
+     null,
+     null
+    ],
+    [
+     6.5,
+     null,
+     null,
+     null
+    ],
+    [
+     7,
+     "wall",
+     7.6,
+     0.6
+    ],
+    [
+     7.5,
+     "wall",
+     7.6,
+     0.6
+    ],
+    [
+     8,
+     "wall",
+     7.6,
+     0.6
+    ],
+    [
+     10,
+     null,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null,
+     null
+    ]
+   ],
+   "suelo": [
+    [
+     5,
+     null,
+     null
+    ],
+    [
+     6,
+     null,
+     null
+    ],
+    [
+     7,
+     6.4,
+     "wall"
+    ],
+    [
+     8,
+     6.4,
+     "wall"
+    ],
+    [
+     10,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null
+    ]
+   ]
+  },
+  "N7": {
+   "nivel": 7,
+   "z": 30,
+   "maxX": 0,
+   "minX": -16.42,
+   "minY": -11.7,
+   "maxY": 1.26,
+   "fin": {
+    "x": -9.83,
+    "y": -0.93,
+    "z": 12.8
+   },
+   "movilesZ": [
+    {
+     "tag": "mover",
+     "x": 0.37,
+     "z": 30,
+     "mov": {
+      "axis": "x",
+      "amp": 1.5,
+      "speed": 0.9,
+      "phase": 2.1115312571637332
+     }
+    }
+   ],
+   "solidos": [
+    [
+     4,
+     null,
+     null,
+     null
+    ],
+    [
+     5,
+     null,
+     null,
+     null
+    ],
+    [
+     6,
+     null,
+     null,
+     null
+    ],
+    [
+     6.5,
+     null,
+     null,
+     null
+    ],
+    [
+     7,
+     null,
+     null,
+     null
+    ],
+    [
+     7.5,
+     null,
+     null,
+     null
+    ],
+    [
+     8,
+     null,
+     null,
+     null
+    ],
+    [
+     10,
+     null,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null,
+     null
+    ]
+   ],
+   "suelo": [
+    [
+     5,
+     null,
+     null
+    ],
+    [
+     6,
+     null,
+     null
+    ],
+    [
+     7,
+     null,
+     null
+    ],
+    [
+     8,
+     null,
+     null
+    ],
+    [
+     10,
+     null,
+     null
+    ],
+    [
+     12,
+     null,
+     null
+    ],
+    [
+     15,
+     null,
+     null
+    ]
+   ]
+  },
+  "errors": []
+ },
+ "error": null
+}

@@ -1,0 +1,99 @@
+{
+ "probe": "probe_suite.js",
+ "wall_s": 7.2,
+ "result": {
+  "levels": {
+   "0": {
+    "mode": "end",
+    "level": 0,
+    "notas": 32,
+    "cajas": 2,
+    "ended": true,
+    "ok": true,
+    "steps": 1650,
+    "wall_s": 0.7,
+    "endZ": 402.9
+   },
+   "1": {
+    "mode": "end",
+    "level": 1,
+    "notas": 28,
+    "cajas": 16,
+    "ended": true,
+    "ok": true,
+    "steps": 1680,
+    "wall_s": 0.5,
+    "endZ": 424
+   },
+   "2": {
+    "mode": "play",
+    "level": 2,
+    "notas": 36,
+    "cajas": 5,
+    "ended": false,
+    "ok": false,
+    "steps": 5400,
+    "wall_s": 1.5,
+    "endZ": 420.2
+   },
+   "3": {
+    "mode": "play",
+    "level": 3,
+    "notas": 38,
+    "cajas": 13,
+    "ended": false,
+    "ok": false,
+    "steps": 5400,
+    "wall_s": 1.4,
+    "endZ": 367.4
+   },
+   "4": {
+    "mode": "end",
+    "level": 4,
+    "notas": 17,
+    "cajas": 2,
+    "ended": true,
+    "ok": true,
+    "steps": 1380,
+    "wall_s": 0.6,
+    "endZ": 220.7
+   },
+   "5": {
+    "mode": "end",
+    "level": 5,
+    "notas": 28,
+    "cajas": 8,
+    "ended": true,
+    "ok": true,
+    "steps": 1710,
+    "wall_s": 1,
+    "endZ": 437.7
+   },
+   "6": {
+    "mode": "end",
+    "level": 6,
+    "notas": 37,
+    "cajas": 4,
+    "ended": true,
+    "ok": true,
+    "steps": 1800,
+    "wall_s": 0.6,
+    "endZ": 466.3
+   },
+   "7": {
+    "mode": "end",
+    "level": 7,
+    "notas": 0,
+    "cajas": 0,
+    "ended": true,
+    "ok": true,
+    "steps": 1080,
+    "wall_s": 0.1,
+    "endZ": 0.1
+   }
+  },
+  "errors": [],
+  "damageLog": []
+ },
+ "error": null
+}

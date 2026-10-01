@@ -340,19 +340,13 @@ export class Player {
 
     // brazos y piernas
     const ud = this.obj.userData;
-    // el guiso está VIVO: ingredientes que burbujean y vapor que sube
+    // el guiso está VIVO: los ingredientes burbujean (el vapor se retiró del
+    // personaje en la limpieza final: eran manchas grises flotando sobre la cara)
     if (ud.ings) {
       for (const it of ud.ings) {
         it.position.y = it.userData.baseY + Math.sin(this.animT * 3.2 + it.userData.fase) * 0.022;
         it.rotation.y += dt * 0.6;
       }
-    }
-    if (ud.vapor) {
-      ud.vapor.children.forEach((v, i) => {
-        v.position.y = 0.14 + i * 0.16 + Math.sin(this.animT * 1.5 + i * 2) * 0.08;
-        v.material.opacity = 0.16 + Math.sin(this.animT * 1.1 + i) * 0.07;
-        v.rotation.y += dt * 0.5;
-      });
     }
     const runK = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / MAX_SPEED);
     const swing = Math.sin(this.animT * 12) * 0.9 * runK;

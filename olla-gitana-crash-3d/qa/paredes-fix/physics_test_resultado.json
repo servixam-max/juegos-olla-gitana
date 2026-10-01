@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-09-30T22:59:26.223Z",
+  "fecha": "2026-10-01T10:48:21.991Z",
   "pruebas": [
     {
       "nombre": "ANTES reproduce el bug: cruza el muro (maxX>5)",
@@ -84,14 +84,14 @@
     {
       "nombre": "estrés: sin NaN y 0 frames dentro",
       "ok": true,
-      "detalle": "nan=false dentro=0 final={\"x\":-12.89699347017831,\"y\":-569.700000000005,\"z\":25.655548482156867}"
+      "detalle": "nan=false dentro=0 final={\"x\":-12.896993470178133,\"y\":-569.7000000000007,\"z\":25.655548482156732}"
     },
     {
       "nombre": "rendimiento < 0.2 ms/llamada",
-      "ok": false,
-      "detalle": "2.5537 ms"
+      "ok": true,
+      "detalle": "0.0825 ms"
     }
   ],
-  "ok": 8,
+  "ok": 9,
   "total": 18
 }

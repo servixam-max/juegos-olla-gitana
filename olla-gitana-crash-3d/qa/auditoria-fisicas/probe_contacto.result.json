@@ -1,0 +1,39 @@
+{
+ "probe": "probe_contacto.js",
+ "wall_s": 0.4,
+ "result": {
+  "casos": {
+   "a_3m": {
+    "vidas": 3,
+    "vidasAntes": 3,
+    "danoEnemigo": 0,
+    "log": []
+   },
+   "b_1_5m": {
+    "vidas": 3,
+    "vidasAntes": 3,
+    "danoEnemigo": 0,
+    "log": []
+   },
+   "c_pegado": {
+    "vidasAntes": 3,
+    "vidas": 2,
+    "dano": [
+     {
+      "reason": "enemy",
+      "z": 26,
+      "x": -0.2,
+      "y": 0.1
+     }
+    ]
+   },
+   "d_girando": {
+    "patrullasAntes": 7,
+    "patrullasAhora": 6,
+    "vidas": 3
+   }
+  },
+  "errors": []
+ },
+ "error": null
+}

@@ -1,0 +1,23 @@
+{
+ "probe": "probe_trampas2.js",
+ "wall_s": 0.2,
+ "result": {
+  "a": {
+   "vidas": 3,
+   "v0": 3,
+   "hit": 0,
+   "log": []
+  },
+  "b": {
+   "vidas": 3,
+   "v1": 3,
+   "danosFuera": 0
+  },
+  "errors": [],
+  "grace": {
+   "vidas": 3,
+   "danosGrace": 0
+  }
+ },
+ "error": null
+}

@@ -249,6 +249,32 @@ export class EnemySystem {
       else if (d.type === 'globo') this.list.push(this.makeGlobo(d));
       else if (d.type === 'blindado') this.list.push(this.makeBlindado(d));
     }
+    // los bichos de vaivén se recortan al pasillo real: nada de muros, cajas ni
+    // tramos sobre el vacío (auditoría de movimientos; ver _encajarBicho).
+    // El altavoz-torreta es estático: si quedó colocado sobre el vacío, se
+    // re-ancla al suelo firme más cercano hacia el centro del pasillo.
+    for (const e of this.list) {
+      if (e.kind === 'patrol' || e.kind === 'toro' || e.kind === 'blindado' || e.kind === 'bee' || e.kind === 'globo') this._encajarBicho(e);
+      else if (e.kind === 'turret') this._anclarTurret(e);
+    }
+  }
+
+  /* torreta sobre el vacío (p. ej. N6 x=6,4 en los tramos de bloques): se
+     desliza hacia el centro del pasillo hasta el primer punto con suelo. */
+  _anclarTurret(e) {
+    // la torreta no guarda `base` (es estática): su sitio es el del objeto
+    const bx = e.base ? e.base.x : (e.obj ? e.obj.position.x : 0);
+    const bz = e.base ? e.base.z : (e.obj ? e.obj.position.z : 0);
+    if (this._sueloAdelante(bx, bz)) return;
+    const s = Math.sign(bx) || 1;
+    for (let k = 1; k <= 14; k++) {
+      const x2 = bx - s * k * 0.3;
+      if (this._sueloAdelante(x2, bz)) {
+        if (e.base) e.base.x = x2;
+        if (e.obj) e.obj.position.x = x2;
+        return;
+      }
+    }
   }
 
   /* ---------- utilidades compartidas (sombra + anillo de aviso) ---------- */
@@ -561,6 +587,119 @@ export class EnemySystem {
     return { ...d, obj, alive: true, kind: 'barril', vz: -(d.speed || 7), base: { x: d.x, z: d.z }, hitCd: 0, rollT: 0 };
   }
 
+  /* ================= CONTENCIÓN DE LOS BICHOS AL ESCENARIO =================
+     Hallazgo de la auditoría de movimientos: patrol/toro/blindado/globo/abeja
+     movían su vaivén por seno puro SIN mirar el mundo; con bases y span que
+     salían del pasillo (span más ancho que la calle) el bicho entraba en el
+     muro o en una caja —y desde dentro te dañaba a través de la pared— o se
+     quedaba flotando sobre un hueco (el roller rodaba por el aire en los
+     tramos de bloques). Aquí se corrige en el MOTOR (sin tocar niveles):
+       (1) la base se re-ancla al punto válido más cercano si arranca dentro de
+           un sólido o sobre el vacío, y
+       (2) el vaivén se recorta al tramo continuo libre que contiene la base.
+     `_libre` exige hueco de cuerpo y, para los de suelo, suelo debajo. */
+
+  _libre(x, y, z, r, alto, volador) {
+    if (!this.world) return true;
+    const g = this.world.groundUnder({
+      minX: x - 0.3, maxX: x + 0.3, minZ: z - 0.3, maxZ: z + 0.3, minY: -50, maxY: y + 0.6
+    });
+    if (!volador && !g) return false;
+    // el suelo que se pisa no cuenta como sólido a atravesar (islas de 0,24 m)
+    let base = y;
+    if (g && g.top > base) base = g.top;
+    const b = this.world.overlap({
+      minX: x - r, maxX: x + r, minY: base + 0.25, maxY: y + alto, minZ: z - r, maxZ: z + r
+    });
+    return !b;
+  }
+
+  /* tramo continuo válido alrededor de la base, en offsets del vaivén */
+  _rangoEje(e, eje, medio, r, alto, volador, yOf) {
+    if (!(medio > 0)) return { lo: 0, hi: 0 };
+    const paso = 0.25;
+    const n = Math.max(1, Math.ceil(medio / paso));
+    const ok = (o) => this._libre(
+      eje === 'x' ? e.base.x + o : e.base.x,
+      yOf(),
+      eje === 'z' ? e.base.z + o : e.base.z,
+      r, alto, volador);
+    let hi = 0, lo = 0;
+    for (let k = 1; k <= n; k++) { if (!ok(k * paso)) break; hi = k * paso; }
+    for (let k = 1; k <= n; k++) { if (!ok(-k * paso)) break; lo = -k * paso; }
+    return { lo, hi };
+  }
+
+  /* clamp del offset de vaivén al rango recortado del bicho */
+  _clampR(e, eje, o) {
+    const r = e.limites && e.limites[eje];
+    if (!r) return o;
+    return Math.max(r.lo, Math.min(r.hi, o));
+  }
+
+  /* ¿hay suelo (firme) en (x, z) a ras del bicho? (para roller/barril) */
+  _sueloAdelante(x, z) {
+    if (!this.world) return true;
+    return !!this.world.groundUnder({ minX: x - 0.35, maxX: x + 0.35, minZ: z - 0.35, maxZ: z + 0.35, minY: -50, maxY: 1.3 });
+  }
+
+  /* sitio seguro para reenganchar un rodante: base.z+8 si vale y si no base.z */
+  _reinicioRodante(e, dz = 8) {
+    if (this._sueloAdelante(e.base.x, e.base.z + dz) && !this._solidoEn(e.base.x, e.base.z + dz)) return e.base.z + dz;
+    if (this._sueloAdelante(e.base.x, e.base.z) && !this._solidoEn(e.base.x, e.base.z)) return e.base.z;
+    return e.obj.position.z;   // sin sitio claro: se queda donde está (no se teletransporta)
+  }
+
+  _solidoEn(x, z) {
+    if (!this.world) return false;
+    return !!this.world.overlap({ minX: x - 0.5, maxX: x + 0.5, minY: 0.1, maxY: 1.3, minZ: z - 0.5, maxZ: z + 0.5 });
+  }
+
+  /* ajusta base + vaivén de un bicho al escenario real (se llama en load y cada
+     vez que un toro/blindado reancla su base tras una embestida) */
+  _encajarBicho(e) {
+    const P = {
+      patrol: { r: 0.5, alto: 1.5, span: (e.span || 6) * 0.5, volador: false, y: () => 0 },
+      toro: { r: 0.6, alto: 1.6, span: (e.span || 3) * 0.5, volador: false, y: () => 0 },
+      blindado: { r: 0.6, alto: 1.4, span: (e.span || 5) * 0.5, volador: false, y: () => 0 },
+      bee: { r: 0.42, alto: 0.95, span: (e.span || 5), spanZ: 1.6, volador: true, y: () => (e.height || 2.4) - 0.45 },
+      globo: { r: 0.5, alto: 1.1, span: (e.span || 3), spanZ: 1.3, volador: true, y: () => (e.height || 2.7) - 0.35 }
+    }[e.kind];
+    if (!P || !e.base) return;
+    const volador = !!P.volador;
+    // (1) base válida: si arranca dentro de algo o sobre el vacío, se re-ancla
+    //     al punto libre más cercano a ≤2,4 m (más lejos sería un teletransporte
+    //     visible; en ese caso se deja la base y el vaivén se congela)
+    if (!this._libre(e.base.x, P.y(), e.base.z, P.r, P.alto, volador)) {
+      let hit = null;
+      for (let k = 1; k <= 8 && !hit; k++) {
+        const pasos = [[-k * 0.3, 0], [k * 0.3, 0], [0, k * 0.3], [0, -k * 0.3]];
+        for (const [dx, dz] of pasos) {
+          if (this._libre(e.base.x + dx, P.y(), e.base.z + dz, P.r, P.alto, volador)) { hit = { x: e.base.x + dx, z: e.base.z + dz }; break; }
+        }
+      }
+      if (hit) e.base = { x: hit.x, z: hit.z };
+      else { e.limites = { x: { lo: 0, hi: 0 }, z: { lo: 0, hi: 0 } }; return; }
+    }
+    // (2) vaivén recortado
+    if (e.kind === 'bee' || e.kind === 'globo') {
+      e.limites = {
+        x: this._rangoEje(e, 'x', P.span, P.r, P.alto, volador, P.y),
+        z: this._rangoEje(e, 'z', P.spanZ || 0, P.r, P.alto, volador, P.y)
+      };
+    } else if (e.axis === 'z') {
+      e.limites = { x: { lo: 0, hi: 0 }, z: this._rangoEje(e, 'z', P.span, P.r, P.alto, volador, P.y) };
+    } else {
+      e.limites = { x: this._rangoEje(e, 'x', P.span, P.r, P.alto, volador, P.y), z: { lo: 0, hi: 0 } };
+    }
+    // (3) altura del piso donde patrulla (islas con tope 0,24 m): los bichos de
+    //     suelo caminan A RAS del piso, no hundidos
+    if (!volador) {
+      const g2 = this.world && this.world.groundUnder({ minX: e.base.x - 0.3, maxX: e.base.x + 0.3, minZ: e.base.z - 0.3, maxZ: e.base.z + 0.3, minY: -50, maxY: 0.6 });
+      e.pisoY = g2 ? g2.top : 0;
+    }
+  }
+
   /* Devuelve true si el jugador recibe daño este frame */
   update(dt, player, ctx = {}) {
     let hit = false;
@@ -574,13 +713,13 @@ export class EnemySystem {
            brazos, panza respirando), la bandera ondea, te "ve" cuando estás
            cerca (barra roja + anillo + sonido) y su mirada te sigue. */
         e.t += dt * (e.speed || 3) * 0.5;
-        const o = Math.sin(e.t) * (e.span || 6) * 0.5;
+        const o = this._clampR(e, e.axis === 'z' ? 'z' : 'x', Math.sin(e.t) * (e.span || 6) * 0.5);
         if (e.axis === 'z') { e.obj.position.z = e.base.z + o; e.obj.position.x = e.base.x; }
         else { e.obj.position.x = e.base.x + o; e.obj.position.z = e.base.z; }
         const mirando = Math.cos(e.t) >= 0 ? 1 : -1;      // hacia dónde patrulla
         e.obj.rotation.y = e.axis === 'z' ? (mirando < 0 ? Math.PI : 0) : (mirando < 0 ? -Math.PI / 2 : Math.PI / 2);
         const paso = Math.sin(e.t * (e.speed || 3) * 2.4);
-        e.obj.position.y = Math.abs(paso) * 0.05;
+        e.obj.position.y = (e.pisoY || 0) + Math.abs(paso) * 0.05;
         if (ud.patas) {
           ud.patas[0].rotation.x = paso * 0.7;
           ud.patas[1].rotation.x = -paso * 0.7;
@@ -648,10 +787,22 @@ export class EnemySystem {
       } else if (e.kind === 'roller') {
         /* Ampli rodante: baja a toda velocidad. v3: gira la bola de verdad
            (rotación en x), levanta polvo y suelta un retumbo que se oye
-           acercarse; el giro lo repele. */
+           acercarse; el giro lo repele.
+           AUDITORÍA: el rodante cruza los baches a propósito (en N3 los niveles
+           lo colocan también sobre los tramos de bloques), así que NO se le
+           fuerza suelo; lo que sí se corrige es el punto de reenganche: antes
+           volvía a `base.z + 8`, que en los tramos nuevos cae sobre el vacío
+           (el jugador veía la bola reaparecer flotando). `_reinicioRodante`
+           elige un punto con suelo. */
         e.obj.position.z += e.vz * dt;
         e.obj.rotation.x -= e.vz * dt * 0.4;
-        if (e.obj.position.z < e.base.z - 26) { e.obj.position.z = e.base.z + 8; }
+        // rueda a ras del piso real (las losas nuevas van a 0,24 m: antes
+        // rodaba hundido 24 cm). maxY 0,6: no trepa a cajas (0,92) ni escaleras
+        {
+          const gR = this.world && this.world.groundUnder({ minX: e.obj.position.x - 0.35, maxX: e.obj.position.x + 0.35, minZ: e.obj.position.z - 0.35, maxZ: e.obj.position.z + 0.35, minY: -50, maxY: 0.6 });
+          e.obj.position.y = gR ? gR.top : 0;
+        }
+        if (e.obj.position.z < e.base.z - 26) { e.obj.position.z = this._reinicioRodante(e); }
         if (e.obj.position.z < -6) { e.obj.position.z = e.base.z; }
         if (ud.tela) ud.tela.rotation.y = 0.3 + Math.sin(e.t * 9) * 0.3;
         this._sombra(e, 1.5);
@@ -686,6 +837,10 @@ export class EnemySystem {
         }
         e.obj.position.z += e.vz * dt;
         e.obj.rotation.x -= e.vz * dt * 0.9;    // rueda de verdad
+        {
+          const gB = this.world && this.world.groundUnder({ minX: e.obj.position.x - 0.35, maxX: e.obj.position.x + 0.35, minZ: e.obj.position.z - 0.35, maxZ: e.obj.position.z + 0.35, minY: -50, maxY: 0.6 });
+          e.obj.position.y = gB ? gB.top : 0;
+        }
         this._sombra(e, 1.5);
         // aviso sonoro periódico mientras rueda
         e.sfxT = (e.sfxT || 0) - dt;
@@ -696,7 +851,7 @@ export class EnemySystem {
            en un tramo firme de 16 m se metía rodando en la sección de bloques
            sobre el vacío y el jugador (y el bot) caían al esquivarlo. */
         const largoB = e.largo || 22;
-        if (e.obj.position.z < e.base.z - largoB) e.obj.position.z = e.base.z + 6;
+        if (e.obj.position.z < e.base.z - largoB) e.obj.position.z = this._reinicioRodante(e, 6);
         const dxB = Math.abs(e.obj.position.x - p.x), dzB = Math.abs(e.obj.position.z - p.z);
         if (dxB < 1.0 && dzB < 0.9 && p.y < 1.05) {
           if (e.hitCd <= 0) {
@@ -719,17 +874,21 @@ export class EnemySystem {
         e.t += dt;
         if (e.estado === 'pica') {
           e.tEstado += dt;
-          e.obj.position.x += e.dirX * dt * 6.5;
-          e.obj.position.z += e.dirZ * dt * 6.5;
-          e.obj.position.y = Math.max(0.9, e.obj.position.y - dt * 3.2);
+          // el picado persigue al jugador (puede salirse del vaivén): si el
+          // hueco siguiente no está libre, no se mete en el muro
+          const nxB = e.obj.position.x + e.dirX * dt * 6.5;
+          const nzB = e.obj.position.z + e.dirZ * dt * 6.5;
+          const yB = Math.max(0.9, e.obj.position.y - dt * 3.2);
+          if (this._libre(nxB, yB, nzB, 0.42, 0.95, true)) { e.obj.position.x = nxB; e.obj.position.z = nzB; }
+          e.obj.position.y = yB;
           if (e.tEstado > 0.55) { e.estado = 'sube'; e.tEstado = 0; }
         } else if (e.estado === 'sube') {
           e.tEstado += dt;
           e.obj.position.y = Math.min(e.height || 2.4, e.obj.position.y + dt * 2.6);
           if (e.tEstado > 0.9) { e.estado = 'ronda'; e.tEstado = 0; }
         } else {
-          e.obj.position.x = e.base.x + Math.sin(e.t * 1.8) * (e.span || 5);
-          e.obj.position.z = e.base.z + Math.cos(e.t * 1.1) * 1.6;
+          e.obj.position.x = e.base.x + this._clampR(e, 'x', Math.sin(e.t * 1.8) * (e.span || 5));
+          e.obj.position.z = e.base.z + this._clampR(e, 'z', Math.cos(e.t * 1.1) * 1.6);
           e.obj.position.y = (e.height || 2.4) + Math.sin(e.t * 4.2) * 0.45;
           const dpx = p.x - e.obj.position.x, dpz = p.z - e.obj.position.z;
           const dist = Math.hypot(dpx, dpz);
@@ -915,8 +1074,9 @@ export class EnemySystem {
     e.t += dt;
 
     if (e.estado === 'paseo') {
-      // trota despacio en su eje, mirando hacia donde va
-      const o = Math.sin(e.t * 1.4) * (e.span || 3) * 0.5;
+      // trota despacio en su eje, mirando hacia donde va (recorrido recortado
+      // al pasillo real: la auditoría medía toros metidos en el muro)
+      const o = this._clampR(e, e.axis === 'z' ? 'z' : 'x', Math.sin(e.t * 1.4) * (e.span || 3) * 0.5);
       pos.x = e.base.x + (e.axis === 'z' ? 0 : o);
       pos.z = e.base.z + (e.axis === 'z' ? o : 0);
       e.obj.rotation.y = (e.axis === 'z' ? (Math.cos(e.t * 1.4) > 0 ? 0 : Math.PI) : (Math.cos(e.t * 1.4) > 0 ? Math.PI / 2 : -Math.PI / 2));
@@ -925,7 +1085,7 @@ export class EnemySystem {
         ud.patas[0].rotation.x = paso * 0.5; ud.patas[1].rotation.x = -paso * 0.5;
         ud.patas[2].rotation.x = -paso * 0.5; ud.patas[3].rotation.x = paso * 0.5;
       }
-      pos.y = Math.abs(paso) * 0.04;
+      pos.y = (e.pisoY || 0) + Math.abs(paso) * 0.04;
       const dist = Math.hypot(pos.x - p.x, pos.z - p.z);
       if (dist < (e.rango || 11) && p.y < 2.2) {
         e.estado = 'aviso'; e.tEstado = 0;
@@ -1007,9 +1167,20 @@ export class EnemySystem {
       }
     } else if (e.estado === 'recover') {
       e.tEstado += dt;
-      if (e.tEstado > 1.0) { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; }
+      if (e.tEstado > 1.0) { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; this._encajarBicho(e); }
     }
 
+    if (e.estado === 'paseo') {
+      // patrulla segura: si arranca o acaba la embestida fuera del pasillo, el
+      // trotar no debe meterlo en un muro ni sacarlo por un hueco. La corrección
+      // mueve la BASE (el seno la reescribe cada frame), 0,06 m/frame.
+      if (!this._libre(e.base.x + (e.axis === 'z' ? 0 : this._clampR(e, 'x', 0)), 0, e.base.z + (e.axis === 'z' ? this._clampR(e, 'z', 0) : 0), 0.6, 1.4, false)
+          || !this._libre(pos.x, 0, pos.z, 0.6, 1.4, false)) {
+        const s2 = Math.sign(e.base.x) || 1;
+        e.base.x -= s2 * 0.06;
+        this._encajarBicho(e);
+      }
+    }
     // contacto durante paseo/embestida: hace daño si NO giras y NO vas por
     // encima (salto). Girando en la embestida lo revientas (como en Crash).
     if (e.estado === 'paseo' || e.estado === 'embiste') {
@@ -1059,9 +1230,9 @@ export class EnemySystem {
         this._aviso(e, { color: 0xff5d5d, r: 0.9, opacity: 0 });
       }
     } else {
-      // planeo lento + bamboleo; el globo te sigue con la mirada
-      pos.x = e.base.x + Math.sin(e.t * 0.7) * (e.span || 3);
-      pos.z = e.base.z + Math.cos(e.t * 0.9) * 1.3;
+      // planeo lento + bamboleo (recortado al pasillo); el globo te sigue con la mirada
+      pos.x = e.base.x + this._clampR(e, 'x', Math.sin(e.t * 0.7) * (e.span || 3));
+      pos.z = e.base.z + this._clampR(e, 'z', Math.cos(e.t * 0.9) * 1.3);
       pos.y = H + Math.sin(e.t * 1.6) * 0.22;
       if (ud.cabeza) {
         let gy = Math.atan2(p.x - pos.x, p.z - pos.z) - e.obj.rotation.y;
@@ -1106,11 +1277,11 @@ export class EnemySystem {
     e.t += dt;
 
     if (e.estado === 'paseo') {
-      const o = Math.sin(e.t * 1.1) * (e.span || 5) * 0.5;
+      const o = this._clampR(e, e.axis === 'z' ? 'z' : 'x', Math.sin(e.t * 1.1) * (e.span || 5) * 0.5);
       pos.x = e.base.x + (e.axis === 'z' ? 0 : o);
       pos.z = e.base.z + (e.axis === 'z' ? o : 0);
       const paso = Math.sin(e.t * 5);
-      pos.y = Math.abs(paso) * 0.03;
+      pos.y = (e.pisoY || 0) + Math.abs(paso) * 0.03;
       e.obj.rotation.y = (e.axis === 'z' ? (Math.cos(e.t * 1.1) > 0 ? 0 : Math.PI) : (Math.cos(e.t * 1.1) > 0 ? Math.PI / 2 : -Math.PI / 2));
       if (ud.patas) { ud.patas[0].rotation.x = paso * 0.5; ud.patas[1].rotation.x = -paso * 0.5; }
       if (ud.luces) for (const l of ud.luces) l.material.color.setHex(0x66ff88);
@@ -1146,9 +1317,9 @@ export class EnemySystem {
       if (ud.patas) { ud.patas[0].rotation.x = Math.sin(e.tEstado * 26) * 0.7; ud.patas[1].rotation.x = -Math.sin(e.tEstado * 26) * 0.7; }
       if (ud.luces) for (const l of ud.luces) l.material.color.setHex(0xff2e2e);
       const suelo = this.world && this.world.groundUnder({ minX: nx - 0.4, maxX: nx + 0.4, minZ: nz - 0.4, maxZ: nz + 0.4, minY: -50, maxY: 1.6 });
-      if (suelo && e.recorrido < 6.5) { pos.x = nx; pos.z = nz; }
-      else { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; pos.y = 0; }
-      if (e.tEstado > 1.6) { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; pos.y = 0; }
+      if (suelo && !this._solidoEn(nx, nz) && e.recorrido < 6.5) { pos.x = nx; pos.z = nz; }
+      else { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; pos.y = 0; this._encajarBicho(e); }
+      if (e.tEstado > 1.6) { e.estado = 'paseo'; e.tEstado = 0; e.base = { x: pos.x, z: pos.z }; pos.y = 0; this._encajarBicho(e); }
       // daño del envite
       const dxx = Math.abs(pos.x - p.x), dzz = Math.abs(pos.z - p.z);
       if (dxx < 0.98 && dzz < 0.98 && p.y < 1.2 && !player.spinning) hit = true;

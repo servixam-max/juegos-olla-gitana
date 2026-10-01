@@ -1,0 +1,98 @@
+{
+ "probe": "probe_vidas2.js",
+ "wall_s": 0.3,
+ "result": {
+  "pasos": [
+   {
+    "etq": "inicio",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 4,
+    "cont": 3
+   },
+   {
+    "etq": "tras3golpes_1",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 3,
+    "cont": 3
+   },
+   {
+    "etq": "tras3golpes_2",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 2,
+    "cont": 3
+   },
+   {
+    "etq": "tras3golpes_3",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 1,
+    "cont": 3
+   },
+   {
+    "etq": "tras3golpes_4",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 0,
+    "cont": 3
+   },
+   {
+    "etq": "tras3golpes_5",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 5,
+    "cont": 2
+   },
+   {
+    "etq": "tras3golpes_6",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 4,
+    "cont": 2
+   },
+   {
+    "etq": "tras3golpes_7",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 3,
+    "cont": 2
+   },
+   {
+    "etq": "tras3golpes_8",
+    "lives": 3,
+    "mode": "play",
+    "ended": false,
+    "superV": 2,
+    "cont": 2
+   }
+  ],
+  "errors": [],
+  "inicio": {
+   "desbloqueados": 1,
+   "superVidas": 4,
+   "continues": 3
+  },
+  "over": {
+   "mode": "play",
+   "ended": false,
+   "overPanelVisible": false,
+   "progreso": {
+    "desbloqueados": 1,
+    "superVidas": 2,
+    "continues": 2
+   }
+  },
+  "errores": []
+ },
+ "error": null
+}

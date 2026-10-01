@@ -1810,14 +1810,17 @@ function botStep(dt) {
   // delante y saltar INSISTENTEMENTE hacia arriba (los andamios no tienen
   // rampa y la plataforma oscila; quedarse empujando no desencalla nunca).
   // Bug conocido y reproducido: N2 (Ruta al Festi) z≈134 (y 117-120) ~30% de rondas.
-  const atascado = b.stuckT > 1.6 && !state.level.arena;
+  // GUARDA: state.level puede ser null (menú / final del juego / demo) — antes
+  // esto lanzaba `Cannot read properties of null (reading 'arena')` en el bucle.
+  const enArena = !!(state.level && state.level.arena);
+  const atascado = b.stuckT > 1.6 && !enArena;
   if (atascado) {
     out.x = Math.sin(b.t * 3) * 0.5;   // zigzag suave en los saltos
     out.z = 1;
     if (b.jumpCd <= 0) { out.jump = true; out.jumpP = true; b.jumpCd = 0.32; }
   }
   // en la arena del jefe: colocarse, cubrirse tras los pilares y girar para devolver cajones
-  if (state.level.arena) {
+  if (enArena) {
     out.jump = false; out.jumpP = false;
     // gira siempre (devuelve cajones y esquiva)
     if (b.spinCd <= 0) { out.spinP = true; b.spinCd = 0.42; }
@@ -2020,7 +2023,7 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     }
     }
     // cuchillas de la arena del jefe: cruzan de lado a lado y hacen daño
-    if (state.level.arena && traps.traps.length) {
+    if (state.level && state.level.arena && traps.traps.length) {
     if (traps.update(dt, player)) damagePlayer('trampa');
     }
     updateVan(dt);
@@ -2033,7 +2036,13 @@ function tick(dt) {  // tareas diferidas (sin setTimeout: deben correr también 
     checkGoal();
     actualizarMetaVisible(true);
     maskCompanion.update(dt, player, camera);
-    maskCompanion.invT > 0 && (state.invT = maskCompanion.invT);
+    // El buff del puro SÍ o SÍ se limpia al expirar: con la asignación antigua
+    // (`invT > 0 && (state.invT = invT)`) el último valor positivo se quedaba
+    // pegado para siempre y el jugador era inmune al daño durante TODO el nivel
+    // (auditoría de vidas: tras el buff de 30 s, 2 daños de prueba no quitaban
+    // vida y damagePlayer salía siempre por state.invT). Con el ternario, al
+    // acabarse el buff la invulnerabilidad fantasma desaparece.
+    state.invT = maskCompanion.invT > 0 ? maskCompanion.invT : 0;
     // BUFF DEL PURO (2 puros): más velocidad y más salto mientras dure (30 s)
     player.speedBoost = maskCompanion.velocidadExtra;
     player.jumpBoost = maskCompanion.saltoExtra;

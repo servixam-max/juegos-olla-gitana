@@ -1,0 +1,9 @@
+{
+ "probe": "probe_setprog.js",
+ "wall_s": 0,
+ "result": {
+  "ok": true,
+  "prog": "{\"desbloqueados\":8,\"superVidas\":1,\"continues\":1,\"nivelActual\":0,\"mejorNivel\":0}"
+ },
+ "error": null
+}

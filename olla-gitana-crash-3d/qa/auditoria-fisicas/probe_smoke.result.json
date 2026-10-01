@@ -1,0 +1,33 @@
+{
+ "probe": "probe_smoke.js",
+ "wall_s": 0.1,
+ "result": {
+  "mode": "play",
+  "level": 1,
+  "lives": 3,
+  "pos": {
+   "x": 2.0343559268578235,
+   "y": 1.9160800000000007,
+   "z": 20.616922858079015
+  },
+  "enemigos": 12,
+  "enemigosDetalle": [
+   "patrol",
+   "patrol",
+   "patrol",
+   "patrol",
+   "patrol",
+   "patrol",
+   "turret",
+   "toro",
+   "globo",
+   "bee",
+   "blindado",
+   "patrol"
+  ],
+  "errores": [],
+  "puros": 3,
+  "moviles": 5
+ },
+ "error": null
+}

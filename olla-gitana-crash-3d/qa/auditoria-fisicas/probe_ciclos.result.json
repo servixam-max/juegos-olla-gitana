@@ -1,0 +1,60 @@
+{
+ "probe": "probe_ciclos.js",
+ "wall_s": 1.1,
+ "result": {
+  "toro_N1": {
+   "maxV": 45,
+   "framesEmbestida": 23,
+   "framesQuieto": 1425,
+   "x": [
+    -4.2,
+    0
+   ],
+   "z": [
+    36,
+    41.4
+   ]
+  },
+  "toro_N2": {
+   "maxV": 45,
+   "framesEmbestida": 60,
+   "framesQuieto": 1387,
+   "x": [
+    -2.2,
+    2
+   ],
+   "z": [
+    88,
+    105
+   ]
+  },
+  "blindado_N1": {
+   "maxV": 60,
+   "framesEmbestida": 54,
+   "framesQuieto": 1389,
+   "x": [
+    0.2,
+    4.3
+   ],
+   "z": [
+    166,
+    170.8
+   ]
+  },
+  "blindado_N5": {
+   "maxV": 60,
+   "framesEmbestida": 49,
+   "framesQuieto": 1419,
+   "x": [
+    -0.7,
+    3.4
+   ],
+   "z": [
+    117.4,
+    117.5
+   ]
+  },
+  "errores": []
+ },
+ "error": null
+}

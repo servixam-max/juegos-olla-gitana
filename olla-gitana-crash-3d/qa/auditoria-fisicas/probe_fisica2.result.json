@@ -1,0 +1,35 @@
+{
+ "probe": "probe_fisica2.js",
+ "wall_s": 0.4,
+ "result": {
+  "errores": [],
+  "muro": {
+   "x": -4.58,
+   "ok": true
+  },
+  "saltoLargo": {
+   "maxX": -4.262,
+   "ok": true
+  },
+  "caida30": {
+   "landed": true,
+   "y": 0.24,
+   "frames": 45,
+   "vyMax": -30
+  },
+  "bacheCruce": {
+   "z": 31.1,
+   "yMin": 0,
+   "cayo": false
+  },
+  "bacheCaida": {
+   "bajo": true,
+   "y": -3.4,
+   "fin": {
+    "y": -3.4,
+    "z": 20
+   }
+  }
+ },
+ "error": null
+}

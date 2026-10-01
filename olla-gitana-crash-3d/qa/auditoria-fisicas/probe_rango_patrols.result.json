@@ -1,0 +1,1028 @@
+{
+ "probe": "probe_rango_patrols.js",
+ "wall_s": 0.6,
+ "result": {
+  "niveles": {
+   "N1": [
+    {
+     "k": "patrol",
+     "base": [
+      0.5,
+      26
+     ],
+     "rangoX": [
+      4.18,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      2.5,
+      46
+     ],
+     "rangoX": [
+      4.34,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      2.4,
+      112
+     ],
+     "rangoX": [
+      4.34,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -3.7,
+      126
+     ],
+     "rangoX": [
+      4.5,
+      -3.06
+     ],
+     "rangoZ": [
+      2.84,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      4.5,
+      156
+     ],
+     "rangoX": [
+      2.26,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -1.24
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      1.7,
+      176
+     ],
+     "rangoX": [
+      1.94,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "toro",
+     "base": [
+      -2.8,
+      36
+     ],
+     "rangoX": [
+      4.5,
+      -4.02
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      -1.8,
+      60.7
+     ],
+     "rangoX": [
+      4.5,
+      -2.9
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      -3.4,
+      139.4
+     ],
+     "rangoX": [
+      4.5,
+      -3.38
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      2.9,
+      166
+     ],
+     "rangoX": [
+      3.86,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -0.4,
+      210
+     ],
+     "rangoX": [
+      3.54,
+      -4.34
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N2": [
+    {
+     "k": "patrol",
+     "base": [
+      -0.6,
+      22
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      1.8,
+      52
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      0,
+      61.8
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      0.7,
+      168
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -2.36
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -3,
+      248
+     ],
+     "rangoX": [
+      4.5,
+      -3.7
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "toro",
+     "base": [
+      -4.2,
+      88
+     ],
+     "rangoX": [
+      4.5,
+      -2.58
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      2.3,
+      145.6
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      3.6,
+      182
+     ],
+     "rangoX": [
+      3.22,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      0.5,
+      324.4
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -2.1,
+      258
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N3": [
+    {
+     "k": "toro",
+     "base": [
+      -1.5,
+      30
+     ],
+     "rangoX": [
+      4.5,
+      -3.7
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      -3.2,
+      131.3
+     ],
+     "rangoX": [
+      4.5,
+      -3.38
+     ],
+     "rangoZ": [
+      2.52,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      5.6,
+      221.2
+     ],
+     "rangoX": [
+      0.98,
+      -4.5
+     ],
+     "rangoZ": [
+      0.12,
+      -0.12
+     ],
+     "sueloAquí": true,
+     "libreAquí": false
+    },
+    {
+     "k": "bee",
+     "base": [
+      3.1,
+      334.2
+     ],
+     "rangoX": [
+      3.54,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      4.9,
+      302
+     ],
+     "rangoX": [
+      1.62,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N4": [
+    {
+     "k": "patrol",
+     "base": [
+      -5.9,
+      60
+     ],
+     "rangoX": [
+      4.5,
+      -2.58
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      3.6,
+      84
+     ],
+     "rangoX": [
+      3.06,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      3.1,
+      200
+     ],
+     "rangoX": [
+      3.7,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -3.3,
+      226
+     ],
+     "rangoX": [
+      4.5,
+      -3.38
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "toro",
+     "base": [
+      -4.3,
+      40
+     ],
+     "rangoX": [
+      4.5,
+      -4.18
+     ],
+     "rangoZ": [
+      3,
+      -0.6
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      -0.5,
+      179.1
+     ],
+     "rangoX": [
+      2.58,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      1.1,
+      255.6
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      4.9,
+      316
+     ],
+     "rangoX": [
+      3.54,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -2,
+      370
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N5": [
+    {
+     "k": "patrol",
+     "base": [
+      -3.4,
+      24
+     ],
+     "rangoX": [
+      4.5,
+      -3.38
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      0.1,
+      68
+     ],
+     "rangoX": [
+      2.9,
+      -2.9
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "toro",
+     "base": [
+      -2.6,
+      38
+     ],
+     "rangoX": [
+      4.5,
+      -4.18
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      3.6,
+      117.4
+     ],
+     "rangoX": [
+      3.06,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      -3.4,
+      174.4
+     ],
+     "rangoX": [
+      4.34,
+      -3.38
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      1.1,
+      210.6
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      3.9,
+      186
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N6": [
+    {
+     "k": "bee",
+     "base": [
+      -3.1,
+      30.4
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      0.1,
+      75.1
+     ],
+     "rangoX": [
+      2.42,
+      -3.54
+     ],
+     "rangoZ": [
+      3,
+      -2.52
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      -6,
+      129.1
+     ],
+     "rangoX": [
+      4.5,
+      -2.74
+     ],
+     "rangoZ": [
+      0.6,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      0.3,
+      209.5
+     ],
+     "rangoX": [
+      2.26,
+      -3.7
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      0,
+      103.5
+     ],
+     "rangoX": [
+      3.22,
+      -3.22
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "toro",
+     "base": [
+      -1.7,
+      47
+     ],
+     "rangoX": [
+      4.5,
+      -1.14
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      4.7,
+      146
+     ],
+     "rangoX": [
+      4.02,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      -1.8,
+      163
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      -3.1,
+      235.5
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N7": [
+    {
+     "k": "patrol",
+     "base": [
+      -0.9,
+      34
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      2.4,
+      132
+     ],
+     "rangoX": [
+      0.18,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      1.5,
+      210
+     ],
+     "rangoX": [
+      1.62,
+      -4.34
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "toro",
+     "base": [
+      2,
+      102
+     ],
+     "rangoX": [
+      1.14,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "blindado",
+     "base": [
+      -1.1,
+      148
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "globo",
+     "base": [
+      4.7,
+      193.8
+     ],
+     "rangoX": [
+      3.54,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "bee",
+     "base": [
+      -2.9,
+      280.2
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    },
+    {
+     "k": "patrol",
+     "base": [
+      -1.1,
+      334
+     ],
+     "rangoX": [
+      4.5,
+      -4.5
+     ],
+     "rangoZ": [
+      3,
+      -3
+     ],
+     "sueloAquí": true,
+     "libreAquí": true
+    }
+   ],
+   "N8": []
+  },
+  "errors": []
+ },
+ "error": null
+}

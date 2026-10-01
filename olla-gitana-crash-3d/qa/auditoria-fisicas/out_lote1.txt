@@ -1,0 +1,449 @@
+########## probe_enemigos.js
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      }
+    },
+    "N7": {
+      "lamp": {
+        "n": 320,
+        "x": [
+          -5.3,
+          3.3
+        ],
+        "y": [
+          5,
+          5
+        ],
+        "z": [
+          26,
+          246
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      },
+      "patrol": {
+        "n": 320,
+        "x": [
+          -6.6,
+          6.6
+        ],
+        "y": [
+          0,
+          0
+        ],
+        "z": [
+          34,
+          334
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      },
+      "turret": {
+        "n": 160,
+        "x": [
+          -6,
+          6
+        ],
+        "y": [
+          0,
+          0
+        ],
+        "z": [
+          74,
+          178
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      },
+      "toro": {
+        "n": 80,
+        "x": [
+          1.5,
+          4.5
+        ],
+        "y": [
+          0,
+          0
+        ],
+        "z": [
+          102,
+          102
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      },
+      "blindado": {
+        "n": 80,
+        "x": [
+          -5,
+          -1
+        ],
+        "y": [
+          0,
+          0
+        ],
+        "z": [
+          148,
+          148
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      },
+      "globo": {
+        "n": 80,
+        "x": [
+          0.4,
+          5.6
+        ],
+        "y": [
+          2.7,
+          3.1
+        ],
+        "z": [
+          191.7,
+          194.3
+        ],
+        "dentro_solido": 4,
+        "tags": {
+          "platform": 4
+        },
+        "bajo_suelo": 0
+      },
+      "bee": {
+        "n": 80,
+        "x": [
+          -3.1,
+          3.2
+        ],
+        "y": [
+          2.3,
+          3.1
+        ],
+        "z": [
+          277.4,
+          280.6
+        ],
+        "dentro_solido": 0,
+        "tags": {},
+        "bajo_suelo": 0
+      }
+    },
+    "N8": {}
+  },
+  "errors": []
+}
+########## probe_plataformas_muros.js
+=== RESULT (probe_plataformas_muros.js, 0.4s) ===
+{
+  "plataformas": {
+    "vagoneta_N1": {
+      "frames": 180,
+      "jitterX": 0,
+      "media": -0.158,
+      "groundedPct": 100,
+      "fin": {
+        "x": -1.4929007813969832,
+        "y": 0.2,
+        "z": 54
+      }
+    },
+    "barrido_contra_jugador": {
+      "minDist": {
+        "dx": 1.499,
+        "px": 1.2,
+        "mx": -0.3,
+        "py": 0.2
+      },
+      "frames_dentro_solido": 0,
+      "fin": {
+        "x": 1.3335366212777142,
+        "y": 0.2,
+        "z": 54
+      },
+      "grounded": true
+    }
+  },
+  "muros": {
+    "N1_z30": {
+      "maxAbsX_barrida": 4.58,
+      "maxAbsX_giro": 4.58,
+      "frames_dentro_solido": 0
+    },
+    "N1_z100": {
+      "maxAbsX_barrida": 4.58,
+      "maxAbsX_giro": 4.58,
+      "frames_dentro_solido": 0
+    },
+    "N2_z30": {
+      "maxAbsX_barrida": 15.216,
+      "maxAbsX_giro": 12.579,
+      "frames_dentro_solido": 0
+    },
+    "N5_z30": {
+      "maxAbsX_barrida": 6.58,
+      "maxAbsX_giro": 6.58,
+      "frames_dentro_solido": 0
+    },
+    "N7_z30": {
+      "maxAbsX_barrida": 16.753,
+      "maxAbsX_giro": 14.008,
+      "frames_dentro_solido": 0
+    }
+  },
+  "errors": []
+}
+########## probe_suite.js
+[page] PROG nivel 0 steps 1500 mode play z 140.6
+[page] PROG fin nivel 0: {"mode":"end","level":0,"notas":26,"cajas":3,"ended":true,"ok":true,"steps":2310,"wall_s":0.4,"endZ":342.1}
+[page] PROG fin nivel 1: {"mode":"end","level":1,"notas":28,"cajas":14,"ended":true,"ok":true,"steps":1440,"wall_s":0.3,"endZ":360.4}
+[page] PROG fin nivel 2: {"mode":"end","level":2,"notas":27,"cajas":0,"ended":true,"ok":true,"steps":1500,"wall_s":0.2,"endZ":395.7}
+[page] PROG fin nivel 3: {"mode":"end","level":3,"notas":28,"cajas":5,"ended":true,"ok":true,"steps":1410,"wall_s":0.2,"endZ":373.6}
+[page] PROG fin nivel 4: {"mode":"end","level":4,"notas":18,"cajas":5,"ended":true,"ok":true,"steps":1500,"wall_s":0.1,"endZ":219.2}
+[page] PROG nivel 5 steps 1500 mode play z 367.6
+[page] PROG fin nivel 5: {"mode":"end","level":5,"notas":28,"cajas":3,"ended":true,"ok":true,"steps":1530,"wall_s":0.1,"endZ":374.4}
+[page] PROG nivel 6 steps 1500 mode play z 224.4
+[page] PROG fin nivel 6: {"mode":"end","level":6,"notas":34,"cajas":4,"ended":true,"ok":true,"steps":2130,"wall_s":0.2,"endZ":396.5}
+[page] PROG fin nivel 7: {"mode":"end","level":7,"notas":0,"cajas":0,"ended":true,"ok":true,"steps":1080,"wall_s":0.1,"endZ":-5.3}
+=== RESULT (probe_suite.js, 1.6s) ===
+{
+  "levels": {
+    "0": {
+      "mode": "end",
+      "level": 0,
+      "notas": 26,
+      "cajas": 3,
+      "ended": true,
+      "ok": true,
+      "steps": 2310,
+      "wall_s": 0.4,
+      "endZ": 342.1
+    },
+    "1": {
+      "mode": "end",
+      "level": 1,
+      "notas": 28,
+      "cajas": 14,
+      "ended": true,
+      "ok": true,
+      "steps": 1440,
+      "wall_s": 0.3,
+      "endZ": 360.4
+    },
+    "2": {
+      "mode": "end",
+      "level": 2,
+      "notas": 27,
+      "cajas": 0,
+      "ended": true,
+      "ok": true,
+      "steps": 1500,
+      "wall_s": 0.2,
+      "endZ": 395.7
+    },
+    "3": {
+      "mode": "end",
+      "level": 3,
+      "notas": 28,
+      "cajas": 5,
+      "ended": true,
+      "ok": true,
+      "steps": 1410,
+      "wall_s": 0.2,
+      "endZ": 373.6
+    },
+    "4": {
+      "mode": "end",
+      "level": 4,
+      "notas": 18,
+      "cajas": 5,
+      "ended": true,
+      "ok": true,
+      "steps": 1500,
+      "wall_s": 0.1,
+      "endZ": 219.2
+    },
+    "5": {
+      "mode": "end",
+      "level": 5,
+      "notas": 28,
+      "cajas": 3,
+      "ended": true,
+      "ok": true,
+      "steps": 1530,
+      "wall_s": 0.1,
+      "endZ": 374.4
+    },
+    "6": {
+      "mode": "end",
+      "level": 6,
+      "notas": 34,
+      "cajas": 4,
+      "ended": true,
+      "ok": true,
+      "steps": 2130,
+      "wall_s": 0.2,
+      "endZ": 396.5
+    },
+    "7": {
+      "mode": "end",
+      "level": 7,
+      "notas": 0,
+      "cajas": 0,
+      "ended": true,
+      "ok": true,
+      "steps": 1080,
+      "wall_s": 0.1,
+      "endZ": -5.3
+    }
+  },
+  "errors": [],
+  "damageLog": []
+}
+########## probe_vidas_buff.js
+      "invT_antes": 2.17,
+      "baja": true
+    },
+    "ciclo": {
+      "superInicial": 16,
+      "contInicial": 3
+    },
+    "tras3golpes": {
+      "lives": 1,
+      "mode": "play",
+      "superVidas": 16
+    },
+    "supervida": {
+      "lives": 1,
+      "mode": "play",
+      "superVidas": 16,
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      }
+    },
+    "continue": {
+      "vueltas": 12,
+      "progreso": {
+        "desbloqueados": 8,
+        "superVidas": 4,
+        "continues": 3
+      },
+      "lives": 3,
+      "mode": "play"
+    },
+    "continueFin": {
+      "progreso": {
+        "desbloqueados": 8,
+        "superVidas": 4,
+        "continues": 3
+      },
+      "lives": 3,
+      "mode": "play"
+    }
+  },
+  "buff": {
+    "purosNivel0": [
+      {
+        "x": 3.6,
+        "y": 3.3,
+        "z": 139.4,
+        "cogido": false
+      },
+      {
+        "x": 0.1,
+        "y": 1.2,
+        "z": 311.7,
+        "cogido": false
+      },
+      {
+        "x": 0,
+        "y": 1.2,
+        "z": 46,
+        "cogido": false
+      }
+    ],
+    "trasCoger": {
+      "cogidos": 1,
+      "mascara": {
+        "nivel": 1,
+        "invT": 0,
+        "invulnerable": false,
+        "visible": true
+      },
+      "puroBuff": {
+        "nivel": 1,
+        "invT": 0,
+        "speed": 1,
+        "jump": 1
+      }
+    },
+    "estado": {
+      "mascara": {
+        "nivel": 1,
+        "invT": 0,
+        "invulnerable": false,
+        "visible": true
+      },
+      "puroBuff": {
+        "nivel": 1,
+        "invT": 0,
+        "speed": 1,
+        "jump": 1
+      },
+      "speedBoost": 1
+    },
+    "invulnerabilidad": {
+      "invulnerable": false,
+      "invT": 0,
+      "vidaAntes": 3
+    },
+    "damage_x3": {
+      "vidas": 3,
+      "danLog": 38,
+      "invT": 0
+    },
+    "caida": {
+      "vidas": 3,
+      "y": 0,
+      "z": 2
+    },
+    "caida2": {
+      "vidas": 3,
+      "y": 0
+    },
+    "enemigo_contacto": {
+      "vidas": 2,
+      "buff": {
+        "nivel": 0,
+        "invT": 0,
+        "invulnerable": false,
+        "visible": false
+      }
+    },
+    "nota_trampas": "las cuchillas solo existen en la arena (nivel 8); se prueban allí",
+    "tras30s": {
+      "mascara": {
+        "nivel": 0,
+        "invT": 0,
+        "invulnerable": false,
+        "visible": false
+      },
+      "vidas": 3,
+      "speed": 1,
+      "jump": 1
+    },
+    "dano_post": {
+      "vidaAntes": 3,
+      "vidaDespues": 2
+    }
+  },
+  "errors": []
+}
