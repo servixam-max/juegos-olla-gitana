@@ -267,7 +267,7 @@ function calzada(world, scene, { z0, z1, w = 13, color = PALETA.asfalto, saltos 
    separadas por agujeros al vacío. Losas de 6,6-8,6 m y saltos de 2,2 m (salto
    normal), 4-6 bloques encadenados. `tops` alterna la altura (0 / 0.24) y `zig`
    las desplaza en x para corregir en el aire. */
-function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 2.2, w = 4.6, tops = [0, 0.24], zig = 1.0, color = PALETA.madera, tag = 'platform', salida = null }) {
+function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 2.2, w = 4.6, tops = [0, 0.24], zig = 1.0, color = PALETA.madera, tag = 'platform', salida = null, cierre = 'puente' }) {
   const puestas = [];
   let z = +z0;
   let ultSep = Array.isArray(sep) ? +sep[0] : +sep;
@@ -284,7 +284,23 @@ function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 2.2, w = 4.
   }
   // la separación de salida es SIEMPRE un número (con un array, el "+"
   // concatenaba strings y todas las z del nivel acababan siendo NaN)
-  const fin = z + +(salida == null ? ultSep : salida);
+  const salidaReal = salida == null ? ultSep : salida;
+  const fin = z + +salidaReal;
+  /* CIERRE del hueco de salida: por defecto ('puente') el ÚLTIMO bloque se
+     prolonga sobre el hueco de salida hasta tocar la calzada siguiente. Mide
+     exactamente igual que antes (el `fin` no cambia, así que todos los tramos
+     posteriores siguen en su z), pero el salto de salida de 1,7-1,8 m deja de
+     ser mortal: el bot llegaba al borde, no saltaba (el suelo de enfrente está
+     dentro de su mira de 2,1 m) y caía en bucle infinito (medido en N3
+     z≈244,8). El tramo sigue siendo "solo bloques" en sus saltos internos.
+     Los tramos nuevos pueden pasar cierre:false para conservar su hueco. */
+  if (cierre === 'puente' && puestas.length) {
+    const ult = puestas[puestas.length - 1];
+    if (salidaReal > 0.05) {
+      const extra = salidaReal + 0.2;
+      floorSeg(world, scene, { x: ult.x, z: ult.z + ult.d / 2 + extra / 2 - 0.1, w: ult.w, d: extra, y: ult.y, color, tag });
+    }
+  }
   return { fin, losa: puestas };
 }
 
@@ -448,7 +464,7 @@ export function buildLevel1(world, scene, fx) {
   tramosFirmes.push(...A.tramos);
 
   // ---- B: SOLO BLOQUES 1 · cuatro losas sobre el vacío ----
-  const B = islas(world, scene, { notes, z0: 66, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const B = islas(world, scene, { notes, z0: 66, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   B.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -498,7 +514,7 @@ export function buildLevel1(world, scene, fx) {
   }
 
   // ---- E: SOLO BLOQUES 2 · cinco losas sobre el vacío ----
-  const E = islas(world, scene, { notes, z0: D.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const E = islas(world, scene, { notes, z0: D.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   E.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 3) crates.push(buildCrate(world, scene, { x: l.x, y: l.y, z: l.z, type: 'steel' }));
@@ -562,21 +578,26 @@ export function buildLevel1(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: el suelo desaparece; se cruza saltando de caja en caja */
-  const PB1 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 5, sep: 1.5, zig: 0.4, alturas: [0, 0.3, 0] });
+  const PB1 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 5, sep: 1.5, zig: 0.2, alturas: [0, 0.3, 0] });
 
   const S2 = calzada(world, scene, { z0: PB1, z1: PB1 + 6, rnd });
   tramosFirmes.push(...S2.tramos);
 
   /* Losas ESTRECHAS (w 3.6) y con zig: el tramo más fino del nivel */
-  const S3 = islas(world, scene, { notes, z0: S2.fin, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: PALETA.madera });
+  const S3 = islas(world, scene, { notes, z0: S2.fin, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.6, zig: 0.3, tops: [0, 0.24, 0], salida: 0, color: PALETA.madera });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x - 1.1, y: l.y, z: l.z, type: 'bounce' }));
   });
 
+  /* ---- S4: recta de cierre (S4.fin - 7 → S4.fin) ----
+     El hueco simple va ANTES de la mitad y la meta (S4.fin - 4,5) queda 2,8 m
+     DENTRO del tramo firme final: el goal nunca cae al borde de un agujero
+     (con goal = fin-1,5 la meta quedaba pegada al hueco: el jugador que gana
+     cruzando el hueco caía justo al pisar la meta). */
   const S4 = calzada(world, scene, { z0: S3.fin, z1: S3.fin + 7, rnd, saltos: [
-    { z: S3.fin + 3.6, w: 1.7 }
+    { z: S3.fin + 2.6, w: 1.7 }
   ] });
   tramosFirmes.push(...S4.tramos);
   const L = S4.fin;
@@ -596,14 +617,18 @@ export function buildLevel1(world, scene, fx) {
     solid(world, scene, { x: 0, y: 4.6, z: zi, w: 11.2, h: 0.5, d: 16, color: 0x4a3f6b, tag: 'roof', visible: false, solid: false });
   }
 
-  // farolas y decoración
+  // farolas y decoración: cada maceta solo si hay suelo FIRME debajo (antes se
+  // colocaban a x fijo y la de z≈222 flotaba sobre el hueco del tramo E)
   for (let zi = 8; zi < L - 10; zi += 16) {
     const l = makeLampPost();
     l.position.set(-4.6, 0, zi);
     scene.add(l); lamps.push(l);
-    const p = makePlanter();
-    p.position.set(4.7, 0, zi + 6);
-    scene.add(p); deco.push(p);
+    const pz = zi + 6;
+    if (haySuelo(world, { x: 4.7, z: pz, w: 0.9, d: 0.9 })) {
+      const p = makePlanter();
+      p.position.set(4.7, 0, pz);
+      scene.add(p); deco.push(p);
+    }
   }
 
   // charcos resbaladizos (solo sobre suelo firme)
@@ -693,8 +718,8 @@ export function buildLevel1(world, scene, fx) {
   enemies.push(enemy('blindado', { x: 3, z: 166, axis: 'x', span: 4, speed: 2.6 }));
   enemies.push(enemy('patrol', { x: -2.6, z: 210, span: 6, speed: 3.4, axis: 'x' }));
 
-  // meta
-  const goal = { z: S4.fin - 1.5, x: 0 };
+  // meta (S4.fin - 4,5: dentro del tramo firme final, nunca al borde de un hueco)
+  const goal = { z: S4.fin - 4.5, x: 0 };
 
   return {
     id: 1, nombre: 'El Ensayo Callejero',
@@ -754,7 +779,7 @@ export function buildLevel2(world, scene, fx) {
   }
 
   // ---- C: SOLO BLOQUES 1 · cinco tablones sobre el vacío ----
-  const C = islas(world, scene, { notes, z0: 96, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const C = islas(world, scene, { notes, z0: 96, n: 5, d: [8.6, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   C.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i % 2 === 1) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -826,7 +851,7 @@ export function buildLevel2(world, scene, fx) {
   tramosFirmes.push(...P1.tramos);
 
   /* ---- P2: SOLO BLOQUES 3 · cuatro tablones sobre el vacío ---- */
-  const P2 = islas(world, scene, { notes, z0: P1.fin, n: 4, d: [8.4, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
+  const P2 = islas(world, scene, { notes, z0: P1.fin, n: 4, d: [8.4, 6.6, 6.6, 7.0], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: PALETA.madera });
   P2.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -837,7 +862,7 @@ export function buildLevel2(world, scene, fx) {
   tramosFirmes.push(...R2.tramos);
 
   /* ---- P3: SOLO BLOQUES 4 · los últimos tres tablones ---- */
-  const P3 = islas(world, scene, { notes, z0: R2.fin, n: 3, d: [8.4, 6.6, 6.6], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
+  const P3 = islas(world, scene, { notes, z0: R2.fin, n: 3, d: [8.4, 6.6, 6.6], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: PALETA.madera });
   P3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 1) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -857,10 +882,10 @@ export function buildLevel2(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (7 cajas) */
-  const PB2 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
+  const PB2 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.2, alturas: [0, 0.3, 0] });
 
   /* Tablones ESTRECHOS (w 3.6) con zig, alturas alternas y cajas de apoyo */
-  const S3 = islas(world, scene, { notes, z0: PB2, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: PALETA.madera });
+  const S3 = islas(world, scene, { notes, z0: PB2, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.6, zig: 0.3, tops: [0, 0.24, 0], salida: 0, color: PALETA.madera });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -965,7 +990,7 @@ export function buildLevel2(world, scene, fx) {
   return {
     id: 2, nombre: 'Ruta al Festi',
     tip: 'Cajas flecha ▲ para volar alto. La caja ! materializa el andamio invisible: ahí va el atajo.',
-    length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal: { z: S4.fin - 1.5, x: 0 },
+    length: L, spawn: { x: 0, y: 0.1, z: 2 }, goal: { z: S4.fin - 4.5, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, lamps, deco,
     chase: false, arena: false, bg: 2, colorTecho: 0x1c0f2e, lampIntensity: 1.25
   };
@@ -998,7 +1023,7 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...A.tramos);
 
   // ---- B: OBRAS 1: calzada cortada, pilares para cruzar ----
-  const B = islas(world, scene, { notes, z0: 70, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
+  const B = islas(world, scene, { notes, z0: 70, n: 4, d: [8.6, 6.6, 6.6, 7.0], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
   B.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -1013,7 +1038,7 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...C.tramos);
 
   // ---- D: OBRAS 2: cinco pilares encadenados sobre el vacío ----
-  const D = islas(world, scene, { notes, z0: C.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: 0x6b7280 });
+  const D = islas(world, scene, { notes, z0: C.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.4], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: 0x6b7280 });
   D.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 3) crates.push(buildCrate(world, scene, { x: l.x - 1.2, y: l.y, z: l.z, type: 'steel' }));
@@ -1034,7 +1059,7 @@ export function buildLevel3(world, scene, fx) {
   }
 
   // ---- F: OBRAS 3: cinco pilares más (el tramo más exigente) ----
-  const F = islas(world, scene, { notes, z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
+  const F = islas(world, scene, { notes, z0: E.fin + 4, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24], color: 0x6b7280 });
   F.losa.forEach((l) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
   });
@@ -1079,10 +1104,10 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (8 cajas) */
-  const PB3 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
+  const PB3 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.2, alturas: [0, 0.3, 0] });
 
   /* Pilares ESTRECHOS (w 3.6) del cierre */
-  const S3 = islas(world, scene, { notes, z0: PB3, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0x6b7280 });
+  const S3 = islas(world, scene, { notes, z0: PB3, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.6, zig: 0.3, tops: [0, 0.24, 0], salida: 0, color: 0x6b7280 });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -1198,7 +1223,7 @@ export function buildLevel3(world, scene, fx) {
   return {
     id: 3, nombre: 'Furgoneta Desbocada',
     tip: '¡Corre hacia la cámara! Esquiva los barriles que ruedan y usa las cajas flecha ▲ para ir por lo alto.',
-    length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: S4.fin - 1.5, x: 0 },
+    length: L, spawn: { x: 0, y: 0.1, z: 4 }, goal: { z: S4.fin - 4.5, x: 0 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: true, arena: false, bg: 3, colorTecho: 0x101a2e, lampIntensity: 0.9,
     van: { startZ: -8, speed: 6.0, accel: 0.12, catchUp: true }

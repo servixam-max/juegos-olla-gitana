@@ -245,7 +245,7 @@ function calzada(world, scene, { z0, z1, w = 13, color = PALETA.asfalto, saltos 
 
 /* Islas: tramo "SOLO BLOQUES": el suelo desaparece y queda una cadena de losas
    sobre el vacío. `tops` alterna la altura (0 / 0.24) y `zig` las desplaza en x. */
-function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 1.7, w = 4.6, tops = [0, 0.24], zig = 0.5, color = PALETA.madera, tag = 'platform', salida = null }) {
+function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 1.7, w = 4.6, tops = [0, 0.24], zig = 0.5, color = PALETA.madera, tag = 'platform', salida = null, cierre = 'puente' }) {
   const puestas = [];
   let z = +z0;
   let ultSep = Array.isArray(sep) ? +sep[0] : +sep;
@@ -262,7 +262,21 @@ function islas(world, scene, { notes = null, z0, n = 4, d = 7, sep = 1.7, w = 4.
   }
   // la separación de salida es SIEMPRE un número (con un array el "+" concatenaba
   // strings y todas las z del nivel acababan siendo NaN)
-  const fin = z + +(salida == null ? ultSep : salida);
+  const salidaReal = salida == null ? ultSep : salida;
+  const fin = z + +salidaReal;
+  /* CIERRE del hueco de salida: por defecto ('puente') el ÚLTIMO bloque se
+     prolonga sobre el hueco de salida hasta tocar la calzada siguiente. Mide
+     exactamente igual que antes (el `fin` no cambia), pero el salto de salida
+     deja de ser mortal: el bot no saltaba el hueco de 1,7-1,8 m (el suelo de
+     enfrente está dentro de su mira de 2,1 m) y caía en bucle infinito.
+     Los tramos nuevos pueden pasar cierre:false para conservar su hueco. */
+  if (cierre === 'puente' && puestas.length) {
+    const ult = puestas[puestas.length - 1];
+    if (salidaReal > 0.05) {
+      const extra = salidaReal + 0.2;
+      floorSeg(world, scene, { x: ult.x, z: ult.z + ult.d / 2 + extra / 2 - 0.1, w: ult.w, d: extra, y: ult.y, color, tag });
+    }
+  }
   return { fin, losa: puestas };
 }
 
@@ -536,10 +550,10 @@ export function buildLevel4(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío */
-  const PB4 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
+  const PB4 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.2, alturas: [0, 0.3, 0] });
 
   /* Losas ESTRECHAS (w 3.6) del palio */
-  const S3 = islas(world, scene, { notes, z0: PB4, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0x8b5a2b });
+  const S3 = islas(world, scene, { notes, z0: PB4, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.6, zig: 0.3, tops: [0, 0.24, 0], salida: 0, color: 0x8b5a2b });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -646,7 +660,7 @@ export function buildLevel4(world, scene, fx) {
   return {
     id: 4, nombre: 'La Procesión',
     tip: 'Tranvías rojos: móntate o salta. Cajas flecha ▲ suben a los balcones (ojo, se desmoronan).',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: S4.fin - 1.5 },
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: S4.fin - 4.5 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, bg: 4, colorTecho: 0x1a0f2e, lampIntensity: 1.15
   };
@@ -691,7 +705,7 @@ export function buildLevel5(world, scene, fx) {
 
   /* ---- C2: SOLO BLOQUES 2 · el desfile se rompe (124-169,5) ----
      Extensión: nuevo tramo de losas sobre el vacío con las notas de ruta. */
-  const C2 = islas(world, scene, { notes, z0: C.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.9, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: 0x5a3a1a });
+  const C2 = islas(world, scene, { notes, z0: C.fin, n: 5, d: [8.4, 6.6, 6.6, 6.6, 7.2], sep: 1.8, w: 5.4, zig: 0.5, tops: [0, 0.24, 0], color: 0x5a3a1a });
   C2.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 2) crates.push(buildCrate(world, scene, { x: l.x + 1.2, y: l.y, z: l.z, type: 'normal' }));
@@ -807,7 +821,7 @@ export function buildLevel5(world, scene, fx) {
   return {
     id: 5, nombre: 'El Entierro de la Sardina',
     tip: 'Esquiva el humo y los barriles. Sube con las cajas flecha ▲: arriba está la máscara.',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: D3.fin - 1.5 },
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: D3.fin - 4.5 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, bossIntermedio: 'fermin', bossIntermedioZ: 215,
     bg: 5, colorTecho: 0x120a24, lampIntensity: 1.3
@@ -923,10 +937,10 @@ export function buildLevel6(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío */
-  const PB6 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
+  const PB6 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.2, alturas: [0, 0.3, 0] });
 
   /* Losas ESTRECHAS (w 3.6) del bancal */
-  const S3 = islas(world, scene, { notes, z0: PB6, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0x8b6b3a });
+  const S3 = islas(world, scene, { notes, z0: PB6, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.6, zig: 0.3, tops: [0, 0.24, 0], salida: 0, color: 0x8b6b3a });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -987,10 +1001,14 @@ export function buildLevel6(world, scene, fx) {
     if (b) addEnemy(enemies, enemy('barril', b));
   }
 
-  // hortalizas decorativas + planter
+  // hortalizas decorativas + planter: solo si hay suelo FIRME debajo (antes la
+  // x aleatoria dejaba piezas flotando sobre los huecos de los bancales)
   for (let i = 0; i < 20; i++) {
+    const pz = 18 + i * 11;
+    const px = -6 + rnd() * 12;
+    if (!haySuelo(world, { x: px, z: pz, w: 1.0, d: 1.0 })) continue;
     const p = makePlanter();
-    p.position.set(-6 + rnd() * 12, 0, 18 + i * 11);
+    p.position.set(px, 0, pz);
     p.scale.setScalar(0.7 + rnd() * 0.5);
     scene.add(p); deco.push(p);
   }
@@ -1075,7 +1093,7 @@ export function buildLevel6(world, scene, fx) {
   return {
     id: 6, nombre: 'La Huerta Perdida',
     tip: 'El agua frena: cruza por los troncos. Cajas flecha ▲ al pajar y ojo con los barriles.',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: S4.fin - 1.5 },
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: S4.fin - 4.5 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, bg: 6, colorTecho: 0x1c2a1a, lampIntensity: 1.0
   };
@@ -1217,10 +1235,10 @@ export function buildLevel7(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío */
-  const PB7 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
+  const PB7 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.2, alturas: [0, 0.3, 0] });
 
   /* Losas ESTRECHAS (w 3.6) del salón alto */
-  const S3 = islas(world, scene, { notes, z0: PB7, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0xd4c6a6 });
+  const S3 = islas(world, scene, { notes, z0: PB7, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.6, zig: 0.3, tops: [0, 0.24, 0], salida: 0, color: 0xd4c6a6 });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -1358,7 +1376,7 @@ export function buildLevel7(world, scene, fx) {
   return {
     id: 7, nombre: 'El Casino de Murcia',
     tip: 'El suelo resbala: frena antes de saltar. Cajas flecha ▲ al reservado y cuidado con los barriles.',
-    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: S4.fin - 1.5 },
+    length: L, spawn: { x: 0, y: 0.1, z: 3 }, goal: { x: 0, z: S4.fin - 4.5 },
     crates, notes, masks, checkpoints, puddles, enemies, switches, deco,
     chase: false, arena: false, resbalon: true,
     bg: 7, colorTecho: 0x2a2418, lampIntensity: 1.45

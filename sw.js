@@ -1,7 +1,7 @@
 /* Olla Gitana — service worker de los juegos.
    Estrategia: red primero para HTML/JS/CSS (para no servir versiones viejas),
    caché primero para imágenes/audio (pesan mucho y cambian poco). */
-const CACHE = 'olla-juegos-v1';
+const CACHE = 'olla-juegos-v2';
 const IMG_RE = /\.(png|jpe?g|webp|gif|mp3|m4a|ogg|woff2?)$/i;
 
 self.addEventListener('install', e => {
