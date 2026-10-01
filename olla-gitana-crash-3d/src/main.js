@@ -90,8 +90,7 @@ const state = {
   continues: CONTINUES,
   mascara: 0,           // nivel de la máscara compañera (0-3)
   invT: 0,              // invulnerabilidad de la máscara dorada (s)
-  pendingRanking: false, // subir al ranking solo al pasarse el juego (jefe final)
-  esFinalGuardado: false // ya guardó su nombre en la pantalla final (para volver del ranking)
+  pendingRanking: false  // subir al ranking solo al pasarse el juego (jefe final)
 };
 
 const records = loadRecords();
@@ -1020,17 +1019,18 @@ function endLevel(win, extra = {}) {
     const hasNext = state.levelIndex < LEVELS.length - 1;
     $('btnNext').classList.toggle('hidden', !hasNext);
     if (better) hud.toast('¡RÉCORD NUEVO! 🏆', 'record');
-    // campo de nombre: se rellena con el guardado y "Guardar" lo envía al ranking
+    // NOMBRE: al acabar cada nivel NO se pide el nombre ni se guarda nada
+    // (petición del usuario: "cuando acabas cada nivel no te lo tiene que pedir
+    // el nombre ni guardar, solo se guarda al final"). El campo solo aparece al
+    // PASARSE EL JUEGO ENTERO (jefe final derrotado).
+    const filaFinal = $('finalNameRow');
+    if (filaFinal) filaFinal.classList.toggle('hidden', !extra.boss);
     $('playerName').value = loadPrefs().name || '';
     state.pendingScore = { id: lv.id, score: earnedNotes, stars, time };
     $('endPanel').classList.remove('hidden');
     // ¿ha ganado el JUEGO? (jefe final derrotado) → al guardar el nombre sale el
     // FINAL del concierto con la banda (petición del usuario)
     state.esFinal = !!extra.boss;
-    // RANKING: solo se muestra el botón si acabas de pasarte EL JUEGO (jefe final
-    // derrotado). Así el ranking solo tiene a quien se lo ha pasado de verdad.
-    const btnRF = $('btnRankFinal');
-    if (btnRF) btnRF.classList.toggle('hidden', !extra.boss);
     // el envío al ranking SOLO ocurre al pasarse el juego (aquí), no en cada nivel
     if (extra.boss) state.pendingRanking = true;
     // diálogo al ganar el mundo (se lanza al pulsar Siguiente/Repetir)
@@ -1040,10 +1040,9 @@ function endLevel(win, extra = {}) {
     $('overNotes').textContent = `${earnedNotes}/${totalNotes}`;
     $('overCrates').textContent = `${crates.broken}/${crates.total}`;
     state.pendingScore = { id: lv.id, score: earnedNotes, stars: 0, time };
-    $('playerNameOver').value = loadPrefs().name || '';
     $('overPanel').classList.remove('hidden');
-    // OJO: al perder NO se sube nada al ranking — solo se pasa al ranking
-    // cuando se derrota al jefe final (petición del usuario)
+    // OJO: al perder NO se pide nombre ni se guarda nada en el ranking —
+    // solo se guarda al PASARSE EL JUEGO entero (petición del usuario)
   }
 }
 
@@ -1424,7 +1423,7 @@ function damagePlayer(reason) {
   // la máscara compañera absorbe el golpe (tipo Aku Aku)
   if (maskCompanion.nivel > 0) {
     if (maskCompanion.hit()) {
-      hud.toast('🎭 ¡La máscara aguantó el golpe!', 'good');
+      hud.toast('🚬 ¡El puro aguantó el golpe!', 'good');
       Audio.sfx('maskBreak');
       fx.burst({ x: player.pos.x, y: player.pos.y + 1.4, z: player.pos.z }, { count: 16, speed: 5, up: 5, life: 0.8, colors: [PALETA.madera, PALETA.rojo, 0xffbe0b] });
       fx.flash({ x: player.pos.x, y: player.pos.y + 1.3, z: player.pos.z }, { color: PALETA.dorado, size: 2.4, life: 0.3 });
@@ -1528,7 +1527,6 @@ function endLevelGameOver() {
   $('overBest').textContent = '—';
   $('overNotes').textContent = `${pickups.noteCount + pickups.maskCount * 3}`;
   $('overCrates').textContent = `${crates.broken}/${crates.total}`;
-  $('playerNameOver').value = loadPrefs().name || '';
   $('overPanel').classList.remove('hidden');
   // aviso de progreso borrado en el panel
   const av = $('overWarn');
@@ -2136,10 +2134,12 @@ if (btnHudMute) btnHudMute.onclick = (e) => { e.stopPropagation(); toggleMute();
 $('btnMute3') && ($('btnMute3').onclick = () => toggleMute());
 $('btnMute4') && ($('btnMute4').onclick = () => toggleMute());
 pintaBotonesSonido();            // estado inicial del icono (según preferencia guardada)
-/* RANKING: solo desde la pantalla final (cuando te has pasado el juego).
-   El botón del menú ya no existe: los récords por nivel se ven en local. */
-const btnRankFinal = $('btnRankFinal');
-if (btnRankFinal) btnRankFinal.onclick = () => { Audio.sfx('ui'); showRank(); };
+/* RANKING: se puede VER desde el menú y desde el panel de fin de nivel.
+   Solo aparece en él quien se ha PASADO EL JUEGO entero (se guarda solo al final). */
+let rankFrom = 'menu';
+const abrirRank = () => { Audio.sfx('ui'); showRank(state.mode === 'end' ? 'end' : 'menu'); };
+if ($('btnRank')) $('btnRank').onclick = abrirRank;
+if ($('btnRankFinal')) $('btnRankFinal').onclick = abrirRank;
 /* logros: panel del menú (conseguidos en color, bloqueados en gris con pista) */
 $('btnLogros').onclick = () => {
   Audio.sfx('ui');
@@ -2154,9 +2154,8 @@ $('btnLogrosBack').onclick = () => {
 };
 $('btnRankBack').onclick = () => {
   $('rankPanel').classList.add('hidden');
-  // si venimos del panel final (nos hemos pasado el juego), volvemos ahí;
-  // si venimos del menú (o de cualquier otro sitio), volvemos al menú
-  if (state.mode === 'end' && state.esFinalGuardado) $('endPanel').classList.remove('hidden');
+  // se vuelve al sitio desde donde se abrió el ranking (menú o fin de nivel)
+  if (rankFrom === 'end') $('endPanel').classList.remove('hidden');
   else $('menuPanel').classList.remove('hidden');
 };
 /* vídeo de presentación */
@@ -2174,21 +2173,35 @@ $('btnVideoBack').onclick = () => {
   $('menuPanel').classList.remove('hidden');
 };
 
+/* Suma de los mejores récords locales (notas y tiempo de TODOS los niveles):
+   es lo que se sube al ranking cuando alguien se pasa el juego entero.
+   Así el ranking premia al que mejor ha jugado la aventura completa. */
+function totalRecords() {
+  let notas = 0, tiempo = 0;
+  for (const k of Object.keys(records)) {
+    const r = records[k]; if (!r) continue;
+    notas += r.notas || 0; tiempo += r.tiempo || 0;
+  }
+  return { notas, tiempo };
+}
+
 /* Guardar puntuación con el nombre puesto a mano (patrón de los demás juegos) */
 function guardarPuntuacion(inputId) {
   const nombre = ($(inputId).value || '').trim().slice(0, 14) || 'Zagal';
   savePrefs({ name: nombre });
   const ps = state.pendingScore;
-  // Al ranking SOLO se sube si te has pasado el juego (jefe final derrotado).
-  // Los récords por nivel se quedan en local (records).
-  if (ps && state.pendingRanking) postScore(ps.id, ps.score, ps.stars, ps.time, nombre);
+  // Al ranking SOLO se sube si te has pasado el juego (jefe final derrotado) y
+  // con la puntuación TOTAL del juego (suma de tus récords de los 8 niveles).
+  if (ps && state.pendingRanking) {
+    const tr = totalRecords();
+    postScore(ps.id, tr.notas, ps.stars, tr.tiempo, nombre);
+  }
   hud.toast(state.pendingRanking ? '¡En el ranking de los que se lo han pasao! 🏆' : '¡Puntuación guardada! 🏆', 'record');
   Audio.sfx('levelup');
   // FINAL DEL JUEGO: si acabas de derrotar al Cacharro, tras guardar el nombre
   // arranca el concierto final con la banda (y luego el mensaje de despedida)
   if (state.esFinal) {
     state.esFinal = false;
-    state.esFinalGuardado = true;      // para que el ranking sepa volver aquí
     state.pendingRanking = false;      // ya ha subido; no repetir
     savePrefs({ finalVisto: true });   // desbloquea el botón "Ver final" del menú
     hideOverlays();
@@ -2202,9 +2215,7 @@ function guardarPuntuacion(inputId) {
   }
 }
 $('btnSaveScore').onclick = () => guardarPuntuacion('playerName');
-$('btnSaveScoreOver').onclick = () => guardarPuntuacion('playerNameOver');
 $('playerName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSaveScore').click(); });
-$('playerNameOver').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSaveScoreOver').click(); });
 
 function toggleMute() {
   const prefs = loadPrefs();
@@ -2235,7 +2246,8 @@ if (volRange) {
   });
 }
 
-function showRank() {
+function showRank(from = 'menu') {
+  rankFrom = from === 'end' ? 'end' : 'menu';
   // RANKING DEL JUEGO COMPLETO: solo aparecen los que se han PASADO EL JUEGO
   // (diff 'final': el POST solo se manda al derrotar al Cacharro). Petición del
   // usuario: "el ranking solo te lo debería poner en la última pantalla, o sea

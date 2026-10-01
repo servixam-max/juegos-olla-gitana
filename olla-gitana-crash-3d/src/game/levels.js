@@ -301,11 +301,14 @@ function escalera(world, scene, { x = 3.6, z, w = 3.2, d = 3.2, alturas = [0.7, 
 }
 
 /* Notas en arco repartidas por una lista de tramos de suelo firme (nunca sobre
-   el vacío: el bot va a por la nota más cercana y no debe poder suicidarse). */
+   el vacío: el bot va a por la nota más cercana y no debe poder suicidarse).
+   Amplitud lateral CONTENIDA (±1,2 m): con ±2,4 el imán de la nota más cercana
+   desviaba al bot en diagonal justo al borde de los tramos de saltos y caía en
+   bucle (medido en N6 z≈69,8 y N7 z≈143,7). */
 function notasEnTramos(notes, world, scene, { tramos, paso = 9, fase = 0 }) {
   for (const [a, b] of tramos) {
     for (let z = a + 4; z < b - 2; z += paso) {
-      const arc = Math.sin((z + fase) * 0.35) * 2.4;
+      const arc = Math.sin((z + fase) * 0.35) * 1.2;
       notes.push(buildNote(world, scene, { x: arc, y: 0.9 + Math.abs(Math.sin((z + fase) * 0.12)) * 1.5, z }));
     }
   }
@@ -559,13 +562,13 @@ export function buildLevel1(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: el suelo desaparece; se cruza saltando de caja en caja */
-  const PB1 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 5, sep: 1.5, zig: 0.7, alturas: [0, 0.3, 0] });
+  const PB1 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 5, sep: 1.5, zig: 0.4, alturas: [0, 0.3, 0] });
 
   const S2 = calzada(world, scene, { z0: PB1, z1: PB1 + 6, rnd });
   tramosFirmes.push(...S2.tramos);
 
   /* Losas ESTRECHAS (w 3.6) y con zig: el tramo más fino del nivel */
-  const S3 = islas(world, scene, { notes, z0: S2.fin, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: PALETA.madera });
+  const S3 = islas(world, scene, { notes, z0: S2.fin, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: PALETA.madera });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -854,10 +857,10 @@ export function buildLevel2(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (7 cajas) */
-  const PB2 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+  const PB2 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
 
   /* Tablones ESTRECHOS (w 3.6) con zig, alturas alternas y cajas de apoyo */
-  const S3 = islas(world, scene, { notes, z0: PB2, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: PALETA.madera });
+  const S3 = islas(world, scene, { notes, z0: PB2, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: PALETA.madera });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -1076,10 +1079,10 @@ export function buildLevel3(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío (8 cajas) */
-  const PB3 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+  const PB3 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
 
   /* Pilares ESTRECHOS (w 3.6) del cierre */
-  const S3 = islas(world, scene, { notes, z0: PB3, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: 0x6b7280 });
+  const S3 = islas(world, scene, { notes, z0: PB3, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0x6b7280 });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));

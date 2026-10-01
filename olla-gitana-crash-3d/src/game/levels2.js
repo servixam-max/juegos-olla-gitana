@@ -275,11 +275,14 @@ function escalera(world, scene, { x = 3.6, z, w = 3.2, d = 3.2, alturas = [0.7, 
   return { fin: z + alturas.length * d, cima: alturas[alturas.length - 1], z, x, w, d };
 }
 
-/* Notas en arco repartidas por tramos firmes (nunca sobre el vacío). */
+/* Notas en arco repartidas por tramos firmes (nunca sobre el vacío).
+   Amplitud lateral CONTENIDA (±1,2 m): con ±2,4 el imán de la nota más cercana
+   desviaba al bot en diagonal justo al borde de los tramos de saltos y caía en
+   bucle (medido en N6 z≈69,8 y N7 z≈143,7). */
 function notasEnTramos(notes, world, scene, { tramos, paso = 9, fase = 0 }) {
   for (const [a, b] of tramos) {
     for (let z = a + 4; z < b - 2; z += paso) {
-      const arc = Math.sin((z + fase) * 0.35) * 2.4;
+      const arc = Math.sin((z + fase) * 0.35) * 1.2;
       notes.push(buildNote(world, scene, { x: arc, y: 0.9 + Math.abs(Math.sin((z + fase) * 0.12)) * 1.5, z }));
     }
   }
@@ -533,10 +536,10 @@ export function buildLevel4(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío */
-  const PB4 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+  const PB4 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
 
   /* Losas ESTRECHAS (w 3.6) del palio */
-  const S3 = islas(world, scene, { notes, z0: PB4, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: 0x8b5a2b });
+  const S3 = islas(world, scene, { notes, z0: PB4, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0x8b5a2b });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -920,10 +923,10 @@ export function buildLevel6(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío */
-  const PB6 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+  const PB6 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 7, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
 
   /* Losas ESTRECHAS (w 3.6) del bancal */
-  const S3 = islas(world, scene, { notes, z0: PB6, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: 0x8b6b3a });
+  const S3 = islas(world, scene, { notes, z0: PB6, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0x8b6b3a });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));
@@ -1214,10 +1217,10 @@ export function buildLevel7(world, scene, fx) {
   tramosFirmes.push(...S1.tramos);
 
   /* PUENTE DE CAJAS: travesía "solo cajas" sobre el vacío */
-  const PB7 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.8, alturas: [0, 0.3, 0] });
+  const PB7 = puenteCajas(world, scene, crates, notes, { z0: S1.fin, n: 8, sep: 1.5, zig: 0.5, alturas: [0, 0.3, 0] });
 
   /* Losas ESTRECHAS (w 3.6) del salón alto */
-  const S3 = islas(world, scene, { notes, z0: PB7, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 3.6, zig: 0.8, tops: [0, 0.3, 0], color: 0xd4c6a6 });
+  const S3 = islas(world, scene, { notes, z0: PB7, n: 3, d: [5.6, 5.2, 5.4], sep: 1.7, w: 4.0, zig: 0.5, tops: [0, 0.24, 0], salida: 0, color: 0xd4c6a6 });
   S3.losa.forEach((l, i) => {
     notes.push(buildNote(world, scene, { x: l.x, y: l.y + 0.95, z: l.z }));
     if (i === 0) crates.push(buildCrate(world, scene, { x: l.x + 1.1, y: l.y, z: l.z, type: 'steel' }));

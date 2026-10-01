@@ -59,7 +59,7 @@
       <div class="advStack">
         <div>En el Casino el suelo resbala: frena antes de las curvas.</div>
         <div>A los cajones TNT no se les saluda de cerca.</div>
-        <div>Con 3 máscaras te vuelves invencible: ¡aprovecha la racha!</div>
+        <div>Con 2 puros 🚬 la olla se echa 30 s de invulnerable a toda velocidad.</div>
         <div>Los cajones <b>?</b> rebotan 5 veces: písalos con ganas.</div>
       </div>
     </div>
@@ -79,6 +79,7 @@
       <button class="btn ghost hidden" id="btnFinal">🎸 Ver final</button>
       <button class="btn ghost" id="btnHelp">❓ Controles</button>
       <button class="btn ghost" id="btnMute2">🔊 Sonido</button>
+      <button class="btn ghost" id="btnRank">🏆 Ranking</button>
       <button class="btn ghost" id="btnLogros">🏅 Logros</button>
     </div>
     <div class="keys small" id="gamepadHint"></div>
@@ -101,7 +102,8 @@
     <p class="small">Rompe cajones con el giro o saltando encima. Los cajones <b>?</b> rebotan 5 veces.
     Los <b>TNT</b> explotan en 3 s (¡aléjate!). Los <b>Nitro</b> estallan al tocarlos.
     Los <b>!</b> activan cosas del nivel y los <b>✔</b> son puntos de control.</p>
-    <p class="small">Junta 3 máscaras 🎭 y tendrás la <b>máscara dorada</b>: 1 minuto invulnerable a toda velocidad.</p>
+    <p class="small">Los <b>puros 🚬</b> te siguen volando. Junta 2 y la olla se los pone en la boca:
+    <b>30 segundos</b> invulnerable, más rápida y con más salto.</p>
     <div class="row"><button class="btn" id="btnHelpBack">Vale, ¡vamos!</button></div>
   </div>
 </div>
@@ -133,14 +135,14 @@
       <div class="stat"><div class="v" id="statTime">0:00</div><div class="k">TIEMPO</div></div>
       <div class="stat"><div class="v" id="statBest">—</div><div class="k">RÉCORD</div></div>
     </div>
-    <div class="nameRow">
+    <div class="nameRow hidden" id="finalNameRow">
       <input id="playerName" maxlength="14" placeholder="Tu nombre (zagal/a)" autocomplete="nickname" />
-      <button class="btn" id="btnSaveScore">💾 Guardar</button>
+      <button class="btn" id="btnSaveScore">💾 Guardar y ver el final 🎸</button>
     </div>
     <div class="row">
       <button class="btn" id="btnNext">▶ Siguiente</button>
       <button class="btn alt" id="btnRetry">⟲ Repetir</button>
-      <button class="btn ghost hidden" id="btnRankFinal">🏆 Ranking</button>
+      <button class="btn ghost" id="btnRankFinal">🏆 Ranking</button>
       <button class="btn ghost" id="btnLevels2">🗺️ Niveles</button>
       <button class="btn ghost" id="btnMute3">🔊 Sonido</button>
     </div>
@@ -159,10 +161,6 @@
       </div>
     <p class="small center hidden" id="overWarn">⚠️ Se ha borrado tu progreso: vuelves al mundo 1</p>
     <p class="small center hidden" id="overCont">¿Seguir? Te quedan continues</p>
-    <div class="nameRow">
-      <input id="playerNameOver" maxlength="14" placeholder="Tu nombre (zagal/a)" autocomplete="nickname" />
-      <button class="btn" id="btnSaveScoreOver">💾 Guardar</button>
-    </div>
     <div class="row">
       <button class="btn" id="btnOverRetry">⟲ Otra vez</button>
       <button class="btn ghost" id="btnOverLevels">🗺️ Niveles</button>
