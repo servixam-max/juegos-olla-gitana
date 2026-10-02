@@ -293,7 +293,21 @@ function update(dt) {
       n.state = 'missed'; n.judgedAt = songTime;
       miss++; judged++;
       if (n.kind === 'trap') { /* esquivar trampa = bien */ }
-      else { combo = 0; mult = 1; if (combo === 0) popup(laneCenter(n.lane), judgeY - 40, '✗', '#f87171', 30); }
+      else {
+        combo = 0; mult = 1;
+        popup(laneCenter(n.lane), judgeY - 40, '✗', '#f87171', 30);
+        // NUEVO (petición del usuario): si se te ESCAPA una nota buena (verde)
+        // sin pulsarla, también pierdes vida — antes solo rompía el combo.
+        if (!zenMode) {
+          lives--; shake = 1;
+          playSfx('hit');
+          buzz(30);
+          spark(laneCenter(n.lane), judgeY - 30, '#fbbf24', 12);
+          popup(laneCenter(n.lane), judgeY - 78, '💨 ¡Se escapó!', '#fca5a5', 22);
+          updateHUD();
+          if (lives <= 0) { endGame(false); return; }
+        }
+      }
     }
   }
   // fondo cambia cada ~13 s
