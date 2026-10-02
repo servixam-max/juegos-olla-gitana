@@ -291,9 +291,12 @@ function update(dt) {
     const y = judgeY - (n.t - songTime) * scrollEff(cfg) * H;
     if (n.t < songTime - cfg.window * 1.6) {
       n.state = 'missed'; n.judgedAt = songTime;
-      miss++; judged++;
-      if (n.kind === 'trap') { /* esquivar trampa = bien */ }
+      // Trampa esquivada = jugada CORRECTA: no penaliza precisión ni misseos
+      // (antes hacía miss++/judged++ y bloqueaba el logro 'perfecto' aunque
+      //  esquivaras todas las trampas — hallazgo de la revisión de codex).
+      if (n.kind === 'trap') { /* esquivar trampa = bien: ni miss ni judged */ }
       else {
+        miss++; judged++;
         combo = 0; mult = 1;
         popup(laneCenter(n.lane), judgeY - 40, '✗', '#f87171', 30);
         // NUEVO (petición del usuario): si se te ESCAPA una nota buena (verde)
@@ -348,8 +351,10 @@ function pressLane(i, x, y) {
   if (best && bestDt <= cfg.window * 1.35) {
     const isPerfect = bestDt <= cfg.window * 0.55;
     best.state = 'hit'; best.hitAt = songTime;
-    judged++; hitsCount++;
     if (best.kind === 'trap') {
+      // Pulsar una trampa = fallo: NO cuenta como acierto de precisión
+      // (antes hacía judged++/hitsCount++ y subía la precisión por pulsar
+      //  mal — hallazgo de la revisión de codex).
       if (!zenMode) lives--; shake = 1; combo = 0; mult = 1;
       playSfx('hit');
       buzz(38);
@@ -359,6 +364,7 @@ function pressLane(i, x, y) {
       if (lives <= 0) { endGame(false); return; }
     } else {
       const base = best.kind === 'zarangollo' ? 50 : (isPerfect ? 20 : 12);
+      judged++; hitsCount++;   // acierto real: cuenta para precisión
       if (isPerfect) { perfect++; } else { good++; }
       combo++; maxCombo = Math.max(maxCombo, combo);
       try { logros.set('combo10', combo); logros.set('combo25', combo); } catch (e) {}
