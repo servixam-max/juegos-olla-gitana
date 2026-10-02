@@ -1,0 +1,44 @@
+{
+ "steps": [
+  {
+   "s": "setup",
+   "v": "ok"
+  },
+  {
+   "s": "menu-logs",
+   "v": {
+    "logs": 0,
+    "exc": []
+   }
+  },
+  {
+   "s": "menu-sw-v3",
+   "v": "{\"caches\":[\"olla-juegos-v3\"],\"v3\":[\"/ollagitana/\",\"/ollagitana/logros.js\",\"/ollagitana/manifest.webmanifest\"]}"
+  },
+  {
+   "s": "logros-runner",
+   "v": "{\"tieneLogros\":true,\"btn\":true,\"panelAbierto\":true,\"panelTexto\":\"🏆 LOGROS | 6 de 18 conseguidos | 🥄 | Primer bocado | Juega tu primera partida | ✅ | 💯 | Mil puntos | Consigue 1.000 puntos en una partida | 248/1000 | 🔥 | Cinco mil | Consigue 5.000 puntos en una partida | 248/5000 | 🧺 | Cincuentón | Coge 50 ingredientes \",\"panelCerrado\":true,\"tallyAntes\":6,\"tallyDespues\":6,\"toast\":false}"
+  },
+  {
+   "s": "sw-runner",
+   "v": "{\"reg\":true,\"controla\":true}"
+  },
+  {
+   "s": "offline-reload",
+   "v": "{\"ready\":\"complete\",\"cards\":7,\"titulo\":\"Olla Gitana — Juegos 🥘\",\"topShown\":0}"
+  },
+  {
+   "s": "share-fallback",
+   "v": "{\"wa\":true,\"url\":\"https://wa.me/?text=%C2%A1Mira%20los%20juegos%20de%20la%20banda%20Olla%20Gitana!%20%F0%9F%A5%98%F0%9F%8E%B8%F0%9F%8E%B4%\",\"tieneLos7\":true}"
+  }
+ ],
+ "menuLogs": [],
+ "menuExceptions": [],
+ "menuSW": "{\"caches\":[\"olla-juegos-v3\"],\"v3\":[\"/ollagitana/\",\"/ollagitana/logros.js\",\"/ollagitana/manifest.webmanifest\"]}",
+ "runnerLogs": [],
+ "runnerExceptions": [],
+ "logrosRunner": "{\"tieneLogros\":true,\"btn\":true,\"panelAbierto\":true,\"panelTexto\":\"🏆 LOGROS | 6 de 18 conseguidos | 🥄 | Primer bocado | Juega tu primera partida | ✅ | 💯 | Mil puntos | Consigue 1.000 puntos en una partida | 248/1000 | 🔥 | Cinco mil | Consigue 5.000 puntos en una partida | 248/5000 | 🧺 | Cincuentón | Coge 50 ingredientes \",\"panelCerrado\":true,\"tallyAntes\":6,\"tallyDespues\":6,\"toast\":false}",
+ "swRunner": "{\"reg\":true,\"controla\":true}",
+ "offline": "{\"ready\":\"complete\",\"cards\":7,\"titulo\":\"Olla Gitana — Juegos 🥘\",\"topShown\":0}",
+ "shareFallback": "{\"wa\":true,\"url\":\"https://wa.me/?text=%C2%A1Mira%20los%20juegos%20de%20la%20banda%20Olla%20Gitana!%20%F0%9F%A5%98%F0%9F%8E%B8%F0%9F%8E%B4%\",\"tieneLos7\":true}"
+}

@@ -1,0 +1,8 @@
+{
+ "arcade": "{\"url\":\"http://127.0.0.1:8086/ollagitana/olla-gitana/\",\"tieneLogros\":true,\"btnEncontrado\":true,\"btnTexto\":\"🏅 LOGROS\",\"panelAbierto\":true,\"panelTexto\":\"🏆 LOGROS | 0 de 18 conseguidos | 🥄 | Primer bocado | Juega tu primera partida | 💯 | Mil puntos | Consigue 1.000 puntos en una partida | 0\",\"panelCerrado\":true}",
+ "ritmo": "{\"url\":\"http://127.0.0.1:8086/ollagitana/olla-gitana-ritmo/\",\"tieneLogros\":true,\"btnEncontrado\":true,\"btnTexto\":\"🏅 LOGROS\",\"panelAbierto\":true,\"panelTexto\":\"🏆 LOGROS | 0 de 18 conseguidos | 🥄 | Primer bocado | Juega tu primera partida | 💯 | Mil puntos | Consigue 1.000 puntos en una partida | 0\",\"panelCerrado\":true}",
+ "runner": "{\"url\":\"http://127.0.0.1:8086/ollagitana/olla-gitana-runner/\",\"tieneLogros\":true,\"btnEncontrado\":true,\"btnTexto\":\"🏅 LOGROS\",\"panelAbierto\":true,\"panelTexto\":\"🏆 LOGROS | 0 de 18 conseguidos | 🥄 | Primer bocado | Juega tu primera partida | 💯 | Mil puntos | Consigue 1.000 puntos en una partida | 0\",\"panelCerrado\":true}",
+ "burbujas": "{\"url\":\"http://127.0.0.1:8086/ollagitana/olla-gitana-burbujas/\",\"tieneLogros\":true,\"btnEncontrado\":false,\"btnTexto\":null}",
+ "duelo": "{\"url\":\"http://127.0.0.1:8086/ollagitana/olla-gitana-duelo/\",\"tieneLogros\":true,\"btnEncontrado\":false,\"btnTexto\":null}",
+ "cartas": "{\"url\":\"http://127.0.0.1:8086/ollagitana/olla-gitana-cartas/\",\"tieneLogros\":true,\"btnEncontrado\":true,\"btnTexto\":\"🏅 LOGROS\",\"panelAbierto\":true,\"panelTexto\":\"🏆 LOGROS | 0 de 18 conseguidos | 🥄 | Primer bocado | Juega tu primera partida | 💯 | Mil puntos | Consigue 1.000 puntos en una partida | 0\",\"panelCerrado\":true}"
+}

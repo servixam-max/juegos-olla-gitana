@@ -1,0 +1,51 @@
+{
+ "modo": "mobile",
+ "etiqueta": "antes",
+ "url": "http://127.0.0.1:8086/ollagitana/",
+ "ts": "2026-10-02T09:46:59.789Z",
+ "jsErrores": [],
+ "consola": [
+  "warning: cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation"
+ ],
+ "redFallos": [
+  {
+   "url": "25984.211",
+   "err": "net::ERR_ABORTED",
+   "blocked": null
+  },
+  {
+   "url": "25984.212",
+   "err": "net::ERR_ABORTED",
+   "blocked": null
+  },
+  {
+   "url": "25984.213",
+   "err": "net::ERR_ABORTED",
+   "blocked": null
+  }
+ ],
+ "datos": {
+  "titulo": "Olla Gitana — Juegos 🥘",
+  "readyState": "complete",
+  "cards": "[{\"href\":\"olla-gitana-crash-3d-servido/\",\"game\":\"crash3d\",\"tag\":\"NUEVO · 3D\",\"tagCls\":\"tag new\",\"titulo\":\"Olla Gitana 3D 🎮\",\"topShow\":true,\"top\":\"🏆 MEJORES | 1. Xam2 | 284 | 2. Xam | 265\"},{\"href\":\"olla-gitana-duelo/\",\"game\":\"duelo\",\"tag\":\"NUEVO · 2 JUGADORES\",\"tagCls\":\"tag new\",\"titulo\":\"El Duelo 🔫\",\"topShow\":false,\"top\":\"\"},{\"href\":\"olla-gitana-burbujas/\",\"game\":\"burbujas\",\"tag\":\"NUEVO · SUPER PANG\",\"tagCls\":\"tag new\",\"titulo\":\"Las Burbujas 🫧\",\"topShow\":true,\"top\":\"🏆 MEJORES | 1. Xam | 1130 | 2. Zagal | 930 | 3. Zagal | 560\"},{\"href\":\"olla-gitana-cartas/\",\"game\":\"cartas\",\"tag\":\"NUEVO\",\"tagCls\":\"tag new\",\"titulo\":\"Siete y Media 🎴\",\"topShow\":false,\"top\":\"\"},{\"href\":\"olla-gitana-runner/\",\"game\":\"runner\",\"tag\":\"🏃 RUNNER\",\"tagCls\":\"tag\",\"titulo\":\"La Huerta Runner 🏃\",\"topShow\":false,\"top\":\"\"},{\"href\":\"olla-gitana-ritmo/\",\"game\":\"ritmo\",\"tag\":\"🎸 MÚSICA\",\"tagCls\":\"tag\",\"titulo\":\"El Ritmo 🎸\",\"topShow\":true,\"top\":\"🏆 MEJORES | 1. Xam | 17832\"},{\"href\":\"olla-gitana/\",\"game\":\"arcade\",\"tag\":\"CLÁSICO\",\"tagCls\":\"tag classic\",\"titulo\":\"El Juego 🥘\",\"topShow\":true,\"top\":\"🏆 MEJORES | 1. [N] QA-test | 123\"}]",
+  "shareBtn": {
+   "txt": "💬 Compartir por WhatsApp",
+   "display": "flex"
+  },
+  "installBtn": {
+   "txt": "📲 Instalar en el móvil",
+   "display": "flex"
+  },
+  "imgStatus": "[{\"src\":\"olla-gitana/background.jpg\",\"ok\":true,\"w\":1280},{\"src\":\"olla-gitana/victory.jpg\",\"ok\":true,\"w\":1280},{\"src\":\"olla-gitana/bg_8.jpg\",\"ok\":true,\"w\":1280},{\"src\":\"olla-gitana/bg_3.jpg\",\"ok\":true,\"w\":1280},{\"src\":\"olla-gitana-runner/assets/bg_12.jpg\",\"ok\":true,\"w\":1280},{\"src\":\"olla-gitana-ritmo/assets/victory.jpg\",\"ok\":true,\"w\":1280},{\"src\":\"olla-gitana/background.jpg\",\"ok\":true,\"w\":1280}]",
+  "innerText": "OLLA GITANA\nLos juegos de la banda 🥘🎸🎴\n\nSiete juegos huertanos con la música y las fotos del grupo. Elige el tuyo y a echar la tarde.\n\n🎵 CON «LOS OLLA GITANA»\nNUEVO · 3D\nOlla Gitana 3D 🎮\n\nEl salto a las tres dimensiones: 7 mundos + 2 jefes. Rompe cajones, recoge notas, gira, barre y salta — procesión, sardina, huerta, casino, persecución y duelo final. Con intro cinemática.\n\n🎮 Aventura 3D\n👹 2 jefes\n🎬 Intro\n🏆 Ranking\n🏆 MEJORES\n1. Xam2\n284\n2. Xam\n265\n▶ JUGAR\nNUEVO · 2 JUGADORES\nEl Duelo 🔫\n\nCombate de disparos 1 contra 1 en directo: crea una sala, pásale el código a tu rival y a quitarse las vidas. Salta, muévete y dispara.\n\n🔫 1v1 en vivo\n🏠 Sala con código\n🏆 Al mejor de 5\n📱 Táctil\n▶ JUGAR\nNUEVO · SUPER PANG\nLas Burbujas 🫧\n\nComo el Super Pang de los recreativos: revienta burbujas con el arpón, se parten en dos y las pequeñas valen más. 20 niveles, power-ups y pompas gigantes.\n\n🫧 Arpón clásico\n⚡ Power-ups\n🎯 20 niveles\n📱 Táctil\n🏆 MEJORES\n1. Xam\n1130\n2. Zagal\n930\n3. Zagal\n560\n▶ JUGAR\nNUEVO\nSiete y Media 🎴\n\nEl clásico de la baraja española: acércate a 7½ sin pasarte y gánale la mano a la banca. Sota, caballo y rey valen ½.\n\n🎴 Cartas españolas\n🃏 Pedir / Plantarse\n🏆 Ranking\n📱 1 toque\n▶ JUGAR\n🏃 RUNNER\nLa Huerta Runner 🏃\n\nLa olla cruza Murcia a toda mecha: salta obstáculos, recoge ingredientes y cambia de escenario cada 500 puntos. Doble salto incluido y la velocidad sube por niveles.\n\n🏃 Endless runner\n🥕 Ingredientes\n⚡ Sube de nivel\n🏆 Ranking\n▶ JUGAR\n🎸 MÚSICA\nEl Ritmo 🎸\n\nToca los 4 carriles al ritmo de «Los Olla Gitana». Combos, multiplicadores y trampas. La canción entera, nota a nota.\n\n🎵 Con vuestra canción\n🥁 99 BPM\n🏆 Ranking\n📱 Táctil + teclado\n🏆 MEJORES\n1. Xam\n17832\n▶ JUGAR\nCLÁSICO\nEl Juego 🥘\n\nEl arcade original (Versión Canalla 1.3): atrapa ingredientes con la olla, esquiva pastillas, jeringuillas y cigarros. Power-ups y 15 escenarios de Murcia.\n\n🥘 Zarangollo +50\n❤️ 3 vidas\n🥘 15 escenarios\n🏆 Ranking\n🏆 MEJORES\n1. [N] QA-test\n123\n▶ JUGAR\n\nHecho en Murcia · La banda Olla Gitana\n\n💬 Compartir por WhatsApp\n📲 Instalar en el móvil",
+  "cardHTTP": "[{\"href\":\"olla-gitana-crash-3d-servido/\",\"status\":200,\"bytes\":10480,\"tieneTitle\":\"Olla Gitana 3D — El Juego\",\"tieneLogros\":false},{\"href\":\"olla-gitana-duelo/\",\"status\":200,\"bytes\":4768,\"tieneTitle\":\"Olla Gitana: El Duelo 🔫\",\"tieneLogros\":true},{\"href\":\"olla-gitana-burbujas/\",\"status\":200,\"bytes\":4643,\"tieneTitle\":\"Olla Gitana: Las Burbujas 🫧\",\"tieneLogros\":true},{\"href\":\"olla-gitana-cartas/\",\"status\":200,\"bytes\":5864,\"tieneTitle\":\"Olla Gitana: Siete y Media 🎴\",\"tieneLogros\":true},{\"href\":\"olla-gitana-runner/\",\"status\":200,\"bytes\":5068,\"tieneTitle\":\"Olla Gitana: La Huerta Runner 🥘🏃\",\"tieneLogros\":true},{\"href\":\"olla-gitana-ritmo/\",\"status\":200,\"bytes\":5637,\"tieneTitle\":\"Olla Gitana: El Ritmo 🥘🎸\",\"tieneLogros\":true},{\"href\":\"olla-gitana/\",\"status\":200,\"bytes\":19427,\"tieneTitle\":\"Olla Gitana: El Juego\",\"tieneLogros\":true}]",
+  "manifest": "{\"status\":200,\"name\":\"Olla Gitana — Los Juegos\",\"start_url\":\".\",\"scope\":\".\",\"display\":\"standalone\",\"icons\":[{\"src\":\"icons/icon-192.png\",\"status\":200},{\"src\":\"icons/icon-512.png\",\"status\":200},{\"src\":\"icons/icon-512.png\",\"status\":200}]}",
+  "sw": "{\"soporta\":true,\"registrada\":true,\"scope\":\"http://127.0.0.1:8086/ollagitana/\",\"activa\":true,\"controla\":true,\"caches\":[\"olla-juegos-v2\"],\"entradas\":{\"olla-juegos-v2\":[\"/ollagitana/logros.js\",\"/ollagitana/olla-gitana-crash-3d-servido/\",\"/ollagitana/olla-gitana-duelo/\",\"/ollagitana/olla-gitana-burbujas/\",\"/ollagitana/olla-gitana-cartas/\",\"/ollagitana/olla-gitana-runner/\",\"/ollagitana/olla-gitana-ritmo/\",\"/ollagitana/olla-gitana/\",\"/ollagitana/manifest.webmanifest\"]}}",
+  "share": "{\"uso\":\"navigator.share\",\"url\":null,\"texto\":\"¡Mira los juegos de la banda Olla Gitana! 🥘🎸🎴\\n\\n· Olla Gitana 3D 🎮 — la aventura en 3D: 7 mundos, 2 jefes e intro de cine\\n· El Juego 🥘 — el arcade clásico de los ingredientes\\n· El Ritmo 🎵 — toca nuestra canción, nota a nota\\n· La Huerta Runner 🏃 — a toda mecha por Murcia\\n· Siete y Media 🎴 — a la banca con la baraja española\\n· Las Burbujas 🫧 — el Super Pang de los recreativos\\n· El Duelo 🔫 — 1 contra 1 en directo con código de sala\\n\\nSe juega desde el móvil, sin instalar nada y con ranking. ¡A ver quién gana más! 🏆\",\"shareObj\":{\"title\":\"Olla Gitana — Los Juegos\",\"text\":\"¡Mira los juegos de la banda Olla Gitana! 🥘🎸🎴\\n\\n· Olla Gitana 3D 🎮 — la aventura en 3D: 7 mundos, 2 jefes e intro de cine\\n· El Juego 🥘 — el arcade clásico de los ingredientes\\n· El Ritmo 🎵 — toca nuestra canción, nota a nota\\n· La Huerta Runner 🏃 — a toda mecha por Murcia\\n· Siete y Media 🎴 — a la banca con la baraja española\\n· Las Burbujas 🫧 — el Super Pang de los recreativos\\n· El Duelo 🔫 — 1 contra 1 en directo con código de sala\\n\\nSe juega desde el móvil, sin instalar nada y con ranking. ¡A ver quién gana más! 🏆\",\"url\":\"http://127.0.0.1:8086/ollagitana/\"}}"
+ },
+ "capturas": [
+  "/Volumes/465GB/migrated/juegos/qa/menu-revision/antes-mobile-viewport.png",
+  "/Volumes/465GB/migrated/juegos/qa/menu-revision/antes-mobile-scroll-abajo.png",
+  "/Volumes/465GB/migrated/juegos/qa/menu-revision/antes-mobile-full.png"
+ ]
+}
