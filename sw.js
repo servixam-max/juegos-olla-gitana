@@ -1,11 +1,14 @@
 /* Olla Gitana — service worker de los juegos.
    Estrategia: red primero para HTML/JS/CSS (para no servir versiones viejas),
    caché primero para imágenes/audio (pesan mucho y cambian poco). */
-const CACHE = 'olla-juegos-v2';
+const CACHE = 'olla-juegos-v3';
 const IMG_RE = /\.(png|jpe?g|webp|gif|mp3|m4a|ogg|woff2?)$/i;
 
+// Precarga al instalar: el propio menú (start_url de la PWA), logros y manifest
+// — sin esto, sin conexión la app instalada no abría (el fetch de '/' caía a la red).
 self.addEventListener('install', e => {
   self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'logros.js', 'manifest.webmanifest']).catch(() => {})));
 });
 
 self.addEventListener('activate', e => {
