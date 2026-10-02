@@ -1,0 +1,195 @@
+{
+ "tag": "antes",
+ "checks": [
+  {
+   "id": "S0-title",
+   "ok": true,
+   "detail": "Olla Gitana: Siete y Media 🎴"
+  },
+  {
+   "id": "S0-logros",
+   "ok": true,
+   "detail": "logros.js cargado"
+  },
+  {
+   "id": "S0-statedef",
+   "ok": true,
+   "detail": "__cartasState disponible"
+  },
+  {
+   "id": "S0-online-dead",
+   "ok": true,
+   "detail": "online.js NO cargado (dead code)"
+  },
+  {
+   "id": "S0-name-editable",
+   "ok": true,
+   "detail": "{\"userSelect\":\"text\",\"touch\":\"manipulation\"}"
+  },
+  {
+   "id": "S1-en-juego",
+   "ok": true,
+   "detail": "{\"running\":true,\"phase\":\"play\",\"lives\":3}"
+  },
+  {
+   "id": "S1-botones-play",
+   "ok": true,
+   "detail": "{\"pedir\":{\"v\":true,\"dis\":false},\"plantar\":{\"v\":true,\"dis\":false},\"next\":{\"v\":false,\"dis\":false},\"doblar\":{\"v\":true,\"dis\":false}}"
+  },
+  {
+   "id": "S1-sin-solape-botones",
+   "ok": true,
+   "detail": "{\"bad\":0,\"widths\":[118,118,118],\"maxRight\":380,\"vw\":390}"
+  },
+  {
+   "id": "S2-partida-termina",
+   "ok": false,
+   "detail": "endScreen visible=false"
+  },
+  {
+   "id": "S2-lives-min0",
+   "ok": true,
+   "detail": "lives=0"
+  },
+  {
+   "id": "S3-sieteymedia",
+   "ok": true,
+   "detail": "pt=7.5 gain=700 (esperado 700)"
+  },
+  {
+   "id": "S3-empate-normal-banca",
+   "ok": true,
+   "detail": "lives 3->2"
+  },
+  {
+   "id": "S3-empate-easy-jugador",
+   "ok": true,
+   "detail": "lives 3->3 pts 0->300"
+  },
+  {
+   "id": "S3-doblar-x2",
+   "ok": true,
+   "detail": "gain=760 (esperado 760), doubled=true"
+  },
+  {
+   "id": "S3-mult-racha",
+   "ok": true,
+   "detail": "gain=1020 (esperado 1020) streak=5"
+  },
+  {
+   "id": "S3-bust",
+   "ok": true,
+   "detail": "{\"pt\":9,\"lives\":2,\"phase\":\"over\",\"dh\":false}"
+  },
+  {
+   "id": "S3-next-tras-bust",
+   "ok": true,
+   "detail": "{\"x\":10,\"y\":775,\"w\":370,\"h\":57,\"display\":\"block\",\"vis\":\"visible\",\"vhidden\":false}"
+  },
+  {
+   "id": "S3-doblar-1vida",
+   "ok": true,
+   "detail": "disabled=true doubledTrasClick=false"
+  },
+  {
+   "id": "S3-tecla-D",
+   "ok": true,
+   "detail": "doubled=true lives=2"
+  },
+  {
+   "id": "S3-tecla-espacio",
+   "ok": true,
+   "detail": "pide carta con Space"
+  },
+  {
+   "id": "S4-end-valores",
+   "ok": true,
+   "detail": "{\"score\":\"0\",\"hands\":\"0\",\"streak\":\"0\",\"level\":\"1\",\"nameRow\":true}"
+  },
+  {
+   "id": "S4-nombre-escribible",
+   "ok": true,
+   "detail": "valor=\"QA-Zagal\""
+  },
+  {
+   "id": "S4-guarda-local",
+   "ok": true,
+   "detail": "[{\"game\":\"cartas\",\"diff\":\"normal\",\"name\":\"QA-Zagal\",\"score\":0,\"combo\":0,\"acc\":0,\"ts\":1790934534601}]"
+  },
+  {
+   "id": "S4-ranking-tabla",
+   "ok": true,
+   "detail": "[\"1QA-Zagalx00\"]"
+  },
+  {
+   "id": "S6-online-cartas-rechazado",
+   "ok": true,
+   "detail": "{\"msg\":{\"t\":\"error\",\"msg\":\"El Siete y Media online ya no está disponible\"}}"
+  },
+  {
+   "id": "S7-sin-errores-js",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "id": "S7-sin-console-error",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "id": "S7-sin-fallos-red",
+   "ok": false,
+   "detail": "[\"loadingFailed: net::ERR_ABORTED \",\"network: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8086/favicon.ico\",\"network: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8086/favicon.ico\"]"
+  }
+ ],
+ "errors": [],
+ "consoleErrs": [],
+ "netFails": [
+  "loadingFailed: net::ERR_ABORTED ",
+  "network: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8086/favicon.ico",
+  "network: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8086/favicon.ico"
+ ],
+ "shot": [
+  "antes-01-inicio.png",
+  "antes-02-mesa.png",
+  "antes-04-fin.png",
+  "antes-05-fin-nombre.png",
+  "antes-06-ranking.png"
+ ],
+ "log": [
+  "OK  S0-title :: Olla Gitana: Siete y Media 🎴",
+  "OK  S0-logros :: logros.js cargado",
+  "OK  S0-statedef :: __cartasState disponible",
+  "OK  S0-online-dead :: online.js NO cargado (dead code)",
+  "botones inicio: [[\"btnPlay\",true],[\"btnHow\",true],[\"btnRanking\",true],[\"btnLogros\",true],[\"btnOnline\",false]]",
+  "OK  S0-name-editable :: {\"userSelect\":\"text\",\"touch\":\"manipulation\"}",
+  "OK  S1-en-juego :: {\"running\":true,\"phase\":\"play\",\"lives\":3}",
+  "OK  S1-botones-play :: {\"pedir\":{\"v\":true,\"dis\":false},\"plantar\":{\"v\":true,\"dis\":false},\"next\":{\"v\":false,\"dis\":false},\"doblar\":{\"v\":true,\"dis\":false}}",
+  "OK  S1-sin-solape-botones :: {\"bad\":0,\"widths\":[118,118,118],\"maxRight\":380,\"vw\":390}",
+  "estado final partida: {\"running\":true,\"paused\":false,\"phase\":\"over\",\"lives\":0,\"points\":0,\"level\":1,\"streak\":0,\"maxStreak\":0,\"handsWon\":0,\"handsPlayed\":2,\"playerTotal\":8.5,\"dealerTotal\":7,\"dealerHidden\":false,\"api\":\"/ollagitana/api\",\"difficulty\":\"normal\",\"doubled\":false}",
+  "FAIL S2-partida-termina :: endScreen visible=false",
+  "OK  S2-lives-min0 :: lives=0",
+  "OK  S3-sieteymedia :: pt=7.5 gain=700 (esperado 700)",
+  "S3a msg: ¡SIETE Y MEDIA! +700 🎉",
+  "OK  S3-empate-normal-banca :: lives 3->2",
+  "OK  S3-empate-easy-jugador :: lives 3->3 pts 0->300",
+  "OK  S3-doblar-x2 :: gain=760 (esperado 760), doubled=true",
+  "OK  S3-mult-racha :: gain=1020 (esperado 1020) streak=5",
+  "OK  S3-bust :: {\"pt\":9,\"lives\":2,\"phase\":\"over\",\"dh\":false}",
+  "OK  S3-next-tras-bust :: {\"x\":10,\"y\":775,\"w\":370,\"h\":57,\"display\":\"block\",\"vis\":\"visible\",\"vhidden\":false}",
+  "OK  S3-doblar-1vida :: disabled=true doubledTrasClick=false",
+  "OK  S3-tecla-D :: doubled=true lives=2",
+  "OK  S3-tecla-espacio :: pide carta con Space",
+  "OK  S4-end-valores :: {\"score\":\"0\",\"hands\":\"0\",\"streak\":\"0\",\"level\":\"1\",\"nameRow\":true}",
+  "OK  S4-nombre-escribible :: valor=\"QA-Zagal\"",
+  "toast guardado: ¡Puntuación guardada! 🏆",
+  "OK  S4-guarda-local :: [{\"game\":\"cartas\",\"diff\":\"normal\",\"name\":\"QA-Zagal\",\"score\":0,\"combo\":0,\"acc\":0,\"ts\":1790934534601}]",
+  "OK  S4-ranking-tabla :: [\"1QA-Zagalx00\"]",
+  "layout: {\"vh\":844,\"tableBottom\":0,\"actionsBottom\":0,\"actionsTop\":0}",
+  "OK  S6-online-cartas-rechazado :: {\"msg\":{\"t\":\"error\",\"msg\":\"El Siete y Media online ya no está disponible\"}}",
+  "online probe: {\"msg\":{\"t\":\"error\",\"msg\":\"El Siete y Media online ya no está disponible\"}}",
+  "OK  S7-sin-errores-js :: []",
+  "OK  S7-sin-console-error :: []",
+  "FAIL S7-sin-fallos-red :: [\"loadingFailed: net::ERR_ABORTED \",\"network: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8086/favicon.ico\",\"network: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8086/favicon.ico\"]"
+ ]
+}
