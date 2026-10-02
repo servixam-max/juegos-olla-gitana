@@ -204,9 +204,28 @@ function resize() {
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  veloGrad = null; sueloGrad = null;   // dependen de H/MH: invalidar al redimensionar
 }
 window.addEventListener('resize', resize);
 resize();
+
+/* RESOLUCIÓN ADAPTATIVA (móviles lentos): baja el DPR si el FPS sostenido <50
+   y lo recupera si va sobrado (>58). Mismo patrón que el 3D, el ritmo y el runner. */
+let fpsFrames = 0, fpsT = 0, lowFps = 0, recover = 0, veloGrad = null, veloGradH = 0, sueloGrad = null, sueloGradH = 0;
+function checkFps(dt) {
+  fpsFrames++; fpsT += dt;
+  if (fpsT < 0.5) return;
+  const fps = fpsFrames / fpsT;
+  fpsFrames = 0; fpsT = 0;
+  const dprMax = Math.min(2, window.devicePixelRatio || 1);
+  if (fps < 50) lowFps++; else lowFps = 0;
+  if (lowFps >= 3 && DPR > 0.75) {
+    DPR = Math.max(0.75, DPR - 0.25); lowFps = 0; resize();
+  } else if (fps > 58 && DPR < dprMax) {
+    recover++;
+    if (recover >= 6) { DPR = Math.min(dprMax, DPR + 0.25); recover = 0; resize(); }
+  }
+}
 
 let GW = 800, GH = 1100;              // alto: que llene el móvil en vertical
 function ajustarEscena() {
@@ -233,6 +252,7 @@ function loop(now) {
   }
 
   dibujar();
+  checkFps(dt);   // resolución adaptativa: baja el DPR si el móvil va justo
   requestAnimationFrame(loop);
 }
 
@@ -250,9 +270,13 @@ function dibujar() {
     ctx.drawImage(fondoImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
     ctx.globalAlpha = 1;
   }
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, 'rgba(10,8,4,.8)'); g.addColorStop(.6, 'rgba(16,12,6,.6)'); g.addColorStop(1, 'rgba(6,4,2,.86)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // velo (gradiente CACHEADO: recrearlo por frame es caro en móvil)
+  if (!veloGrad || veloGradH !== H) {
+    veloGrad = ctx.createLinearGradient(0, 0, 0, H);
+    veloGrad.addColorStop(0, 'rgba(10,8,4,.8)'); veloGrad.addColorStop(.6, 'rgba(16,12,6,.6)'); veloGrad.addColorStop(1, 'rgba(6,4,2,.86)');
+    veloGradH = H;
+  }
+  ctx.fillStyle = veloGrad; ctx.fillRect(0, 0, W, H);
 
   const e = estado;
   // ---- arena cenital RECTANGULAR: usa toda la pantalla disponible ----
@@ -265,10 +289,13 @@ function dibujar() {
   ctx.save();
   ctx.translate(ox, oy); ctx.scale(esc, esc);
 
-  // suelo de la arena
-  const grad = ctx.createLinearGradient(0, 0, 0, MH);
-  grad.addColorStop(0, 'rgba(46,34,20,.92)'); grad.addColorStop(1, 'rgba(30,20,12,.95)');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, MW, MH);
+  // suelo de la arena (gradiente CACHEADO)
+  if (!sueloGrad || sueloGradH !== MH) {
+    sueloGrad = ctx.createLinearGradient(0, 0, 0, MH);
+    sueloGrad.addColorStop(0, 'rgba(46,34,20,.92)'); sueloGrad.addColorStop(1, 'rgba(30,20,12,.95)');
+    sueloGradH = MH;
+  }
+  ctx.fillStyle = sueloGrad; ctx.fillRect(0, 0, MW, MH);
   // rejilla sutil
   ctx.strokeStyle = 'rgba(250,204,21,.06)'; ctx.lineWidth = 2;
   for (let x = 0; x <= MW; x += 100) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, MH); ctx.stroke(); }
