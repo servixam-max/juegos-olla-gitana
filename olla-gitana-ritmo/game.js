@@ -92,6 +92,30 @@ function resize() {
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 220));
 
+/* RESOLUCIÓN ADAPTATIVA (petición del usuario: que funcione en el máximo de
+   móviles posibles; que algunos van lentos). Si el FPS sostenido baja de 50,
+   se reduce el DPR por pasos (mínimo 0.75) para recuperar fluidez; si luego
+   va sobrado (>58), se recupera. Mismo patrón que usa el juego 3D. */
+let fpsFrames = 0, fpsT = 0, lowFps = 0, recover = 0, dprCur = () => Math.min(window.devicePixelRatio || 1, 2);
+// gradientes cacheados (recrearlos por frame es caro en móvil)
+let veloGrad = null, veloGradH = 0, judgeGrad = null, judgeGradY = 0;
+const noteGrads = {};
+function checkFps(dt) {
+  fpsFrames++; fpsT += dt;
+  if (fpsT < 0.5) return;
+  const fps = fpsFrames / fpsT;
+  fpsFrames = 0; fpsT = 0;
+  const dprMax = Math.min(window.devicePixelRatio || 1, 2);
+  if (fps < 50) lowFps++; else lowFps = 0;
+  if (lowFps >= 3 && DPR > 0.75) {
+    DPR = Math.max(0.75, DPR - 0.25); lowFps = 0; resize();
+    stage.style.width = W + 'px'; stage.style.height = H + 'px';
+  } else if (fps > 58 && DPR < dprMax) {
+    recover++;
+    if (recover >= 6) { DPR = Math.min(dprMax, DPR + 0.25); recover = 0; resize(); }
+  }
+}
+
 /* ---------------- Utilidades ---------------- */
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const laneCenter = i => laneW * i + laneW / 2;
@@ -279,6 +303,7 @@ function loop(now) {
   songTime = audio && !audio.paused ? audio.currentTime : songTime + dt;
   update(dt);
   draw(dt);
+  checkFps(dt);   // resolución adaptativa: baja el DPR si el móvil va justo
   if (songTime >= beatmap.duration - 0.05) endGame(true);
 }
 
@@ -590,10 +615,13 @@ function draw(dt) {
     ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
     ctx.globalAlpha = 1;
   }
-  // velo + carriles
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, 'rgba(10,6,4,.72)'); g.addColorStop(.55, 'rgba(10,6,4,.42)'); g.addColorStop(1, 'rgba(10,6,4,.86)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // velo + carriles (gradiente CACHEADO: recrearlo cada frame es caro en móvil)
+  if (!veloGrad || veloGradH !== H) {
+    veloGrad = ctx.createLinearGradient(0, 0, 0, H);
+    veloGrad.addColorStop(0, 'rgba(10,6,4,.72)'); veloGrad.addColorStop(.55, 'rgba(10,6,4,.42)'); veloGrad.addColorStop(1, 'rgba(10,6,4,.86)');
+    veloGradH = H;
+  }
+  ctx.fillStyle = veloGrad; ctx.fillRect(0, 0, W, H);
 
   for (let i = 0; i < LANES; i++) {
     if (i % 2 === 0) { ctx.fillStyle = 'rgba(255,255,255,.045)'; ctx.fillRect(laneW * i, 0, laneW, H); }
@@ -640,9 +668,12 @@ function draw(dt) {
   ctx.fillRect(0, judgeY - 1.5 * jp, W, 3 * jp);
   if (judgePulse > 0) {
     ctx.globalAlpha = judgePulse * 0.5;
-    const jg = ctx.createLinearGradient(0, judgeY - 26, 0, judgeY + 26);
-    jg.addColorStop(0, 'rgba(250,204,21,0)'); jg.addColorStop(.5, 'rgba(250,204,21,.55)'); jg.addColorStop(1, 'rgba(250,204,21,0)');
-    ctx.fillStyle = jg; ctx.fillRect(0, judgeY - 26, W, 52);
+    if (!judgeGrad || judgeGradY !== judgeY) {
+      judgeGrad = ctx.createLinearGradient(0, judgeY - 26, 0, judgeY + 26);
+      judgeGrad.addColorStop(0, 'rgba(250,204,21,0)'); judgeGrad.addColorStop(.5, 'rgba(250,204,21,.55)'); judgeGrad.addColorStop(1, 'rgba(250,204,21,0)');
+      judgeGradY = judgeY;
+    }
+    ctx.fillStyle = judgeGrad; ctx.fillRect(0, judgeY - 26, W, 52);
     ctx.globalAlpha = 1;
   }
   // chispas
@@ -682,11 +713,16 @@ function drawNote(x, y, n, missed) {
   ctx.globalAlpha = missed ? 0.22 : 1;
   ctx.save();
   ctx.translate(x, y);
-  // cuerpo
-  const grad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-  if (n.kind === 'trap') { grad.addColorStop(0, '#7f1d1d'); grad.addColorStop(1, '#dc2626'); }
-  else if (n.kind === 'zarangollo') { grad.addColorStop(0, '#fcd34d'); grad.addColorStop(1, '#d97706'); }
-  else { grad.addColorStop(0, '#065f46'); grad.addColorStop(1, '#10b981'); }
+  // cuerpo (gradiente CACHEADO por tipo y altura: se recreaba cada frame por nota)
+  const gk = `${n.kind}|${h}`;
+  let grad = noteGrads[gk];
+  if (!grad) {
+    grad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    if (n.kind === 'trap') { grad.addColorStop(0, '#7f1d1d'); grad.addColorStop(1, '#dc2626'); }
+    else if (n.kind === 'zarangollo') { grad.addColorStop(0, '#fcd34d'); grad.addColorStop(1, '#d97706'); }
+    else { grad.addColorStop(0, '#065f46'); grad.addColorStop(1, '#10b981'); }
+    noteGrads[gk] = grad;
+  }
   ctx.beginPath();
   const r = h * 0.34;
   const x0 = -w / 2, y0 = -h / 2, x1 = w / 2, y1 = h / 2;
