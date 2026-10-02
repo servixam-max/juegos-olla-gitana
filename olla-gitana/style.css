@@ -86,5 +86,44 @@ input::placeholder {
 #playerName, #playerNameVictory {
   user-select: text !important; -webkit-user-select: text !important;
   touch-action: manipulation; -webkit-user-modify: read-write;
+  font-size: 24px !important; /* >=16px evita el zoom automático de iOS al enfocar */
 }
 #playerName:focus, #playerNameVictory:focus { outline: 3px solid #facc15; }
+
+/* Flash del limón (la clase se usaba en el juego pero el CSS no existía) */
+@keyframes flash-screen-anim {
+    0% { filter: brightness(1); }
+    20% { filter: brightness(2.2) saturate(1.4); }
+    100% { filter: brightness(1); }
+}
+.flash-screen {
+    animation: flash-screen-anim 0.5s ease-out;
+}
+
+/* Juice del HUD: el marcador salta al puntuar */
+@keyframes hud-pop-anim {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.18) rotate(-2deg); }
+    100% { transform: scale(1); }
+}
+.hud-pop {
+    animation: hud-pop-anim 0.28s ease-out;
+}
+
+/* Pantallas de fin de partida en móviles bajos: scroll y sin cortes */
+#gameOverScreen, #victoryScreen { -webkit-overflow-scrolling: touch; }
+@media (max-height: 700px) {
+    #gameOverScreen > div > h1, #victoryScreen h1 { font-size: 2.25rem !important; }
+    #gameOverScreen .bg-gray-800.p-6, #victoryScreen .p-6 { padding: 0.75rem !important; }
+    #gameOverScreen .max-h-40 { max-height: 6rem; }
+}
+
+/* Móviles estrechos (<=380px): el trofeo del ranking tapaba el título */
+@media (max-width: 380px) {
+    #rankingBtn span:first-child { font-size: 2.2rem; }
+    #rankingBtn span:last-child { font-size: 0.72rem; padding: 0 0.4rem; }
+    #startScreen { padding-top: 5.25rem; }
+    #startScreen h1 { font-size: 2.25rem; letter-spacing: 0.04em; }
+    #startScreen h2 { font-size: 1.7rem; margin-bottom: 1rem; }
+    #btnStartGame { font-size: 2.4rem; padding-top: 0.9rem; padding-bottom: 0.9rem; }
+}

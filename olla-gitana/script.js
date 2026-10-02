@@ -62,6 +62,8 @@ const ASSETS = {
 };
 
 // --- VISUAL FX ENGINE ---
+// cache de fonts por tamaño (evita generar strings cada frame)
+const FONT_CACHE = {};
 const VFX = {
     particles: [],
     foregroundClouds: [],
@@ -75,7 +77,8 @@ const VFX = {
 
     spawnConfetti: function(x, y) {
         const colors = ['#FFD700', '#FF4500', '#32CD32', '#1E90FF', '#FF69B4'];
-        for (let i = 0; i < 20; i++) {
+        const n = PERF.lowQuality ? 10 : 20; // menos confeti en gama baja
+        for (let i = 0; i < n; i++) {
             this.particles.push({
                 x: x,
                 y: y,
@@ -93,7 +96,8 @@ const VFX = {
     },
 
     spawnSmoke: function(x, y) {
-        for (let i = 0; i < 10; i++) {
+        const n = PERF.lowQuality ? 5 : 10;
+        for (let i = 0; i < n; i++) {
             this.particles.push({
                 x: x,
                 y: y,
@@ -122,18 +126,23 @@ const VFX = {
     update: function() {
         // Spawn Fire (Constant at bottom) - Reduced intensity
         if(state.isRunning && !state.isPaused) {
-            for(let i=0; i<2; i++) {
-                this.particles.push({
-                    x: Math.random() * CONFIG.GAME_WIDTH,
-                    y: CONFIG.GAME_HEIGHT,
-                    vx: (Math.random() - 0.5) * 1.5,
-                    vy: -1 - Math.random() * 2, // Slower Upward
-                    size: Math.random() * 6 + 3, // Smaller
-                    life: 0.8, // Shorter life
-                    decay: 0.03 + Math.random() * 0.03,
-                    type: 'fire',
-                    color: Math.random() > 0.5 ? 'rgba(255, 69, 0, 0.5)' : 'rgba(255, 215, 0, 0.5)' // Lower Opacity
-                });
+            // menos partículas en calidad baja (shadowBlur + muchos draw calls cargan la GPU)
+            const fireCount = PERF.lowQuality ? 1 : 2;
+            const cap = PERF.lowQuality ? 60 : 140;
+            if (this.particles.length < cap) {
+                for(let i=0; i<fireCount; i++) {
+                    this.particles.push({
+                        x: Math.random() * CONFIG.GAME_WIDTH,
+                        y: CONFIG.GAME_HEIGHT,
+                        vx: (Math.random() - 0.5) * 1.5,
+                        vy: -1 - Math.random() * 2, // Slower Upward
+                        size: Math.random() * 6 + 3, // Smaller
+                        life: 0.8, // Shorter life
+                        decay: 0.03 + Math.random() * 0.03,
+                        type: 'fire',
+                        color: Math.random() > 0.5 ? 'rgba(255, 69, 0, 0.5)' : 'rgba(255, 215, 0, 0.5)' // Lower Opacity
+                    });
+                }
             }
         }
 
@@ -192,8 +201,10 @@ const VFX = {
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
             } else if (p.type === 'fire') {
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = p.color;
+                if (!PERF.lowQuality) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = p.color;
+                }
                 ctx.fillStyle = p.color;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -203,11 +214,16 @@ const VFX = {
         }
 
         // Draw Floating Texts
-        for (let t of this.floatingTexts) {
+        for (let i = 0; i < this.floatingTexts.length; i++) {
+            const t = this.floatingTexts[i];
             ctx.save();
             ctx.globalAlpha = t.life;
             ctx.fillStyle = t.color;
-            ctx.font = `bold ${t.size}px 'Luckiest Guy', sans-serif`;
+            // font cacheado (crear el string cada frame con template literal no es gratis)
+            const key = t.size | 0;
+            let f = FONT_CACHE[key];
+            if (!f) f = FONT_CACHE[key] = `bold ${key}px 'Luckiest Guy', sans-serif`;
+            ctx.font = f;
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 3;
             ctx.strokeText(t.text, t.x, t.y);
@@ -266,6 +282,8 @@ const AudioEngine = {
     },
 
     ensureMusicPlaying: function() {
+        // si el jugador apagó el sonido en otro juego, no le arrancamos la música
+        if (window.__arcadeSoundOff) return;
         if (this.musicElement && this.musicElement.paused) {
             this.musicElement.play().then(() => {
                 this.isMusicEnabled = true;
@@ -414,6 +432,15 @@ const difficultyKeys = ['easy', 'normal', 'hard'];
 // --- DOM ELEMENTS ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+// cachés de render (se invalidan al cambiar tamaño/DPR)
+let POT_GRAD = null, POT_GRAD_X = -999, POT_GRAD_Y = -999;
+let HEART_GRAD = null, HEART_GRAD_X = -999, HEART_GRAD_Y = -999, HEART_GRAD_SIZE = -1;
+let ZAR_GRAD = null, ZAR_GRAD_X = -999, ZAR_GRAD_Y = -999, ZAR_GRAD_SIZE = -1;
+let PUMP_GRAD = null, PUMP_GRAD_X = -999, PUMP_GRAD_Y = -999, PUMP_GRAD_SIZE = -1;
+let SPOT_GRAD = null, SPOT_GRAD_X = -999, SPOT_GRAD_Y = -999, SPOT_GRAD_W = -1, SPOT_GRAD_H = -1;
+function invalidateRenderCaches() {
+    POT_GRAD = null; HEART_GRAD = null; ZAR_GRAD = null; PUMP_GRAD = null; SPOT_GRAD = null;
+}
 const hud = document.getElementById('hud');
 const scoreDisplay = document.getElementById('scoreDisplay');
 const livesDisplay = document.getElementById('livesDisplay');
@@ -422,7 +449,7 @@ const musicToggle = document.getElementById('musicToggle');
 // respetar el sonido que el jugador ya eligió en otros juegos
 try {
     const pr0 = ollaPrefsArcade();
-    if (pr0.sound === false) { AudioEngine.isMusicEnabled = false; setTimeout(() => AudioEngine.updateUI && AudioEngine.updateUI(false), 60); }
+    if (pr0.sound === false) { AudioEngine.isMusicEnabled = false; window.__arcadeSoundOff = true; setTimeout(() => AudioEngine.updateUI && AudioEngine.updateUI(false), 60); }
 } catch (e) {}
 const startMusicToggle = document.getElementById('startMusicToggle');
 const startScreen = document.getElementById('startScreen');
@@ -455,15 +482,20 @@ function getPotMargin(h) {
 function resize() {
     const w = window.innerWidth;
     const h = Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight);
-    canvas.width = w;
-    canvas.height = h;
+    // DPR adaptativo: renderiza a resolución de CSS escalada (los móviles gama baja
+    // no pueden rellenar 1170x2532 píxeles a 60fps)
+    const scale = (typeof PERF !== 'undefined' && PERF.scale) ? PERF.scale : 1;
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
+    // si se renderiza por debajo de la resolución CSS, mejor suavizado que píxeles duros
+    canvas.style.imageRendering = scale < 1 ? 'auto' : 'pixelated';
     CONFIG.GAME_WIDTH = w;
     CONFIG.GAME_HEIGHT = h;
     CONFIG.POT_MARGIN = getPotMargin(h);
-    if (state.playerX > canvas.width - CONFIG.PLAYER_WIDTH) {
-        state.playerX = canvas.width - CONFIG.PLAYER_WIDTH;
+    if (state.playerX > CONFIG.GAME_WIDTH - CONFIG.PLAYER_WIDTH) {
+        state.playerX = CONFIG.GAME_WIDTH - CONFIG.PLAYER_WIDTH;
     }
 }
 window.addEventListener('resize', resize);
@@ -490,6 +522,62 @@ function setBackground(type) {
     document.body.style.backgroundImage = bg;
     document.body.style.backgroundSize = "cover";
     document.body.style.backgroundPosition = "center";
+}
+
+// --- RENDIMIENTO (móviles de gama baja/media) ---
+// DPR adaptativo: si el FPS baja de ~50 se reduce la resolución de render
+// (0.75x) y se recupera (1x/1.5x/2x) cuando el FPS vuelve a subir.
+var PERF = {
+    levels: [0.75, 1, 1.5, 2],
+    idx: 1,          // nivel actual (1 = DPR 1)
+    maxIdx: 1,       // tope según pantalla (nunca más nítido que la pantalla)
+    scale: 1,
+    fps: 60,
+    frames: 0,
+    acc: 0,
+    last: 0,
+    low: 0,          // ventanas seguidas con FPS bajo
+    high: 0,         // ventanas seguidas con FPS alto
+    lowQuality: false, // modo efectos reducidos
+    changes: []      // historial para QA
+};
+function perfInit() {
+    const dpr = window.devicePixelRatio || 1;
+    PERF.maxIdx = dpr >= 2 ? 3 : (dpr >= 1.5 ? 2 : 1);
+    PERF.idx = Math.min(1, PERF.maxIdx);
+    PERF.scale = PERF.levels[PERF.idx];
+    if (navigator.deviceMemory && navigator.deviceMemory <= 4 && PERF.idx > 0) {
+        // móviles con poca RAM: arranca ya en calidad ligera
+        PERF.idx = 0; PERF.scale = PERF.levels[0];
+    }
+}
+function applyPerfScale() {
+    PERF.scale = PERF.levels[PERF.idx];
+    PERF.changes.push({ t: Date.now(), idx: PERF.idx, scale: PERF.scale, fps: Math.round(PERF.fps) });
+    if (PERF.changes.length > 40) PERF.changes.shift();
+    if (typeof invalidateRenderCaches === 'function') invalidateRenderCaches();
+    if (typeof resize === 'function') resize();
+}
+function perfTick(tsMs) {
+    if (!tsMs || PERF.last === 0) { PERF.last = tsMs || 0; return; }
+    const d = tsMs - PERF.last;
+    PERF.last = tsMs;
+    if (d <= 0 || d > 1000) return;
+    PERF.acc += d; PERF.frames++;
+    if (PERF.frames >= 50) {
+        const fps = 1000 / (PERF.acc / PERF.frames);
+        PERF.fps = fps; PERF.frames = 0; PERF.acc = 0;
+        if (fps < 50) {
+            PERF.low++; PERF.high = 0;
+            if (PERF.low >= 3 && PERF.idx > 0) { PERF.idx--; PERF.low = 0; applyPerfScale(); }
+        } else if (fps > 56) {
+            PERF.high++; PERF.low = 0;
+            if (PERF.high >= 8 && PERF.idx < PERF.maxIdx) { PERF.idx++; PERF.high = 0; applyPerfScale(); }
+        } else { PERF.low = 0; PERF.high = 0; }
+        // efectos reducidos con histéresis (evita parpadeos de calidad)
+        if (fps < 50) PERF.lowQuality = true;
+        else if (fps > 57) PERF.lowQuality = false;
+    }
 }
 
 // --- GAME LOGIC ---
@@ -565,11 +653,16 @@ function drawPot(x, y, w, h) {
     ctx.ellipse(x + w/2, y + h - 5, w/2, 10, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // Body - Shiny Metal
-    const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-    grad.addColorStop(0, '#333');
-    grad.addColorStop(0.5, '#666');
-    grad.addColorStop(1, '#222');
+    // Body - Shiny Metal (gradiente cacheado por posición: crearlo cada frame
+    // cuesta caro en gama baja; solo se recrea cuando la olla se mueve)
+    let grad = POT_GRAD;
+    if (!grad || Math.abs(POT_GRAD_X - x) > 1 || Math.abs(POT_GRAD_Y - y) > 1) {
+        grad = POT_GRAD = ctx.createLinearGradient(x, y, x + w, y + h);
+        grad.addColorStop(0, '#333');
+        grad.addColorStop(0.5, '#666');
+        grad.addColorStop(1, '#222');
+        POT_GRAD_X = x; POT_GRAD_Y = y;
+    }
     ctx.fillStyle = grad;
     
     ctx.beginPath();
@@ -608,6 +701,12 @@ function drawPot(x, y, w, h) {
     ctx.restore();
 }
 
+// badge ZEN: visible solo durante la partida
+function hideZenBadge() {
+    const zb = document.getElementById('zenBadgeArcade');
+    if (zb) zb.style.display = 'none';
+}
+
 function startGame(difficulty) {
     AudioEngine.init();
     AudioEngine.ensureMusicPlaying();
@@ -638,7 +737,12 @@ function startGame(difficulty) {
         originalSpeed: 0, // Store speed before slow motion
         isDragging: false, // Reset drag state
         countdown: 0,
-        zenMode: ZEN_ARCADE
+        zenMode: ZEN_ARCADE,
+        __loopOn: true,
+        __lastT: 0,
+        __spawnAcc: 0,
+        __freezeAcc: 0,
+        lemonFreeze: 0
     };
 
     startScreen.classList.add('hidden');
@@ -649,57 +753,75 @@ function startGame(difficulty) {
     
     setBackground('game');
     updateHUD();
-    // badge ZEN visible durante la partida
-    if (state.zenMode) {
-        let zb = document.getElementById('zenBadgeArcade');
-        if (!zb) {
-            zb = document.createElement('div');
-            zb.id = 'zenBadgeArcade';
-            zb.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(16,185,129,.92);border:2px solid #fff;border-radius:999px;padding:3px 12px;font-size:11px;font-weight:900;letter-spacing:.06em;color:#fff';
-            zb.textContent = '🧘 MODO ZEN';
-            document.body.appendChild(zb);
-        }
-        zb.style.display = 'block';
-    } else {
-        const zb = document.getElementById('zenBadgeArcade');
-        if (zb) zb.style.display = 'none';
+// badge ZEN visible durante la partida
+if (state.zenMode) {
+    let zb = document.getElementById('zenBadgeArcade');
+    if (!zb) {
+        zb = document.createElement('div');
+        zb.id = 'zenBadgeArcade';
+        zb.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(16,185,129,.92);border:2px solid #fff;border-radius:999px;padding:3px 12px;font-size:11px;font-weight:900;letter-spacing:.06em;color:#fff';
+        zb.textContent = '🧘 MODO ZEN';
+        document.body.appendChild(zb);
     }
+    zb.style.display = 'block';
+} else {
+    hideZenBadge();
+}
     try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
     // Cuenta atrás: el juego empezaba de golpe y caía fruta enseguida
     state.countdown = 3.0;
     state.items = [];
-    requestAnimationFrame(gameLoop);
+    window.__arcadeGen = (window.__arcadeGen || 0) + 1; // invalida loops de partidas anteriores
+    state.__gen = window.__arcadeGen;
+    const gen = state.__gen;
+    requestAnimationFrame((t) => gameLoop(t, gen));
 }
 
 function togglePause() {
     if (!state.isRunning || state.levelUpPause) return;
     state.isPaused = !state.isPaused;
-    if (state.isPaused) pauseScreen.classList.remove('hidden');
-    else {
+    if (state.isPaused) {
+        pauseScreen.classList.remove('hidden');
+    } else {
         pauseScreen.classList.add('hidden');
-        requestAnimationFrame(gameLoop);
+        if (!state.__loopOn) { state.__loopOn = true; const gen = state.__gen; requestAnimationFrame((t) => gameLoop(t, gen)); }
     }
 }
 
-function gameLoop() {
-    if (!state.isRunning || state.isPaused) return;
+function gameLoop(ts, gen) {
+    if (!state.isRunning || state.isPaused) { state.__loopOn = false; return; }
+    if (gen !== undefined && gen !== window.__arcadeGen) return; // callback de una partida vieja: no reencolar
+    if (state.__gen !== window.__arcadeGen) return; // loop de una partida vieja: no duplicar
+
+    // Delta-time: sin esto el juego corría el DOBLE de rápido en pantallas de 120Hz
+    const now = (ts && typeof ts === 'number') ? ts : performance.now();
+    let dt = state.__lastT ? (now - state.__lastT) / 16.6667 : 1;
+    state.__lastT = now;
+    dt = Math.max(0.25, Math.min(3, dt));
+    state.dt = dt;
+    perfTick(now); // FPS meter + DPR adaptativo
 
     if (state.countdown > 0) {
         // cuenta atrás 3·2·1 antes de que caiga nada
         const before = Math.ceil(state.countdown);
-        state.countdown -= 1 / 60;
+        state.countdown -= dt / 60;
         const after = Math.ceil(state.countdown);
         if (after !== before && after > 0) AudioEngine.playTone('good');
         if (after === 0) AudioEngine.playTone('heart');
         draw();
         drawCountdown(Math.max(1, after));
         state.frames++;
-        requestAnimationFrame(gameLoop);
+        requestAnimationFrame((t) => gameLoop(t, gen));
         return;
     }
 
     if (!state.levelUpPause) {
-        update();
+        update(dt);
+    } else if (state.levelUpTimer > 0) {
+        // el cartel de subida de nivel se cierra con el reloj del juego,
+        // así nunca se queda pegado si el navegador congela los timers
+        state.levelUpTimer -= dt / 60;
+        if (state.levelUpTimer <= 0) { endLevelUpPause(); }
     }
 
     // Even if paused by level up, we might want to draw (or just freeze)
@@ -708,7 +830,7 @@ function gameLoop() {
     draw();
     
     state.frames++;
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame((t) => gameLoop(t, gen));
 }
 
 function drawCountdown(n) {
@@ -729,13 +851,21 @@ function drawCountdown(n) {
     ctx2.restore();
 }
 
-function update() {
+function update(dt = 1) {
     // Update physics variables
-    state.playerVelocity = state.playerX - state.lastPlayerX;
+    state.playerVelocity = (state.playerX - state.lastPlayerX) / dt;
     state.lastPlayerX = state.playerX;
+    state.__spawnAcc = (state.__spawnAcc || 0) + dt;
+    state.__freezeAcc = (state.__freezeAcc || 0) + dt;
 
     const spawnRate = Math.max(20, CONFIG.SPAWN_RATE - (state.level * 2));
-    if (state.frames % spawnRate === 0) spawnItem();
+    // la pausa del limón congela solo el spawn, no el control del jugador
+    if (state.lemonFreeze > 0) {
+        state.lemonFreeze -= dt / 60;
+        state.__spawnAcc = 0; // no acumular: si no, al reanudar saldrían en tromba
+    } else {
+        while (state.__spawnAcc >= spawnRate) { state.__spawnAcc -= spawnRate; spawnItem(); }
+    }
 
     const potTop = CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT - CONFIG.POT_MARGIN;
     const potLeft = state.playerX + 10;
@@ -745,20 +875,27 @@ function update() {
     let speedMult = 1.0;
     if(state.timeFreeze > 0) {
         speedMult = 0.5;
-        state.timeFreeze--;
-        if(state.timeFreeze % 60 === 0) VFX.spawnText(state.playerX, potTop - 50, "❄️", '#fff', 30);
+        state.timeFreeze -= dt;
+        if (Math.floor(state.timeFreeze) % 60 === 0) VFX.spawnText(state.playerX, potTop - 50, "❄️", '#fff', 30);
     }
 
     for (let i = state.items.length - 1; i >= 0; i--) {
         let item = state.items[i];
-        item.y += item.speed * speedMult;
+        const prevY = item.y;
+        item.y += item.speed * speedMult * dt;
 
         // Bobbing Animation Update (sway)
         item.bobOffset = Math.sin(state.frames * 0.05) * 2; 
 
+        // Colisión con "barrido": los items rápidos (zarangollo a nivel alto)
+        // cruzaban la ventana de captura en un solo frame y NO contaban.
+        // Ahora vale si el centro del item atraviesa la boca de la olla entre frames.
+        const itemCenterY = item.y + item.size/2;
+        const prevCenterY = prevY + item.size/2;
+        const catchBottom = potTop + 20 + item.size/2; // la ventana clásica de 20px
         if (
-            item.y + item.size/2 > potTop && 
-            item.y < potTop + 20 &&
+            itemCenterY > potTop &&
+            prevCenterY < catchBottom &&
             item.x + item.size/2 > potLeft &&
             item.x + item.size/2 < potRight
         ) {
@@ -769,7 +906,10 @@ function update() {
         if (item.y > CONFIG.GAME_HEIGHT) {
             // Missed a good item -> reset combo
             if (item.type === 'good' || item.type === 'zarangollo') {
-                 state.combo = 0;
+                 if ((state.combo || 0) > 0) {
+                     state.combo = 0;
+                     updateHUD(); // el chip del combo se quedaba pegado en pantalla
+                 }
             }
             state.items.splice(i, 1);
         }
@@ -884,11 +1024,10 @@ function handleCollision(item, index) {
         VFX.spawnConfetti(cx, cy);
         VFX.spawnText(CONFIG.GAME_WIDTH/2, CONFIG.GAME_HEIGHT/2, "¡COPÓN QUÉ RICO!", '#FFD700', 60);
         
-        // Pause spawning for 3 seconds
-        state.levelUpPause = true; 
-        setTimeout(() => {
-            state.levelUpPause = false;
-        }, 3000);
+        // Pausa el spawn unos segundos: por reloj del juego, no por setTimeout
+        // (el setTimeout real se quedaba colgado y congelaba la partida)
+        state.lemonFreeze = 2.0;
+        updateHUD(); // los +500 no se veían en el marcador hasta el siguiente bocado
         
         document.body.classList.add('flash-screen');
         setTimeout(() => document.body.classList.remove('flash-screen'), 500);
@@ -918,6 +1057,7 @@ function handleCollision(item, index) {
         const pts = Math.floor(10 * multiplier);
         state.score += pts;
         state.combo = (state.combo || 0) + 1;
+        popScoreHUD();
         try { logros.count('items50'); logros.set('combo10', state.combo); logros.set('combo25', state.combo); } catch (e) {}
         AudioEngine.playTone('good');
         VFX.spawnConfetti(cx, cy);
@@ -927,9 +1067,9 @@ function handleCollision(item, index) {
              // Ensure random pick
              const phrase = phrases[Math.floor(Math.random() * phrases.length)];
              VFX.spawnText(cx, cy - 30, `${phrase} x${multiplier.toFixed(1)}`, '#ffff00', 25 + Math.min(20, state.combo * 2));
-        } else {
-             VFX.spawnText(cx, cy - 30, `+${pts}`, '#fff', 25);
         }
+        // popup de puntos con el color del combo (sube más alto y más grande con la racha)
+        VFX.spawnText(cx, cy - 70, `+${pts}`, multiplier >= 3 ? '#f97316' : multiplier >= 2 ? '#facc15' : '#ffffff', 20 + Math.min(14, state.combo));
         
         checkLevelUp();
     } else {
@@ -969,6 +1109,7 @@ function checkLevelUp() {
 function victory() {
     state.isRunning = false;
     hud.classList.add('hidden');
+    hideZenBadge();
     victoryScreen.classList.remove('hidden');
     
     // Play special victory audio
@@ -1015,25 +1156,36 @@ function showLevelUpParams() {
     
     // PAUSE GAMEPLAY LOGIC
     state.levelUpPause = true;
+    state.levelUpTimer = 3.0; // en segundos de reloj del juego (lo consume update())
 
     setTimeout(() => {
         msgBox.classList.remove('scale-100');
         msgBox.classList.add('scale-0');
-        setTimeout(() => {
-            container.classList.add('hidden');
-            // RESUME GAMEPLAY
-            state.levelUpPause = false;
-        }, 300);
-    }, 3000); // 3 seconds pause
+        setTimeout(() => { container.classList.add('hidden'); }, 300);
+    }, 3000); // 3 seconds
+}
+
+// Cierra el cartel de subida de nivel y reanuda (reloj del juego)
+function endLevelUpPause() {
+    const container = document.getElementById('levelUpMsg');
+    const msgBox = container.firstElementChild;
+    msgBox.classList.remove('scale-100');
+    msgBox.classList.add('scale-0');
+    setTimeout(() => { container.classList.add('hidden'); }, 300);
+    state.levelUpPause = false;
 }
 
 function drawHeart(x, y, size) {
     ctx.save();
-    ctx.shadowColor = 'white';
-    ctx.shadowBlur = 10;
-    const grad = ctx.createRadialGradient(x + size/2, y + size/3, size/4, x + size/2, y + size/2, size);
-    grad.addColorStop(0, '#ff4d4d');
-    grad.addColorStop(1, '#990000');
+    if (!PERF.lowQuality) { ctx.shadowColor = 'white'; ctx.shadowBlur = 10; }
+    // gradiente cacheado por posición+tamaño (antes se creaba en cada frame)
+    let grad = HEART_GRAD;
+    if (!grad || Math.abs(HEART_GRAD_X - x) > 1 || Math.abs(HEART_GRAD_Y - y) > 1 || HEART_GRAD_SIZE !== size) {
+        grad = HEART_GRAD = ctx.createRadialGradient(x + size/2, y + size/3, size/4, x + size/2, y + size/2, size);
+        grad.addColorStop(0, '#ff4d4d');
+        grad.addColorStop(1, '#990000');
+        HEART_GRAD_X = x; HEART_GRAD_Y = y; HEART_GRAD_SIZE = size;
+    }
     ctx.fillStyle = grad;
     ctx.beginPath();
     const topCurveHeight = size * 0.3;
@@ -1056,16 +1208,21 @@ function drawZarangollo(x, y, size) {
     ctx.scale(pulse, pulse);
     ctx.translate(-centerX, -centerY);
 
-    // Glow
-    ctx.shadowColor = '#FFD700'; // Gold
-    ctx.shadowBlur = 20 + Math.sin(state.frames * 0.2) * 10; // Dynamic blur
+    // Glow (shadowBlur es carísimo en móvil: se recorta en calidad baja)
+    if (!PERF.lowQuality) {
+        ctx.shadowColor = '#FFD700'; // Gold
+        ctx.shadowBlur = 20 + Math.sin(state.frames * 0.2) * 10; // Dynamic blur
+    }
 
-    // Plate Body (Golden)
-    const grad = ctx.createRadialGradient(centerX, centerY, size/4, centerX, centerY, size/2);
-    grad.addColorStop(0, '#FFFACD'); // LemonChiffon center
-    grad.addColorStop(0.5, '#FFD700'); // Gold middle
-    grad.addColorStop(1, '#DAA520'); // GoldenRod edge
-    
+    // Plate Body (Golden) — gradiente cacheado por posición+tamaño
+    let grad = ZAR_GRAD;
+    if (!grad || Math.abs(ZAR_GRAD_X - x) > 1 || Math.abs(ZAR_GRAD_Y - y) > 1 || ZAR_GRAD_SIZE !== size) {
+        grad = ZAR_GRAD = ctx.createRadialGradient(centerX, centerY, size/4, centerX, centerY, size/2);
+        grad.addColorStop(0, '#FFFACD'); // LemonChiffon center
+        grad.addColorStop(0.5, '#FFD700'); // Gold middle
+        grad.addColorStop(1, '#DAA520'); // GoldenRod edge
+        ZAR_GRAD_X = x; ZAR_GRAD_Y = y; ZAR_GRAD_SIZE = size;
+    }
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(centerX, centerY, size/2, 0, Math.PI*2);
@@ -1078,11 +1235,13 @@ function drawZarangollo(x, y, size) {
     ctx.arc(centerX, centerY, size/2 - 2, 0, Math.PI*2);
     ctx.stroke();
 
-    // Inner details (Food texture)
+    // Inner details (Food texture) - posiciones FIJAS (antes usaban Math.random()
+    // en cada frame: las motas bailaban y parpadeaban sin parar)
     ctx.fillStyle = '#8B4513'; // SaddleBrown spots (onion/egg bits)
+    const rnd = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
     for(let i=0; i<5; i++) {
-        const spotX = centerX + (Math.random() - 0.5) * size * 0.6;
-        const spotY = centerY + (Math.random() - 0.5) * size * 0.6;
+        const spotX = centerX + (rnd(i) - 0.5) * size * 0.6;
+        const spotY = centerY + (rnd(i + 40) - 0.5) * size * 0.6;
         ctx.beginPath();
         ctx.arc(spotX, spotY, size/15, 0, Math.PI*2);
         ctx.fill();
@@ -1113,12 +1272,15 @@ function drawPumpkin(x, y, size) {
     const rx = size/2;
     const ry = size/2.5; // Flattened
     
-    // Main Body Gradient (Green bottom, Orange top/spots)
-    const grad = ctx.createRadialGradient(centerX, centerY - 10, 5, centerX, centerY, size/2);
-    grad.addColorStop(0, '#e67e22'); // Orange center/top
-    grad.addColorStop(0.6, '#d35400');
-    grad.addColorStop(1, '#2d4d20'); // Greenish bottom (Totanera style)
-    
+    // Main Body Gradient (Green bottom, Orange top/spots) — cacheado por posición+tamaño
+    let grad = PUMP_GRAD;
+    if (!grad || Math.abs(PUMP_GRAD_X - x) > 1 || Math.abs(PUMP_GRAD_Y - y) > 1 || PUMP_GRAD_SIZE !== size) {
+        grad = PUMP_GRAD = ctx.createRadialGradient(centerX, centerY - 10, 5, centerX, centerY, size/2);
+        grad.addColorStop(0, '#e67e22'); // Orange center/top
+        grad.addColorStop(0.6, '#d35400');
+        grad.addColorStop(1, '#2d4d20'); // Greenish bottom (Totanera style)
+        PUMP_GRAD_X = x; PUMP_GRAD_Y = y; PUMP_GRAD_SIZE = size;
+    }
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, rx, ry, 0, 0, Math.PI*2);
@@ -1153,18 +1315,27 @@ function drawSpotlight() {
     const centerX = state.playerX + CONFIG.PLAYER_WIDTH / 2;
     const centerY = CONFIG.GAME_HEIGHT - CONFIG.POT_MARGIN - CONFIG.PLAYER_HEIGHT / 2;
 
-    const grad = ctx.createRadialGradient(centerX, centerY, 100, centerX, centerY, 800);
-    grad.addColorStop(0, 'rgba(0,0,0,0)'); // Clear center
-    grad.addColorStop(0.4, 'rgba(0,0,0,0.1)'); 
-    grad.addColorStop(1, 'rgba(0,0,0,0.7)'); // Dark edges
+    // Gradiente cacheado (se recreaba en cada frame y es de pantalla completa)
+    let grad = SPOT_GRAD;
+    if (!grad || Math.abs(SPOT_GRAD_X - centerX) > 2 || Math.abs(SPOT_GRAD_Y - centerY) > 2 ||
+        SPOT_GRAD_W !== CONFIG.GAME_WIDTH || SPOT_GRAD_H !== CONFIG.GAME_HEIGHT) {
+        grad = SPOT_GRAD = ctx.createRadialGradient(centerX, centerY, 100, centerX, centerY, 800);
+        grad.addColorStop(0, 'rgba(0,0,0,0)'); // Clear center
+        grad.addColorStop(0.4, 'rgba(0,0,0,0.1)'); 
+        grad.addColorStop(1, 'rgba(0,0,0,0.7)'); // Dark edges
+        SPOT_GRAD_X = centerX; SPOT_GRAD_Y = centerY;
+        SPOT_GRAD_W = CONFIG.GAME_WIDTH; SPOT_GRAD_H = CONFIG.GAME_HEIGHT;
+    }
 
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+    // transform: dibujamos en unidades CSS; el canvas puede estar a menos resolución (PERF.scale)
+    const s = (typeof PERF !== 'undefined' && PERF.scale) ? PERF.scale : 1;
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.clearRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
     drawPot(state.playerX, CONFIG.GAME_HEIGHT - CONFIG.PLAYER_HEIGHT - CONFIG.POT_MARGIN, CONFIG.PLAYER_WIDTH, CONFIG.PLAYER_HEIGHT);
     
     ctx.font = `${CONFIG.ITEM_SIZE}px serif`;
@@ -1183,12 +1354,14 @@ function draw() {
             drawPumpkin(renderX, item.y, item.size);
         } else {
             // Apply visual polish to emojis
-            ctx.save();
-            
-            // Glow for Good items
-            if(item.type === 'good') {
+            const lq = PERF.lowQuality;
+            if (item.type === 'good' && !lq) {
+                ctx.save();
+                // Glow for Good items
                 ctx.shadowColor = 'gold';
                 ctx.shadowBlur = 15;
+            } else {
+                ctx.save();
             }
 
             // Sway rotation
@@ -1197,20 +1370,39 @@ function draw() {
             ctx.rotate(rot);
             ctx.translate(-(renderX + item.size/2), -(item.y + item.size/2));
 
-            ctx.filter = 'drop-shadow(0px 4px 2px rgba(0,0,0,0.3)) saturate(1.2)';
+            // ctx.filter (drop-shadow por emoji) es carísimo en móvil: se omite en calidad baja
+            if (!lq) ctx.filter = 'drop-shadow(0px 4px 2px rgba(0,0,0,0.3)) saturate(1.2)';
             ctx.fillText(item.text, renderX, item.y);
             ctx.restore();
         }
     }
 
+    // floating texts: reusa tamaño de fuente cacheado por tamaño (evita crear strings por frame)
     VFX.draw(ctx);
     drawSpotlight();
+}
+
+// HUD juice: el marcador da un salto al coger algo bueno
+function popScoreHUD() {
+    const chip = scoreDisplay && scoreDisplay.parentElement;
+    if (!chip) return;
+    chip.classList.remove('hud-pop');
+    // reinicia la animación (forzando reflow)
+    void chip.offsetWidth;
+    chip.classList.add('hud-pop');
 }
 
 function updateHUD() {
     scoreDisplay.innerText = state.score;
     livesDisplay.innerText = state.lives;
     levelDisplay.innerText = state.level;
+    // barra de progreso al siguiente nivel (antes no había forma de ver cuánto faltaba)
+    const bar = document.getElementById('levelProgressBar');
+    if (bar) {
+        const prevThreshold = (state.level - 1) * CONFIG.LEVEL_THRESHOLD;
+        const pct = Math.max(0, Math.min(100, ((state.score - prevThreshold) / CONFIG.LEVEL_THRESHOLD) * 100));
+        bar.style.width = pct.toFixed(1) + '%';
+    }
     // combo visible (antes no se veía en ningún sitio)
     const chip = document.getElementById('comboChip');
     const disp = document.getElementById('comboDisplay');
@@ -1236,6 +1428,7 @@ function savePrefArcade(name, sound, extra) { try { const p = ollaPrefsArcade();
 function updateArcadeBest() {
     const node = document.getElementById('arcadeBest');
     if (!node) return;
+    // récord PERSONAL = partidas guardadas en este dispositivo (no el top global)
     try {
         const rows = JSON.parse(localStorage.getItem(MOCK_DB_KEY) || '[]');
         const best = rows.reduce((m, r) => Math.max(m, r.score || 0), 0);
@@ -1246,6 +1439,7 @@ function updateArcadeBest() {
 function gameOver() {
     state.isRunning = false;
     hud.classList.add('hidden');
+    hideZenBadge();
     gameOverScreen.classList.remove('hidden');
     setBackground('gameover');
     
@@ -1329,10 +1523,17 @@ async function loadLeaderboard(difficulty, targetElement, limit = 100) {
     targetElement.innerHTML = displayScores.map((s, i) => `
         <tr class="${i < 3 ? 'text-yellow-400 font-bold' : ''} hover:bg-white/5 transition-colors">
             <td class="p-2">${i + 1}</td>
-            <td class="p-2">${s.name}</td>
-            <td class="p-2 text-right text-mono">${s.score}</td>
+            <td class="p-2 max-w-[9rem] truncate" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</td>
+            <td class="p-2 text-right font-mono">${escapeHtml(s.score)}</td>
         </tr>
     `).join('');
+}
+
+// Los nombres vienen del ranking (local o del servidor): nunca inyectar HTML tal cual
+function escapeHtml(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // --- EVENT LISTENERS ---
@@ -1383,8 +1584,12 @@ if (zenArcade) {
 // botón de pausa explícito (antes solo se pausaba tocando el HUD: poco claro)
 const pauseBtnEl = document.getElementById('pauseBtn');
 if (pauseBtnEl) pauseBtnEl.addEventListener('click', (e) => { e.stopPropagation(); togglePause(); });
-document.getElementById('hud').addEventListener('click', (e) => {
-    if (e.target !== musicToggle) togglePause();
+// Los chips del HUD (vidas/nivel/puntos) ya NO pausan la partida al tocarlos:
+// parecían botones y congelaban el juego sin querer
+[hud, scoreDisplay, livesDisplay, levelDisplay].forEach((el) => {
+    if (!el) return;
+    const chip = el.closest ? el.closest('div') : null;
+    (chip || el).addEventListener('click', (e) => { e.stopPropagation(); });
 });
 
 // Ranking Screen Logic
@@ -1449,9 +1654,9 @@ submitScoreBtn.addEventListener('click', () => {
     const val = playerNameInput.value.trim(); // Allow mixed case and special chars
     if (val) {
         savePrefArcade(val);
-        saveScore(val, state.score).then(() => {
+        saveScore(val, state.score).then((ok) => {
             loadLeaderboard(state.difficulty, leaderboardBody, 5);
-            document.getElementById('submitMsg').innerText = "¡Guardado!";
+            document.getElementById('submitMsg').innerText = ok ? "¡Guardado!" : "Guardado en este dispositivo (servidor no disponible)";
             submitScoreBtn.disabled = true;
             submitScoreBtn.classList.add('opacity-50', 'cursor-not-allowed');
         });
@@ -1462,8 +1667,8 @@ submitScoreBtnVictory.addEventListener('click', () => {
     const val = playerNameInputVictory.value.trim();
     if (val) {
         savePrefArcade(val);
-        saveScore(val, state.score).then(() => {
-            document.getElementById('submitMsgVictory').innerText = "¡Guardado!";
+        saveScore(val, state.score).then((ok) => {
+            document.getElementById('submitMsgVictory').innerText = ok ? "¡Guardado!" : "Guardado en este dispositivo (servidor no disponible)";
             submitScoreBtnVictory.disabled = true;
             submitScoreBtnVictory.classList.add('opacity-50', 'cursor-not-allowed');
         });
@@ -1475,10 +1680,27 @@ document.getElementById('restartBtnVictory').addEventListener('click', () => {
     startGame(state.difficulty);
 });
 
+// --- COMPARTIR (WhatsApp / share nativo) ---
+function compartirArcade(score, contexto) {
+    const diffLabel = (CONFIG.DIFFICULTY[state.difficulty] || {}).label || 'Normal 🥘';
+    const zen = state.zenMode ? ' en modo ZEN 🧘' : '';
+    const txt = contexto === 'victory'
+        ? `¡Me he pasado OLLA GITANA: EL JUEGO 🥘! ${score} puntos en ${diffLabel}${zen}. ¿Te atreves?`
+        : `He hecho ${score} puntos en OLLA GITANA: EL JUEGO 🥘 (${diffLabel}${zen}). ¿Juegas tú?`;
+    const url = location.href.split('?')[0];
+    if (navigator.share) { navigator.share({ title: 'Olla Gitana: El Juego 🥘', text: txt, url }).catch(() => {}); return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(txt + '\n\n' + url), '_blank');
+}
+const shareBtnArcade = document.getElementById('shareBtnArcade');
+if (shareBtnArcade) shareBtnArcade.addEventListener('click', () => compartirArcade(state.score, 'gameover'));
+const shareBtnVictory = document.getElementById('shareBtnVictory');
+if (shareBtnVictory) shareBtnVictory.addEventListener('click', () => compartirArcade(state.score, 'victory'));
+
 backToMenuBtn.addEventListener('click', () => {
     updateArcadeBest();
     state.isRunning = false;
     hud.classList.add('hidden');
+    hideZenBadge();
     pauseScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
     setBackground('start');
@@ -1487,10 +1709,51 @@ backToMenuBtn.addEventListener('click', () => {
 // Prevent Context Menu
 window.addEventListener('contextmenu', e => e.preventDefault());
 
+// --- CONTROLES DE TECLADO (escritorio) ---
+// Antes el juego era 100% ratón/táctil: en un PC no respondía a las flechas ni a la barra espaciadora.
+const KEY_STEP = 46;
+window.addEventListener('keydown', e => {
+    if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName)) return;
+    const k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') {
+        if (state.isRunning && !state.isPaused && !state.levelUpPause) { handleInput(state.playerX + CONFIG.PLAYER_WIDTH/2 - KEY_STEP); e.preventDefault(); }
+    } else if (k === 'ArrowRight' || k === 'd' || k === 'D') {
+        if (state.isRunning && !state.isPaused && !state.levelUpPause) { handleInput(state.playerX + CONFIG.PLAYER_WIDTH/2 + KEY_STEP); e.preventDefault(); }
+    } else if (k === 'p' || k === 'P' || k === 'Escape') {
+        if (state.isRunning) { togglePause(); e.preventDefault(); }
+    } else if (k === ' ') {
+        if (state.isRunning && state.isPaused) { togglePause(); e.preventDefault(); }
+    } else if (k === 'm' || k === 'M') {
+        AudioEngine.toggleMusic(); try { savePrefArcade(undefined, AudioEngine.isMusicEnabled); } catch (err) {}
+        e.preventDefault();
+    }
+});
+
+// Pausa táctil: "Toca la pantalla pa' volver" era mentira (solo el botón SEGUIR reanudaba)
+pauseScreen.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('#resumeBtn')) return; // el botón ya tiene su handler
+    if (state.isPaused) togglePause();
+});
+// en táctil el click sintético no siempre llega (touch-action:none en el body)
+pauseScreen.addEventListener('touchend', (e) => {
+    if (e.target.closest && e.target.closest('#resumeBtn')) return;
+    if (state.isPaused) { e.preventDefault(); togglePause(); }
+}, { passive: false });
+
+// Al volver a la pestaña: si estaba en juego, se pausa (antes seguía cayendo fruta sin verla)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && state.isRunning && !state.isPaused && !state.levelUpPause) togglePause();
+});
+
 // Init
 updateDifficultyUI(); // Init button state
+updateArcadeBest();   // el récord no se veía hasta acabar una partida
+perfInit();           // DPR adaptativo según pantalla/RAM
+resize();             // aplica la escala de render inicial
 AudioEngine.init();
 setBackground('start');
+// exponer para QA (fps, escala de render)
+window.__arcadePerf = () => ({ fps: PERF.fps, idx: PERF.idx, scale: PERF.scale, low: PERF.lowQuality, changes: PERF.changes.slice(), canvas: {w: canvas.width, h: canvas.height} });
 
 // --- PRELOAD ---
 function preloadImages() {

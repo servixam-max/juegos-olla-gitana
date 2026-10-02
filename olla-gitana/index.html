@@ -30,8 +30,12 @@
         </div>
         
         <div class="flex flex-col items-center pointer-events-auto cursor-pointer hover:scale-105 transition-transform">
-            <div class="bg-yellow-100/90 backdrop-blur-sm rounded-lg px-4 py-1 shadow-lg border-2 border-yellow-600 mb-1">
+            <div class="bg-yellow-100/90 backdrop-blur-sm rounded-lg px-4 py-1 shadow-lg border-2 border-yellow-600 mb-1 w-full">
                 <span class="font-game text-yellow-800 text-lg uppercase tracking-wider drop-shadow-sm">Nivel</span> <span id="levelDisplay" class="font-bold text-xl text-yellow-900">1</span>
+                <!-- Progress to next level -->
+                <div class="w-full h-1.5 bg-yellow-900/20 rounded-full mt-0.5 overflow-hidden">
+                    <div id="levelProgressBar" class="h-full bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
             </div>
             <div id="comboChip" class="bg-purple-600/90 backdrop-blur-sm rounded-full px-3 py-0.5 shadow-lg border-2 border-white mb-1 opacity-0 transition-opacity">
                 <span class="font-bold text-white text-sm" id="comboDisplay">x1</span>
@@ -58,7 +62,7 @@
 
     <!-- Start Screen -->
     <div id="startScreen" class="absolute inset-0 z-20 flex flex-col items-center justify-start pt-16 bg-black/60 backdrop-blur-sm p-6 text-center shadow-inner overflow-y-auto">
-        <h1 class="font-game text-7xl md:text-9xl text-yellow-400 drop-shadow-[0_6px_0_rgba(180,83,9,1)] mb-2 transform -rotate-3 tracking-wider leading-none">OLLA GITANA</h1>
+        <h1 class="font-game text-6xl md:text-9xl text-yellow-400 drop-shadow-[0_6px_0_rgba(180,83,9,1)] mb-2 transform -rotate-3 tracking-wider leading-none max-w-[85%]">OLLA GITANA</h1>
         <h2 class="font-game text-4xl md:text-6xl text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.8)] mb-8 transform rotate-2">EL JUEGO 🥘</h2>
         
         <!-- Action Buttons Container -->
@@ -152,7 +156,7 @@
     </div>
 
     <!-- Pause Screen -->
-    <div id="pauseScreen" class="hidden absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div id="pauseScreen" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
         <h2 class="font-game text-6xl text-white drop-shadow-lg mb-8 tracking-widest">PAUSA</h2>
         <button id="resumeBtn" class="bg-yellow-500 hover:bg-yellow-400 text-black font-game text-3xl py-3 px-8 rounded-full border-4 border-yellow-700 shadow-lg uppercase mb-4">
             SEGUIR
@@ -161,11 +165,11 @@
     </div>
 
     <!-- Victory Screen -->
-    <div id="victoryScreen" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md p-6 text-center text-white bg-cover bg-center" style="background-image: url('victory.jpg');">
+    <div id="victoryScreen" class="hidden absolute inset-0 z-30 flex flex-col items-center overflow-y-auto bg-gray-900/95 backdrop-blur-md p-6 text-center text-white bg-cover bg-center" style="background-image: url('victory.jpg');">
         <!-- Overlay for readability -->
-        <div class="absolute inset-0 bg-black/50 z-0"></div>
+        <div class="absolute inset-0 bg-black/50 z-0" style="height:100%;min-height:100%"></div>
         
-        <div class="relative z-10 w-full flex flex-col items-center">
+        <div class="relative z-10 w-full flex flex-col items-center m-auto shrink-0">
             <h1 class="font-game text-6xl md:text-8xl text-yellow-400 drop-shadow-[0_6px_0_rgba(180,83,9,1)] mb-4 animate-bounce">¡ACHO QUÉ MÁQUINA!</h1>
             
             <div class="bg-gray-800/80 p-6 rounded-xl border-4 border-yellow-500 w-full max-w-sm mb-6 backdrop-blur-sm">
@@ -181,14 +185,20 @@
                 </div>
             </div>
 
-            <button id="restartBtnVictory" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-game text-2xl py-3 px-8 rounded-full shadow-[0_4px_0_rgb(161,98,7)] active:shadow-[0_1px_0_rgb(161,98,7)] active:translate-y-1 transition-all border-4 border-yellow-700 uppercase">
-                Otra Ronda 🍺
-            </button>
+            <div class="flex flex-col items-center gap-3 w-full max-w-sm">
+                <button id="shareBtnVictory" class="bg-emerald-500 hover:bg-emerald-600 text-white font-game text-xl py-2 px-6 rounded-full shadow-[0_4px_0_#065f46] active:shadow-none active:translate-y-1 transition-all border-4 border-emerald-300 w-full">
+                    💬 PRESUMIR POR WHATSAPP
+                </button>
+                <button id="restartBtnVictory" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-game text-2xl py-3 px-8 rounded-full shadow-[0_4px_0_rgb(161,98,7)] active:shadow-[0_1px_0_rgb(161,98,7)] active:translate-y-1 transition-all border-4 border-yellow-700 uppercase">
+                    Otra Ronda 🍺
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Game Over Screen -->
-    <div id="gameOverScreen" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md p-6 text-center text-white">
+    <div id="gameOverScreen" class="hidden absolute inset-0 z-30 flex flex-col items-center overflow-y-auto bg-gray-900/95 backdrop-blur-md p-6 text-center text-white">
+      <div class="m-auto w-full flex flex-col items-center shrink-0">
         <h1 class="font-game text-6xl text-red-500 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] mb-4 animate-bounce">¡SE ACABÓ!</h1>
         
         <div class="bg-gray-800 p-6 rounded-xl border-4 border-gray-600 w-full max-w-sm mb-6 relative overflow-hidden">
@@ -224,9 +234,15 @@
             </div>
         </div>
 
-        <button id="restartBtn" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-game text-2xl py-3 px-8 rounded-full shadow-[0_4px_0_rgb(161,98,7)] active:shadow-[0_1px_0_rgb(161,98,7)] active:translate-y-1 transition-all border-4 border-yellow-700 uppercase">
-            Otra Ronda 🍺
-        </button>
+        <div class="flex flex-col items-center gap-3">
+            <button id="shareBtnArcade" class="bg-emerald-500 hover:bg-emerald-600 text-white font-game text-xl py-2 px-6 rounded-full shadow-[0_4px_0_#065f46] active:shadow-none active:translate-y-1 transition-all border-4 border-emerald-300">
+                💬 PRESUMIR POR WHATSAPP
+            </button>
+            <button id="restartBtn" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-game text-2xl py-3 px-8 rounded-full shadow-[0_4px_0_rgb(161,98,7)] active:shadow-[0_1px_0_rgb(161,98,7)] active:translate-y-1 transition-all border-4 border-yellow-700 uppercase">
+                Otra Ronda 🍺
+            </button>
+        </div>
+      </div>
     </div>
 
     <!-- Ranking Screen -->
