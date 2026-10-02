@@ -1,0 +1,17 @@
+{
+ "url": "http://127.0.0.1:8086/ollagitana/olla-gitana-duelo/",
+ "pasos": [
+  "title: Olla Gitana: El Duelo 🔫",
+  "__dueloState: {\"conectado\":false,\"slot\":0,\"sala\":\"\",\"jugando\":false,\"finMostrado\":false,\"ws\":false,\"rival\":\"\",\"bot\":false,\"fondo\":11,\"fondoListo\":true}",
+  "geo: {\"btnBot\":{\"x\":195,\"y\":357,\"w\":335,\"h\":94},\"btnCreate\":{\"x\":195,\"y\":446,\"w\":335,\"h\":67},\"btnJoin\":{\"x\":306,\"y\":556,\"w\":113,\"h\":57},\"btnHow\":{\"x\":195,\"y\":724,\"w\":335,\"h\":55},\"inputName\":{\"x\":195,\"y\":271,\"w\":335,\"h\":54},\"inputCode\":{\"x\":135,\"y\":556,\"w\":214,\"h\":75}}",
+  "menu visibilidad: {\"vh\":844,\"items\":[{\"tag\":\"H1\",\"top\":50,\"bottom\":108,\"visible\":true},{\"tag\":\"H2\",\"top\":101,\"bottom\":138,\"visible\":true},{\"tag\":\"P\",\"top\":147,\"bottom\":228,\"visible\":true},{\"tag\":\"DIV#nameBox\",\"top\":244,\"bottom\":298,\"visible\":true},{\"tag\":\"BUTTON#btnBot\",\"top\":310,\"bottom\":404,\"visible\":true},{\"tag\":\"BUTTON#btnCreate\",\"top\":413,\"bottom\":480,\"visible\":true},{\"tag\":\"DIV\",\"top\":492,\"bottom\":507,\"visible\":true},{\"tag\":\"DIV\",\"top\":519,\"bottom\":594,\"visible\":true},{\"tag\":\"DIV\",\"top\":606,\"bottom\":688,\"visible\":true},{\"tag\":\"BUTTON#btnHow\",\"top\":697,\"bottom\":752,\"visible\":true},{\"tag\":\"P#bestScore\",\"top\":764,\"bottom\":764,\"visible\":true},{\"tag\":\"P\",\"top\":764,\"bottom\":777,\"visible\":true}]}",
+  "tras PULSAR BOT: {\"conectado\":true,\"slot\":0,\"sala\":\"GLSO\",\"jugando\":true,\"finMostrado\":false,\"ws\":true,\"rival\":\"La Máquina 🤖\",\"bot\":true,\"fondo\":11,\"fondoListo\":true}",
+  "partida iniciada: true",
+  "fps ~= 61",
+  "btnFire geo: {\"x\":324,\"y\":757,\"w\":96}",
+  "estado tras 20s: {\"conectado\":true,\"slot\":0,\"sala\":\"GLSO\",\"jugando\":true,\"finMostrado\":false,\"ws\":true,\"rival\":\"La Máquina 🤖\",\"bot\":true,\"fondo\":11,\"fondoListo\":true}",
+  "endScreen visible: false",
+  "ERRORES JS (0): []"
+ ],
+ "errores": []
+}

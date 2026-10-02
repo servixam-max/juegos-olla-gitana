@@ -1,0 +1,35 @@
+{
+ "RES": [
+  {
+   "n": "carga limpia, sin errores",
+   "c": true,
+   "ex": "[]"
+  },
+  {
+   "n": "instrucciones actualizadas (mejor de 5)",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "instrucciones con power-ups",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "bot arranca",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "partida viva (fase play, con datos)",
+   "c": true,
+   "ex": "{\"r\":[0,0],\"hp\":[6,6],\"pos\":[[90,90],[483,1257]]}"
+  },
+  {
+   "n": "0 errores JS tras jugar",
+   "c": true,
+   "ex": "[]"
+  }
+ ],
+ "errores": []
+}

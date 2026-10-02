@@ -1,0 +1,87 @@
+{
+ "code": "LAMC",
+ "RES": [
+  {
+   "n": "A crea sala con código de 4 letras",
+   "c": true,
+   "ex": "code=LAMC"
+  },
+  {
+   "n": "B entra en la misma sala",
+   "c": true,
+   "ex": "A=LAMC B=LAMC"
+  },
+  {
+   "n": "slots distintos",
+   "c": true,
+   "ex": "A=0 B=1"
+  },
+  {
+   "n": "A ve \"Bea\"",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "B ve \"Ana\"",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "A jugando",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "B jugando",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "A disparó y B vio las balas (sync)",
+   "c": true,
+   "ex": "maxBalasEnB=5"
+  },
+  {
+   "n": "B perdió vidas (los disparos hacen daño)",
+   "c": true,
+   "ex": "hpMinB=0"
+  },
+  {
+   "n": "al menos una ronda puntuada",
+   "c": true,
+   "ex": "rondas=[3,0]"
+  },
+  {
+   "n": "partida resuelta (mejor de 5)",
+   "c": true,
+   "ex": "fin={\"fase\":\"over\",\"hp\":[6,0],\"alive\":[true,false],\"rondas\":[3,0],\"ronda_n\":3,\"countdown\":0,\"nBalas\":2,\"W\":800,\"H\":1731,\"yo\":1}"
+  },
+  {
+   "n": "pantalla final en A",
+   "c": true,
+   "ex": "¡HAS GANADO! 🏆"
+  },
+  {
+   "n": "pantalla final en B",
+   "c": true,
+   "ex": "¡TE HAN GANAO!"
+  },
+  {
+   "n": "REVANCHA arranca desde la UI",
+   "c": true,
+   "ex": "jugando=true rondas=[0,0] hp=[6,6] fase=play"
+  },
+  {
+   "n": "0 errores JS en A",
+   "c": true,
+   "ex": "[]"
+  },
+  {
+   "n": "0 errores JS en B",
+   "c": true,
+   "ex": "[]"
+  }
+ ],
+ "erroresA": [],
+ "erroresB": []
+}

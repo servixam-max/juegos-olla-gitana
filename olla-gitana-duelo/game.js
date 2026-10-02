@@ -26,11 +26,11 @@ const PHRASES_LOSE = ['¡Arrea!', '¡Menudo pijo!', '¡Ojú!', '¡Cagüen la mar
 let ws = null, mySlot = 0, roomCode = '', myName = '';
 let jugando = false, estado = null, lastEstado = 0;
 let soundOn = true, beepCtx = null;
-let connected = false, rivalNombre = '', conBotNow = false;
+let connected = false, rivalNombre = '', conBotNow = false, botAutoReady = false;
 let fondoImg = null, fondoIdx = 11, fondoListo = false;   // por defecto, la huerta
 const FONDOS = Array.from({ length: 14 }, (_, i) => `../olla-gitana-runner/assets/bg_${i + 1}.jpg`);
 let input = { mx: 0, my: 0, ax: 0, ay: 0, fire: false };
-let joyActivo = false, joyCx = 0, joyCy = 0, joyId = null;
+let joyActivo = false, joyCx = 0, joyCy = 0, joyId = null, joyLejos = false;
 
 /* ---------------- Audio ---------------- */
 let ultimoShot = 0;
@@ -78,8 +78,10 @@ function conectar(room, name, createRoom, conBot) {
       guardarNombre(myName);
     } else if (m.t === 'joined') {
       pintarLobby(m.players);
-      if (conBotNow && !jugando) {
-        ws.send(JSON.stringify({ t: 'ready', v: true }));   // el bot ya está listo: arranca
+      // modo máquina: solo la PRIMERA vez se auto-arranca (la revancha se pide a mano)
+      if (conBotNow && botAutoReady && !jugando) {
+        botAutoReady = false;
+        ws.send(JSON.stringify({ t: 'ready', v: true }));
       }
     } else if (m.t === 'left') {
       pintarLobby(m.players);
@@ -87,13 +89,33 @@ function conectar(room, name, createRoom, conBot) {
     } else if (m.t === 'start') {
       empezarPartida();
     } else if (m.t === 'state') {
+      const prev = estado;
       estado = m; lastEstado = performance.now();
+      if (prev && prev.p && m.p && jugando) {
+        // ¿me han dado? -> sacudida + rojo + sonido + vibración
+        const a = prev.p[mySlot], b = m.p[mySlot];
+        if (a && b && b.hp < a.hp) recibirGolpe();
+        // ¿ha terminado la ronda? -> aviso grande ARRIBA (no tapa la cuenta atrás)
+        const ra = prev.rondas || [0, 0], rb = m.rondas || [0, 0];
+        const sumaA = (ra[0] || 0) + (ra[1] || 0), sumaB = (rb[0] || 0) + (rb[1] || 0);
+        if (sumaB === sumaA + 1 && m.fase !== 'over') {
+          avisoRonda = { txt: rb[mySlot] > ra[mySlot] ? '¡RONDA TUYA! 🏆' : '¡RONDA DEL RIVAL! 💀', t: 2.6, mio: rb[mySlot] > ra[mySlot] };
+        } else if (sumaB < sumaA) {
+          avisoRonda = null;    // revancha: rondas a cero, sin cartel
+        }
+      }
       if (m.fase === 'over' && m.res && !finMostrado) terminar(m.res);
     } else if (m.t === 'error') {
       toast(m.msg || 'Error de sala', 2600);
       hide(el('lobbyScreen')); show(el('startScreen'));
     }
   };
+}
+
+function recibirGolpe() {
+  flash = 1;
+  sfxHit();
+  try { navigator.vibrate && navigator.vibrate(70); } catch (e) {}
 }
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -113,23 +135,26 @@ function leerNombre() {
 function pintarLobby(players) {
   players = players || [];
   const s0 = el('slot0'), s1 = el('slot1');
-  const mine = players.find(p => p.slot === mySlot);
-  const other = players.find(p => p.slot !== mySlot);
-  s0.className = 'playerSlot' + (mine && mine.slot === 0 ? ' me' : (other && other.slot === 0 ? ' rival' : ''));
-  s1.className = 'playerSlot' + (mine && mine.slot === 1 ? ' me' : (other && other.slot === 1 ? ' rival' : ''));
-  const pinta = (node, p, etiqueta) => {
+  const pinta = (node, slot) => {
+    const p = players.find(x => x.slot === slot);
+    let cls = 'playerSlot';
+    if (p && p.slot === mySlot) cls += ' me';
+    else if (p) cls += (p.bot ? ' bot' : ' rival');
+    node.className = cls;
     if (!p) { node.innerHTML = '<span class="ico">⏳</span><b class="nm">Esperando…</b>'; return; }
     const st = p.ready ? '<span class="st">✅ listo</span>' : '<span class="st" style="color:#fca5a5">…preparando</span>';
-    node.className = 'playerSlot' + (p.bot ? ' bot' : '');
-    node.innerHTML = `<span class="ico">${p.bot ? '🤖' : '🥘'}</span><b class="nm">${esc(p.name)}${etiqueta}</b>${st}`;
+    node.innerHTML = `<span class="ico">${p.bot ? '🤖' : '🥘'}</span><b class="nm">${esc(p.name)}${p.slot === mySlot ? ' (tú)' : ''}</b>${st}`;
   };
-  const porSlot = s => players.find(p => p.slot === s);
-  pinta(s0, porSlot(0), porSlot(0) && porSlot(0).slot === mySlot ? ' (tú)' : '');
-  pinta(s1, porSlot(1), porSlot(1) && porSlot(1).slot === mySlot ? ' (tú)' : '');
+  pinta(s0, 0); pinta(s1, 1);
   const listos = players.length === 2 && players.every(p => p.ready);
-  el('lobbyMsg').textContent = players.length < 2
-    ? 'Manda el código a quien quieras jugar…'
-    : (listos ? '¡Empieza el duelo!' : 'Cuando los dos estéis listos, empieza.');
+  const yoListo = players.some(p => p.slot === mySlot && p.ready);
+  el('lobbyMsg').textContent = conBotNow
+    ? (listos ? 'La máquina ya está lista. ¡Pulsa ESTOY LISTO!' : (yoListo ? '¡Listo! Esperando a la máquina…' : 'Pulsa ¡ESTOY LISTO! para empezar.'))
+    : (players.length < 2
+      ? 'Manda el código a quien quieras jugar…'
+      : (listos ? '¡Empieza el duelo!' : (yoListo ? '¡Listo! Esperando al rival…' : 'El rival está dentro. ¡Pulsa ESTOY LISTO!')));
+  // el botón LISTO late cuando falta que TÚ lo pulses
+  el('btnReady').classList.toggle('pulse', players.length === 2 && !listos && !yoListo);
   rivalNombre = (players.find(p => p.slot !== mySlot) || {}).name || '';
   const nm = el('nameMe'); if (nm) nm.textContent = myName || 'Tú';
   const nr = el('nameRival'); if (nr) nr.textContent = rivalNombre || 'Rival';
@@ -138,7 +163,7 @@ function pintarLobby(players) {
 /* ---------------- Partida ---------------- */
 let finMostrado = false;
 function empezarPartida() {
-  jugando = true; finMostrado = false;
+  jugando = true; finMostrado = false; avisoRonda = null;
   hide(el('lobbyScreen')); hide(el('startScreen')); hide(el('endScreen'));
   show(el('hud')); show(el('controls'));
   toast('¡A por el rival! 🔫');
@@ -149,6 +174,10 @@ function terminar(res) {
   if (finMostrado) return;
   finMostrado = true; jugando = false;
   hide(el('controls'));
+  input.fire = false; input.mx = input.my = 0;
+  // al acabar, quitar el 'listo' para que la revancha la pidan los dos a propósito
+  try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'ready', v: false })); } catch (e) {}
+  el('btnReady').classList.remove('on');
   const gane = res.ganador === mySlot;
   el('endTitle').textContent = res.abandonó ? '¡TU RIVAL SE FUE!' : (gane ? '¡HAS GANADO! 🏆' : '¡TE HAN GANAO!');
   el('endPhrase').textContent = gane ? PHRASES_WIN[(Math.random() * PHRASES_WIN.length) | 0] : PHRASES_LOSE[(Math.random() * PHRASES_LOSE.length) | 0];
@@ -189,9 +218,11 @@ function ajustarEscena() {
 }
 
 let lastFrame = performance.now(), ultimoEnvio = 0, flash = 0;
+let avisoRonda = null;                  // cartel "¡RONDA TUYA!" / "¡RONDA DEL RIVAL!"
 function loop(now) {
   const dt = clamp((now - lastFrame) / 1000, 0, 0.05); lastFrame = now;
   if (flash > 0) flash -= dt * 3;
+  if (avisoRonda) { avisoRonda.t -= dt; if (avisoRonda.t <= 0) avisoRonda = null; }
   ajustarEscena();
 
   // enviar input al servidor (~22/s)
@@ -206,7 +237,11 @@ function loop(now) {
 }
 
 function dibujar() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, W, H);
+  // ---- SACUDIDA al recibir un golpe: desplaza TODO el cuadro ----
+  ctx.save();
+  if (flash > 0) ctx.translate((Math.random() - 0.5) * 11 * flash, (Math.random() - 0.5) * 11 * flash);
   // fondo de Murcia
   if (fondoListo && fondoImg) {
     const es = Math.max(W / fondoImg.width, H / fondoImg.height) * 1.05;
@@ -367,43 +402,44 @@ function dibujar() {
 
   // marcador: nombre + corazones de cada uno (el servidor manda 6 vidas)
   if (e && e.p) {
-    const boxW = Math.min(W * .92, 420), bx = (W - boxW) / 2, by = 50;
-    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    const boxW = Math.min(W * .94, 430), bx = (W - boxW) / 2, by = 50, boxH = 54;
+    ctx.fillStyle = 'rgba(0,0,0,.68)';
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, 46, 23); else ctx.rect(bx, by, boxW, 46);
+    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, boxH, 20); else ctx.rect(bx, by, boxW, boxH);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 2; ctx.stroke();
     const yo = e.p[mySlot] || { hp: 0 }, el2 = e.p[1 - mySlot] || { hp: 0 };
+    const hpYo = Math.max(0, Math.min(6, yo.hp || 0)), hpRi = Math.max(0, Math.min(6, el2.hp || 0));
     ctx.textBaseline = 'middle';
-    // mi lado
+    // mi lado (verde)
     ctx.textAlign = 'left';
-    ctx.font = '900 15px system-ui'; ctx.fillStyle = '#86efac';
-    ctx.fillText((myName || 'Tú').slice(0, 10), bx + 14, by + 16);      // nombre
-    ctx.font = '900 14px system-ui';
-    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(6, yo.hp))), bx + 14, by + 33);  // corazones
-    // su lado
+    ctx.font = '900 14px system-ui'; ctx.fillStyle = '#86efac';
+    ctx.fillText((myName || 'Tú').slice(0, 9), bx + 12, by + 15);
+    ctx.font = '900 13px system-ui';
+    ctx.fillText('❤️'.repeat(hpYo) + '🖤'.repeat(6 - hpYo), bx + 12, by + 34);
+    // su lado (ámbar)
     ctx.textAlign = 'right';
-    ctx.font = '900 15px system-ui'; ctx.fillStyle = '#fde68a';
-    ctx.fillText((rivalNombre || 'Rival').slice(0, 10), bx + boxW - 14, by + 16);
-    ctx.font = '900 14px system-ui';
-    ctx.fillText('❤️'.repeat(Math.max(0, Math.min(6, el2.hp))), bx + boxW - 14, by + 33);
-    // centro: marcador de RONDAS (al mejor de 5)
+    ctx.font = '900 14px system-ui'; ctx.fillStyle = '#fde68a';
+    ctx.fillText((rivalNombre || 'Rival').slice(0, 9), bx + boxW - 12, by + 15);
+    ctx.font = '900 13px system-ui';
+    ctx.fillText('🖤'.repeat(6 - hpRi) + '❤️'.repeat(hpRi), bx + boxW - 12, by + 34);
+    // centro: marcador de RONDAS (al mejor de 5) + info de ronda
     const ron = e.rondas || [0, 0];
-    ctx.textAlign = 'center';
-    ctx.font = '900 22px system-ui'; ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.fillText(`${ron[mySlot] ?? 0} - ${ron[1 - mySlot] ?? 0}`, bx + boxW / 2, by + 17);
     const rt = e.ronda_t == null ? 75 : e.ronda_t;
     const presion = rt <= 0;
-    ctx.font = '900 11px system-ui';
-    ctx.fillStyle = presion ? '#f87171' : 'rgba(255,255,255,.5)';
+    ctx.textAlign = 'center';
+    ctx.font = '900 20px system-ui'; ctx.fillStyle = '#fff';
+    ctx.fillText(`${ron[mySlot] ?? 0} - ${ron[1 - mySlot] ?? 0}`, bx + boxW / 2, by + 20);
+    ctx.font = '900 10px system-ui';
+    ctx.fillStyle = presion ? '#f87171' : 'rgba(255,255,255,.62)';
     const segs = presion ? '¡PRESIÓN!' : `${Math.ceil(rt)}s`;
-    ctx.fillText(`RONDA ${e.ronda_n || 1} · al mejor de 5 · ${segs}`, bx + boxW / 2, by + 34);
-    // barra de tiempo de ronda
+    ctx.fillText(`RONDA ${e.ronda_n || 1} DE 5 · ${segs}`, bx + boxW / 2, by + 38);
+    // barra de tiempo de ronda (dentro del recuadro)
     const frac = clamp(rt / 75, 0, 1);
     ctx.fillStyle = 'rgba(255,255,255,.14)';
-    ctx.fillRect(bx + 12, by + 44, boxW - 24, 5);
+    ctx.fillRect(bx + 12, by + 46, boxW - 24, 5);
     ctx.fillStyle = presion ? '#f87171' : (frac < 0.3 ? '#fbbf24' : '#4ade80');
-    ctx.fillRect(bx + 12, by + 44, (boxW - 24) * frac, 5);
+    ctx.fillRect(bx + 12, by + 46, (boxW - 24) * frac, 5);
     // ---- efectos activos de cada jugador (bajo el marcador) ----
     const EFE = { arco: '🏹', escudo: '🛡️', rapido: '⚡', invisible: '🌫️' };
     const ef = (e.efectos || [])[mySlot] || {};
@@ -411,12 +447,23 @@ function dibujar() {
     ctx.font = '900 13px system-ui'; ctx.textAlign = 'left';
     for (const k in EFE) {
       if ((ef[k] || 0) > 0) {
-        ctx.fillStyle = 'rgba(0,0,0,.55)';
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(ex, by + 46, 40, 22, 11); ctx.fill(); }
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(ex, by + boxH + 4, 40, 22, 11); ctx.fill(); }
         ctx.fillStyle = '#fff';
-        ctx.fillText(EFE[k], ex + 8, by + 57);
+        ctx.fillText(EFE[k], ex + 8, by + boxH + 15);
         ex += 44;
       }
+    }
+    // ---- cartel de fin de ronda (arriba, no tapa la cuenta atrás) ----
+    if (avisoRonda) {
+      const k = clamp(avisoRonda.t / 2.6, 0, 1);
+      ctx.globalAlpha = Math.min(1, k * 2.2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '900 30px system-ui';
+      ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillText(avisoRonda.txt, bx + boxW / 2 + 2, 164 + 2);
+      ctx.fillStyle = avisoRonda.mio ? '#86efac' : '#fca5a5';
+      ctx.fillText(avisoRonda.txt, bx + boxW / 2, 164);
+      ctx.globalAlpha = 1;
     }
   }
   // ---- PRESIÓN: tinte rojo late ----
@@ -426,14 +473,9 @@ function dibujar() {
     ctx.fillRect(0, 0, W, H);
     ctx.font = '900 15px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = `rgba(248,113,113,${0.6 + pulso * 0.4})`;
-    ctx.fillText('💀 ¡PRESIÓN! Se acaba el tiempo', W / 2, 96);
+    ctx.fillText('💀 ¡PRESIÓN! Se acaba el tiempo', W / 2, 146);
   }
-  // ---- SACUDIDA al recibir un golpe ----
-  if (flash > 0) {
-    ctx.save();
-    ctx.translate((Math.random() - 0.5) * 10 * flash, (Math.random() - 0.5) * 10 * flash);
-    ctx.restore();
-  }
+  // ---- SACUDIDA al recibir un golpe: se aplica al inicio de dibujar() ----
 
   // ---- CUENTA ATRÁS 3·2·1 (grande, en el centro) ----
   const cd = (e && e.countdown) || 0;
@@ -455,16 +497,18 @@ function dibujar() {
     ctx.fillText(`RONDA ${(e && e.ronda_n) || 1}`, 0, 92);
     ctx.restore();
   }
-  // joystick visual
-  if (joyActivo) {
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(joyCx, joyCy, 60, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = 'rgba(250,204,21,.35)';
-    ctx.beginPath(); ctx.arc(joyCx + input.mx * 50, joyCy + input.my * 50, 26, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
+  // joystick visual: el pad DOM (#joyPad/#joyStick) ya lo dibuja, aquí solo
+// se pinta el vector cuando el toque está LEJOS del pad (feedback del centro virtual)
+if (joyActivo && joyLejos) {
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.strokeStyle = '#facc15'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(joyCx, joyCy, 60, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(250,204,21,.35)';
+  ctx.beginPath(); ctx.arc(joyCx + input.mx * 50, joyCy + input.my * 50, 26, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+  ctx.restore();   // fin de la sacudida
 }
 
 /* ---------------- Controles cenitales: joystick + disparo ---------------- */
@@ -472,6 +516,11 @@ const cv = el('stage');
 function posCanvas(ev) {
   const r = cv.getBoundingClientRect();
   return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+function centroPad() {
+  const p = el('joyPad');
+  if (p) { const b = p.getBoundingClientRect(); if (b.width) return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }
+  return { x: 84, y: H - 103 };
 }
 function actualizarJoystick(ev) {
   const { x, y } = posCanvas(ev);
@@ -484,19 +533,22 @@ function actualizarJoystick(ev) {
   input.mx = (dx / d) * k;
   input.my = (dy / d) * k;
   if (k > 0.2) { input.ax = dx / d; input.ay = dy / d; }   // apunta hacia donde empujas
-  // aro visual del joystick de la izquierda
-  const js = document.getElementById('joyStick');
-  if (js) js.style.transform = `translate(${(dx / d) * k * 36}px, ${(dy / d) * k * 36}px)`;
+  // el stick del pad DOM solo se mueve cuando el toque nace EN el pad
+  if (!joyLejos) {
+    const js = document.getElementById('joyStick');
+    if (js) js.style.transform = `translate(${(dx / d) * k * 36}px, ${(dy / d) * k * 36}px)`;
+  }
 }
 cv.addEventListener('pointerdown', ev => {
   if (!jugando) return;
   ev.preventDefault();
   const { x, y } = posCanvas(ev);
-  // toda la mitad izquierda mueve (el pad se centra donde toques)
+  // toda la mitad izquierda mueve (pad fijo; si tocas fuera, centro virtual donde toques)
   if (x < W * 0.5) {
+    const c = centroPad();
     joyId = ev.pointerId; joyActivo = true;
-    joyCx = W * 0.16 + 66; joyCy = H - 90 - 66;      // centro del pad de la izquierda
-    if (Math.abs(x - joyCx) < 110 && Math.abs(y - joyCy) < 110) { joyCx = x; joyCy = y; }
+    joyLejos = !(Math.abs(x - c.x) < 100 && Math.abs(y - c.y) < 100);
+    joyCx = joyLejos ? x : c.x; joyCy = joyLejos ? y : c.y;
     input.mx = 0; input.my = 0;
     actualizarJoystick(ev);
     try { cv.setPointerCapture && cv.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -509,7 +561,7 @@ cv.addEventListener('pointermove', ev => {
 }, { passive: false });
 function soltarJoystick(ev) {
   if (ev && ev.pointerId !== joyId) return;
-  joyActivo = false; joyId = null; input.mx = 0; input.my = 0;
+  joyActivo = false; joyId = null; joyLejos = false; input.mx = 0; input.my = 0;
   const js = document.getElementById('joyStick');
   if (js) js.style.transform = 'translate(0,0)';
 }
@@ -555,17 +607,23 @@ document.addEventListener('keyup', e => {
   if (teclas[k] !== undefined) { teclas[k] = false; recalcularTeclas(); }
   if (k === 'f' || k === ' ') input.fire = false;
 });
-// en escritorio: apuntar con el ratón
+// en escritorio: apuntar con el ratón (misma transformación que usa dibujar())
+function pantallaA_Mundo(x, y) {
+  const e = estado;
+  const MW = (e && e.W) || 800, MH = (e && e.H) || 1500;
+  const arriba = 104, abajo = Math.min(186, H * 0.23);
+  const dispW = W - 8, dispH = H - arriba - abajo;
+  const esc = Math.min(dispW / MW, dispH / MH);
+  const ox = (W - MW * esc) / 2, oy = arriba + (dispH - MH * esc) / 2;
+  return { x: (x - ox) / esc, y: (y - oy) / esc };
+}
 cv.addEventListener('pointermove', ev => {
   if (joyActivo) return;
   if (ev.pointerType !== 'mouse' || !estado || !estado.p) return;
   const { x, y } = posCanvas(ev);
-  const MW = estado.W || 1000, MH = estado.H || 1000;
-  const tam = Math.min(W, H * 0.92), esc2 = tam / Math.max(MW, MH);
-  const ox = (W - MW * esc2) / 2, oy = 44 + (H - 100 - MH * esc2) / 2;
-  const wx = (x - ox) / esc2, wy = (y - oy) / esc2;
+  const w = pantallaA_Mundo(x, y);
   const yo = estado.p[mySlot];
-  if (yo) { const dx = wx - yo.x, dy = wy - yo.y; const n = Math.hypot(dx, dy) || 1; input.ax = dx / n; input.ay = dy / n; }
+  if (yo) { const dx = w.x - yo.x, dy = w.y - yo.y; const n = Math.hypot(dx, dy) || 1; input.ax = dx / n; input.ay = dy / n; }
 });
 cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'mouse' && jugando) { input.fire = true; sfxShot(); } });
 cv.addEventListener('pointerup', ev => { if (ev.pointerType === 'mouse') input.fire = false; });
@@ -586,7 +644,7 @@ el('btnCreate').addEventListener('click', () => {
 });
 el('btnBot').addEventListener('click', () => {
   myName = (el('inputName').value.trim() || 'Zagal').slice(0, 14);
-  conBotNow = true; conectar('', myName, false, true);
+  conBotNow = true; botAutoReady = true; conectar('', myName, false, true);
   el('lobbyMsg') && (el('lobbyMsg').textContent = 'Jugando contra la máquina 🤖');
   el('btnCopy') && (el('btnCopy').style.display = 'none');
 });
@@ -605,7 +663,14 @@ el('btnReady').addEventListener('click', () => {
 });
 el('btnLeave').addEventListener('click', () => { salir(); });
 el('btnMenu').addEventListener('click', () => { salir(); });
-el('btnAgain').addEventListener('click', () => { hide(el('endScreen')); show(el('lobbyScreen')); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'ready', v: false })); });
+el('btnAgain').addEventListener('click', () => {
+  hide(el('endScreen'));
+  jugando = false;
+  show(el('lobbyScreen'));
+  el('btnReady').classList.remove('on');
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'ready', v: false }));
+  if (conBotNow) el('lobbyMsg').textContent = 'Pulsa ¡ESTOY LISTO! para la revancha 🔁';
+});
 el('btnEndMenu').addEventListener('click', () => { salir(); });
 el('btnCopy').addEventListener('click', async () => {
   const txt = `¡Te reto a un duelo en los juegos de Olla Gitana! 🥘🔫\nEntra con el código: ${roomCode}\n${location.origin}/ollagitana/olla-gitana-duelo/`;
@@ -629,9 +694,11 @@ function salir() {
   try { ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: 'leave' })); } catch (e) {}
   try { ws && ws.close(); } catch (e) {}
   jugando = false; estado = null; finMostrado = false;
+  conBotNow = false; botAutoReady = false; avisoRonda = null;
   hide(el('lobbyScreen')); hide(el('endScreen')); hide(el('hud'));
   hide(el('controls')); const cb = el('chatBox'); if (cb) hide(cb);
   el('btnReady').classList.remove('on');
+  el('btnCopy').style.display = '';
   show(el('startScreen'));
 }
 
@@ -663,3 +730,11 @@ pintarEscenarios();
 resize();
 requestAnimationFrame(loop);
 window.__dueloState = () => ({ conectado: connected, slot: mySlot, sala: roomCode, jugando, finMostrado, ws: !!ws, rival: rivalNombre, bot: conBotNow, fondo: fondoIdx, fondoListo });
+// sonda de QA: estado de partida en crudo (hp, rondas, fase) para pruebas automáticas
+window.__dueloHud = () => (estado ? {
+  fase: estado.fase, hp: (estado.p || []).map(p => p.hp), alive: (estado.p || []).map(p => !!p.alive),
+  rondas: estado.rondas, ronda_n: estado.ronda_n, countdown: estado.countdown,
+  nBalas: (estado.b || []).length, W: estado.W, H: estado.H, yo: mySlot,
+  pos: (estado.p || []).map(p => [Math.round(p.x), Math.round(p.y)]),
+  efectos: (estado.efectos || []).map(e => Object.keys(e).filter(k => e[k] > 0)),
+} : null);

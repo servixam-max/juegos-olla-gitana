@@ -1,0 +1,70 @@
+{
+ "RES": [
+  {
+   "n": "menú: todos los controles visibles",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "modo bot: lobby",
+   "c": false,
+   "ex": ""
+  },
+  {
+   "n": "modo bot: arranca solo",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "JOYSTICK mueve al jugador",
+   "c": true,
+   "ex": "antes=[90,90] durante=[479,62] d=390"
+  },
+  {
+   "n": "al soltar, el jugador se para",
+   "c": true,
+   "ex": "despues=[493,62]"
+  },
+  {
+   "n": "BOTÓN DISPARAR crea balas",
+   "c": true,
+   "ex": "maxBalas=3"
+  },
+  {
+   "n": "TECLADO (WASD) mueve al jugador",
+   "c": true,
+   "ex": "d=280"
+  },
+  {
+   "n": "stick vuelve al centro al soltar",
+   "c": true,
+   "ex": "tr=\"translate(0px, 0px)\""
+  },
+  {
+   "n": "partida contra el bot termina",
+   "c": true,
+   "ex": "{\"rondas\":[0,3],\"hp\":[0,6]}"
+  },
+  {
+   "n": "pantalla final visible",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "revancha bot: vuelve al lobby",
+   "c": true,
+   "ex": ""
+  },
+  {
+   "n": "REVANCHA bot: rondas a cero y hp 6",
+   "c": true,
+   "ex": "{\"r\":[0,0],\"hp\":[6,6],\"cd\":2.9333333333333345,\"f\":\"play\"}"
+  },
+  {
+   "n": "0 errores JS en toda la sesión",
+   "c": true,
+   "ex": "[]"
+  }
+ ],
+ "errores": []
+}
