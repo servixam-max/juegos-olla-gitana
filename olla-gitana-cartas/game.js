@@ -8,6 +8,20 @@ const show = n => n.classList.remove('hidden');
 const hide = n => n.classList.add('hidden');
 const rand = (a, b) => a + Math.random() * (b - a);
 
+/* ---------------- Preferencias compartidas (nombre, sonido) ----------------
+   Misma clave que el resto de juegos de la banda: olla_prefs_v1 */
+const PREFS_KEY = 'olla_prefs_v1';
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (e) { return {}; } }
+function savePrefs(patch) {
+  try { const p = loadPrefs(); Object.assign(p, patch); localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch (e) {}
+}
+window.savePref = (name, sound) => {
+  const p = {};
+  if (name !== undefined) p.name = name;
+  if (sound !== undefined) p.sound = sound;
+  savePrefs(p);
+};
+
 /* ---------------- Config ---------------- */
 const GAME_ID = 'cartas';
 const STORAGE_KEY = 'olla_cartas_scores_v1';
@@ -103,14 +117,31 @@ let deck = [], player = [], dealer = [];
 let lives = 3, points = 0, level = 1, streak = 0, maxStreak = 0, handsWon = 0, handsPlayed = 0;
 let dealerHidden = false, phase = 'idle', busy = false, handResolved = false;
 let doubled = false;          // apuesta DOBLAR activa en esta mano
+let epoch = 0;                // sube al reiniciar partida: los temporizadores viejos se ignoran
+
+/* Temporizador "seguro": si la partida se reinició (epoch distinto), no se ejecuta;
+   si el juego está en pausa, espera a reanudar (antes la banca seguía jugando
+   detrás de la pantalla de pausa). */
+function later(ms, fn) {
+  const ep = epoch;
+  const run = () => {
+    if (ep !== epoch || !running) return;
+    if (paused) { setTimeout(run, 150); return; }
+    fn();
+  };
+  setTimeout(run, ms);
+}
 
 const multTier = s => (s >= 10 ? 5 : s >= 6 ? 4 : s >= 4 ? 3 : s >= 2 ? 2 : 1);
 const mult = () => multTier(streak);
 
 /* ---------------- Render ---------------- */
-function cardEl(card, faceDown) {
+let prevN = { p: 0, d: 0 };        // nº de cartas ya pintadas (anima solo las nuevas)
+let prevDealerHidden = true;
+
+function cardEl(card, faceDown, animate = true) {
   const d = document.createElement('div');
-  d.className = 'card deal';
+  d.className = 'card' + (animate ? ' deal' : '');
   if (faceDown) {
     d.classList.add('back');
     d.innerHTML = `<div class="fig"><span class="num">🥘</span><span class="figName">OLLA</span></div>`;
@@ -126,19 +157,48 @@ function cardEl(card, faceDown) {
   return d;
 }
 
+/* Ajusta la mano para que NUNCA se corte: si las cartas no caben, se solapan.
+   (Antes, con 5+ cartas, la primera y la última se salían de la pantalla.) */
+function fitHand(node, n) {
+  if (!node) return;
+  const kids = [...node.children];
+  kids.forEach(c => { c.style.marginLeft = ''; });
+  node.style.gap = '';
+  if (n <= 1 || !kids.length) return;
+  const cs = getComputedStyle(node);
+  const avail = node.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  const cw = kids[0].offsetWidth || 1;
+  const baseGap = 6;
+  if (!avail || avail >= n * cw + (n - 1) * baseGap) return;   // caben con hueco normal
+  const step = (avail - cw) / (n - 1);
+  const minStep = Math.min(cw, 18);                            // al menos 18px visibles por carta
+  const s = Math.max(step, minStep);
+  if (s >= cw) { node.style.gap = Math.max(0, s - cw) + 'px'; }
+  else { node.style.gap = '0px'; kids.forEach((c, i) => { if (i > 0) c.style.marginLeft = (s - cw) + 'px'; }); }
+}
+
 function render() {
   const ph = el('youHand'), dh = el('bancaHand');
+  const nP = player.length, nD = dealer.length;
   ph.innerHTML = ''; dh.innerHTML = '';
-  player.forEach(c => ph.appendChild(cardEl(c)));
-  dealer.forEach((c, i) => dh.appendChild(cardEl(c, dealerHidden && i === dealer.length - 1)));
-  el('youTotal').textContent = player.length ? fmt(handTotal(player)) : '—';
-  el('bancaTotal').textContent = dealer.length ? (dealerHidden ? fmt(handTotal(dealer.slice(0, -1))) + ' + ?' : fmt(handTotal(dealer))) : '—';
+  player.forEach((c, i) => ph.appendChild(cardEl(c, false, i >= prevN.p)));
+  dealer.forEach((c, i) => {
+    const hidden = dealerHidden && i === nD - 1;
+    const flip = !dealerHidden && prevDealerHidden && i === nD - 1;   // la tapada se voltea
+    dh.appendChild(cardEl(c, hidden, i >= prevN.d || flip));
+  });
+  el('youTotal').textContent = nP ? fmt(handTotal(player)) : '—';
+  el('bancaTotal').textContent = nD
+    ? (dealerHidden ? (nD > 1 ? fmt(handTotal(dealer.slice(0, -1))) + ' + ?' : '?') : fmt(handTotal(dealer)))
+    : '—';
   el('lives').textContent = Math.max(0, lives);
   el('score').textContent = points;
   el('level').textContent = level;
   const m = el('mult');
   m.textContent = 'x' + mult();
   m.classList.toggle('pop', mult() > 1);
+  prevN.p = nP; prevN.d = nD; prevDealerHidden = dealerHidden;
+  fitHand(ph, nP); fitHand(dh, nD);
 }
 
 function say(text, big) {
@@ -152,6 +212,9 @@ function shakeTable() {
   const t = el('table');
   t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake');
 }
+
+/* vibración suave (juice, como en el resto de juegos) */
+function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
 
 function actions(state) {
   el('btnPedir').classList.toggle('hidden', state !== 'play');
@@ -168,6 +231,7 @@ function actions(state) {
 /* ---------------- Flujo de partida ---------------- */
 function startGame(diff) {
   difficulty = diff || difficulty;
+  epoch++;                     // cancela los temporizadores de la partida anterior
   running = true; paused = false; busy = false; handResolved = false;
   try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
   lives = 3; points = 0; level = 1; streak = 0; maxStreak = 0; handsWon = 0; handsPlayed = 0;
@@ -178,37 +242,43 @@ function startGame(diff) {
 }
 
 function newHand() {
+  if (lives <= 0) return;      // nunca repartir una mano sin vidas (gameOver va en camino)
+  epoch++;                     // cancela los repartos/cadencias de la mano anterior
   deck = buildDeck();
   player = []; dealer = [];
   dealerHidden = true; handResolved = false; busy = false; doubled = false;
+  prevN.p = 0; prevN.d = 0;
   actions('none');
   render();
   say('Se reparte la mano…');
   // 1 carta al jugador, 1 a la banca (tapada)
-  setTimeout(() => { player.push(deck.pop()); beep(760, 0.06, 0.07); render(); }, 260);
-  setTimeout(() => { dealer.push(deck.pop()); beep(700, 0.06, 0.07); render(); }, 560);
-  setTimeout(() => {
+  later(260, () => { if (!running) return; player.push(deck.pop()); beep(760, 0.06, 0.07); render(); });
+  later(560, () => { if (!running) return; dealer.push(deck.pop()); beep(700, 0.06, 0.07); render(); });
+  later(900, () => {
     if (!running) return;
     phase = 'play';
     actions('play');
     if (handTotal(player) === TARGET) { say('¡SIETE Y MEDIA a la primera! 🎉', true); sfxLevel(); stand(); }
     else say('¿Pides o te plantas?');
-  }, 900);
+  });
 }
 
 function pedir() {
   if (!running || paused || busy || phase !== 'play' || handResolved) return;
+  if (!deck.length) deck = buildDeck();          // red de seguridad (la baraja de 40 nunca debería agotarse)
   busy = true;
   const c = deck.pop();
   player.push(c);
   beep(880 + Math.min(5, player.length) * 40, 0.07, 0.08);
+  buzz(10);
   render();
   const t = handTotal(player);
-  setTimeout(() => {
+  later(180, () => {
     busy = false;
+    if (!running || handResolved) return;
     if (t > TARGET) {
       say('¡Te has pasao! 💥', true);
-      sfxLoss(0.85); shakeTable();
+      sfxLoss(0.85); buzz([40, 60, 40]); shakeTable();
       revealAndLose();
     } else if (t === TARGET) {
       say('¡SIETE Y MEDIA! 🎉', true);
@@ -217,7 +287,7 @@ function pedir() {
     } else if (player.length >= 5) {
       say('Cinco cartas… ¡plántate, zagal!');
     }
-  }, 180);
+  });
 }
 
 /* DOBLAR: pagas 1 vida y, si ganas, los puntos van x2. Se decide antes de plantarse. */
@@ -226,10 +296,11 @@ function doblar() {
   doubled = true;
   lives--;                       // la apuesta se paga ya
   beep(700, .08, .09); setTimeout(() => beep(950, .1, .08), 80);
+  buzz(15);
   say('💰 ¡DOBLADO! Si ganas, x2 puntos', true);
   render();
   actions('play');               // refresca el botón (queda marcado)
-  if (lives <= 0) { setTimeout(() => { if (running) gameOver(); }, 800); }
+  if (lives <= 0) later(800, () => { if (running) gameOver(); });
 }
 
 /* Te has pasao: se revela la banca y se pierde la mano (sin que juegue) */
@@ -257,6 +328,9 @@ function stand() {
 
 function dealerPlay() {
   const cfg = DIFF[difficulty];
+  // La banca se planta según la dificultad; en CANALLA juega más fina.
+  // (cfg.dealerBustBias quedó sin uso: se elimina la ambigüedad y se mantiene
+  //  el comportamiento real del juego desde el primer día.)
   const target = Math.min(6.5, cfg.stand + (level - 1) * 0.25);
   const step = () => {
     if (!running) return;
@@ -264,16 +338,17 @@ function dealerPlay() {
     const playerBust = handTotal(player) > TARGET;
     const mustDraw = !playerBust && t < target;
     if (mustDraw) {
-      setTimeout(() => {
-        if (!running) return;
+      later(620, () => {
+        if (!running || handResolved) return;
+        if (!deck.length) deck = buildDeck();
         dealer.push(deck.pop());
         beep(640, 0.06, 0.07);
         render();
         if (handTotal(dealer) > TARGET) { say('¡La banca se pasa! 🎉'); settle(); return; }
         step();
-      }, 620);
+      });
     } else {
-      setTimeout(() => { if (running) settle(); }, 420);
+      later(420, () => { if (running && !handResolved) settle(); });
     }
   };
   step();
@@ -298,12 +373,12 @@ function settle() {
     const baseGain = (100 + Math.round(pt * 40) + (exact ? 300 : 0)) * mult();
     const gain = doubled ? baseGain * 2 : baseGain;
     points += gain;
-    if (exact) { say(`¡SIETE Y MEDIA! +${gain}${doubled ? ' 💰x2' : ''} 🎉`, true); sfxLevel(); try { logros.check('sieteymedia'); } catch (e) {} }
-    else { say(`${PHRASES_WIN[Math.floor(Math.random() * PHRASES_WIN.length)]} +${gain}${doubled ? ' 💰x2' : ''}`, true); beep(988, 0.09, 0.09); setTimeout(() => beep(1319, 0.11, 0.08), 90); }
+    if (exact) { say(`¡SIETE Y MEDIA! +${gain}${doubled ? ' 💰x2' : ''} 🎉`, true); sfxLevel(); buzz(30); try { logros.check('sieteymedia'); } catch (e) {} }
+    else { say(`${PHRASES_WIN[Math.floor(Math.random() * PHRASES_WIN.length)]} +${gain}${doubled ? ' 💰x2' : ''}`, true); beep(988, 0.09, 0.09); setTimeout(() => beep(1319, 0.11, 0.08), 90); buzz(15); }
     const nextLevel = Math.floor(points / 500) + 1;
     if (nextLevel > level) {
       level = nextLevel;
-      setTimeout(() => { sfxLevel(); say(`¡NIVEL ${level}! La banca aprieta…`, true); }, 700);
+      later(700, () => { if (!running) return; sfxLevel(); say(`¡NIVEL ${level}! La banca aprieta…`, true); });
     }
   } else {
     streak = 0;
@@ -311,7 +386,7 @@ function settle() {
     if (!playerBust) sfxLoss(0.7);
     lives--;
     render();
-    if (lives <= 0) setTimeout(() => { if (running) gameOver(); }, 900);
+    if (lives <= 0) { actions('none'); later(900, () => { if (running) gameOver(); }); }
     else actions('next');
     return;
   }
@@ -322,7 +397,7 @@ function settle() {
 function loseLife() {
   lives--;
   render();
-  if (lives <= 0) setTimeout(() => { if (running) gameOver(); }, 900);
+  if (lives <= 0) { actions('none'); later(900, () => { if (running) gameOver(); }); }
   else actions('next');
 }
 
@@ -350,6 +425,8 @@ function gameOver() {
       beep(1318, .12, .1); setTimeout(() => beep(1760, .16, .08), 110);
     }
   } catch (e) {}
+  // rellenar el nombre recordado (igual que el resto de juegos)
+  try { const p = loadPrefs(); if (p.name) el('playerName').value = p.name; } catch (e) {}
   el('nameRow').classList.remove('hidden');
   show(el('endScreen'));
 }
@@ -468,6 +545,7 @@ el('btnSound').addEventListener('click', () => {
   soundOn = !soundOn;
   el('btnSound').textContent = soundOn ? '🔊' : '🔇';
   if (music) music.muted = !soundOn;
+  savePrefs({ sound: soundOn });            // se recuerda (igual que el resto de juegos)
   toast(soundOn ? 'Sonido ON' : 'Sonido OFF', 1000);
 });
 el('btnLogros').addEventListener('click', () => { try { logros.panel(); } catch (e) {} });
@@ -484,12 +562,32 @@ el('rankTabs').addEventListener('click', e => {
   renderRanking(rankDiff);
 });
 el('btnSaveScore').addEventListener('click', async () => {
-  const r = await saveScore(el('playerName').value.trim());
+  const name = el('playerName').value.trim();
+  savePrefs({ name });                       // recordar el nombre (igual que el resto de juegos)
+  const r = await saveScore(name);
   el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
 });
 
+/* Compartir por WhatsApp: usa el share nativo si existe y si no, wa.me */
+function compartir(texto) {
+  const url = location.origin + '/ollagitana/';
+  const txt = texto || '¡Echa una partida al Siete y Media de Olla Gitana! 🎴\nLa baraja española de la banda, con ranking.';
+  if (navigator.share) { navigator.share({ title: 'Olla Gitana — Siete y Media 🎴', text: txt, url }).catch(() => {}); return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt + '\n\n' + url), '_blank');
+}
+const btnShare = el('btnShare');
+if (btnShare) btnShare.addEventListener('click', () => compartir());
+
+const btnShareEnd = el('btnShareEnd');
+if (btnShareEnd) btnShareEnd.addEventListener('click', () => {
+  compartir(`He hecho ${points} puntos al Siete y Media de Olla Gitana 🎴 (nivel ${level}, mejor racha x${maxStreak}). ¿Juegas tú?`);
+});
+
 document.addEventListener('keydown', e => {
+  // Escribiendo el nombre (input/textarea): NO secuestrar las teclas del juego
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (e.code === 'Space') { e.preventDefault(); if (phase === 'play') pedir(); else if (phase === 'over' && running) newHand(); }
   if (e.key === 'd' || e.key === 'D') doblar();
   if (e.key === 'p' || e.key === 'P') togglePause();
