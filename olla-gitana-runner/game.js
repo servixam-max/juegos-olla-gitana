@@ -15,6 +15,26 @@ function resize() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   S = Math.max(0.62, Math.min(1.5, H / 800));
   GROUND_Y = H * 0.80;
+  veloGrad = null;   // el gradiente depende de H: invalidar al redimensionar
+}
+
+/* RESOLUCIÓN ADAPTATIVA (móviles lentos): si el FPS sostenido < 50 se baja el
+   DPR por pasos (mín 0.75) para recuperar fluidez; si va sobrado (>58) se
+   recupera. Mismo patrón que el juego 3D y el ritmo. */
+let fpsFrames = 0, fpsT = 0, lowFps = 0, recover = 0, veloGrad = null, veloGradH = 0;
+function checkFps(dt) {
+  fpsFrames++; fpsT += dt;
+  if (fpsT < 0.5) return;
+  const fps = fpsFrames / fpsT;
+  fpsFrames = 0; fpsT = 0;
+  const dprMax = Math.min(2, window.devicePixelRatio || 1);
+  if (fps < 50) lowFps++; else lowFps = 0;
+  if (lowFps >= 3 && DPR > 0.75) {
+    DPR = Math.max(0.75, DPR - 0.25); lowFps = 0; resize();
+  } else if (fps > 58 && DPR < dprMax) {
+    recover++;
+    if (recover >= 6) { DPR = Math.min(dprMax, DPR + 0.25); recover = 0; resize(); }
+  }
 }
 const el = id => document.getElementById(id);
 const show = n => n.classList.remove('hidden');
@@ -64,6 +84,8 @@ let speed = 0, spawnTimer = 0, itemTimer = 0;
 let obstacles = [], items = [], particles = [], popups = [];
 let bgIdx = 0, bgImgs = {}, bgReady = null;
 let soundOn = true;
+let savingScore = false;                 // evita guardar dos veces con doble toque
+let bestAtStart = 0, recordShown = false; // récord personal en vivo durante la partida
 
 const audio = {
   music: null, started: false,
@@ -177,11 +199,15 @@ function startGame(diff) {
   hide(el('startScreen')); hide(el('endScreen')); hide(el('pauseScreen')); hide(el('rankScreen'));
   show(el('hud'));
   el('progressBar').style.width = '0%';
+  try { bestAtStart = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0); } catch (e) { bestAtStart = 0; }
+  recordShown = false;
   playMusic();
   lastT = performance.now();
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
-  document.addEventListener('visibilitychange', onVisibility);
+  // (la auto-pausa al ocultar la pestaña se registra UNA sola vez al arrancar,
+  //  al final del fichero: si se añadiera aquí se acumularía un listener por
+  //  partida y al volver a la pestaña el toggle se aplicaría 2, 3… veces)
 }
 
 function gameOver() {
@@ -210,6 +236,9 @@ function gameOver() {
     }
   } catch (e) {}
   el('nameRow').classList.remove('hidden');
+  // el botón de guardar vuelve a estar disponible para esta partida
+  savingScore = false;
+  const sb = el('btnSaveScore'); if (sb) { sb.disabled = false; sb.textContent = 'Guardar'; }
   try { const pr = ollaPrefs(); if (pr.name) el('playerName').value = pr.name; } catch (e) {}
   show(el('endScreen'));
 }
@@ -372,6 +401,13 @@ function update(dt) {
     // confeti de subida de nivel
     for (let k = 0; k < 3; k++) burst(W * (0.3 + k * 0.2), GROUND_Y - 120 * S, 14, ['#86efac', '#fde047', '#fca5a5'][k]);
   }
+  // récord personal en vivo: aviso único al superar la mejor marca guardada
+  if (!recordShown && bestAtStart > 0 && points > bestAtStart) {
+    recordShown = true;
+    popup('🏆 ¡RÉCORD PERSONAL!', '#fde047', W * 0.5, H * 0.44);
+    burst(player.x, player.y + player.h / 2, 18, '#fde047');
+    beep(1320, 0.12, 0.09);
+  }
   el('progressBar').style.width = ((points % 500) / 5) + '%';
 }
 
@@ -400,9 +436,13 @@ function draw() {
     ctx.drawImage(bgReady, dw - off, (H - dh) / 2, dw, dh);
     ctx.globalAlpha = 1;
   }
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, 'rgba(9,5,3,.68)'); g.addColorStop(.55, 'rgba(9,5,3,.34)'); g.addColorStop(1, 'rgba(9,5,3,.82)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // velo (gradiente CACHEADO: recrearlo por frame es caro en móvil)
+  if (!veloGrad || veloGradH !== H) {
+    veloGrad = ctx.createLinearGradient(0, 0, 0, H);
+    veloGrad.addColorStop(0, 'rgba(9,5,3,.68)'); veloGrad.addColorStop(.55, 'rgba(9,5,3,.34)'); veloGrad.addColorStop(1, 'rgba(9,5,3,.82)');
+    veloGradH = H;
+  }
+  ctx.fillStyle = veloGrad; ctx.fillRect(0, 0, W, H);
 
   // suelo
   const gy = GROUND_Y;
@@ -433,12 +473,12 @@ function draw() {
       ctx.fillText('⬇', o.x + o.w / 2, GROUND_Y - 16 * S);
     }
   }
-  // ingredientes (con brillo)
+  // ingredientes (con brillo en móviles que van sobrados; shadowBlur es CARO)
   for (const it of items) {
     const pulse = 1 + Math.sin((it.x + performance.now() / 260)) * 0.06;
     ctx.font = `${Math.round(it.h * pulse)}px system-ui`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(250,204,21,.85)'; ctx.shadowBlur = 14 * S;
+    if (DPR >= 1.25) { ctx.shadowColor = 'rgba(250,204,21,.85)'; ctx.shadowBlur = 14 * S; }  // brillo solo si hay resolución de sobra
     ctx.fillText(it.emoji, it.x + it.w / 2, it.y + it.h / 2);
     ctx.shadowBlur = 0;
   }
@@ -499,6 +539,7 @@ function loop(now) {
   lastT = now;
   if (!paused) { update(dt); }
   draw();
+  checkFps(dt);   // resolución adaptativa: baja el DPR si el móvil va justo
   if (running) rafId = requestAnimationFrame(loop);
 }
 
@@ -506,7 +547,13 @@ function loop(now) {
 let touchId = null, touchStartY = 0;
 function jump() {
   if (!running || paused) return;
-  if (player.onGround && !player.ducking) { player.vy = -900 * S; player.onGround = false; player.jumps = 1; player.holdJump = 0.17; }
+  if (player.onGround) {
+    // Agachado en el suelo: el toque incorpora y hace el salto NORMAL.
+    // (Antes caía en la rama del doble salto: gastaba el doble salto con un salto
+    //  débil desde el suelo — el jugador se quedaba sin doble salto sin saberlo)
+    if (player.ducking) player.ducking = false;
+    player.vy = -900 * S; player.onGround = false; player.jumps = 1; player.holdJump = 0.17;
+  }
   else if (player.jumps < 2) { player.vy = -780 * S; player.jumps = 2; player.holdJump = 0.13; }
 }
 canvas.addEventListener('pointerdown', e => {
@@ -516,7 +563,18 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (!running || e.pointerId !== touchId) return;
-  if (e.clientY - touchStartY > 42 * S) { player.ducking = true; }
+  if (e.clientY - touchStartY > 42 * S) {
+    player.ducking = true;
+    // El swipe EMPIEZA con un pointerdown que ya ha lanzado el salto (el tap = salto),
+    // así que el gesto de agacharse arrancaba con un saltito: si el obstáculo aéreo
+    // estaba cerca, te comías el salto en el aire y el golpe. Si venimos de ese
+    // mini-salto (primer salto, aún subiendo y bajos), lo cancelamos y a suelo.
+    if (!player.onGround && player.jumps === 1 && player.vy < 0 &&
+        (GROUND_Y - player.h - player.y) < 110 * S) {
+      player.y = GROUND_Y - player.h; player.vy = 0; player.onGround = true;
+      player.jumps = 0; player.holdJump = 0;
+    }
+  }
 });
 canvas.addEventListener('pointerup', e => {
   if (e.pointerId === touchId) { touchId = null; player.ducking = false; player.holdJump = 0; }
@@ -524,12 +582,19 @@ canvas.addEventListener('pointerup', e => {
 canvas.addEventListener('pointercancel', () => { touchId = null; player.ducking = false; player.holdJump = 0; });
 
 document.addEventListener('keydown', e => {
+  // Si el jugador está escribiendo su nombre (u otro campo), el teclado NO debe
+  // saltar, agacharse, pausar ni apagar el sonido: antes "olla m p" se convertía en "ollampal".
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if (e.repeat) return;   // el auto-repeat del teclado (mantener espacio) no debe gastar el doble salto
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w') { e.preventDefault(); jump(); }
   if (e.code === 'ArrowDown' || e.key === 's') player.ducking = true;
   if (e.key === 'p' || e.key === 'P') togglePause();
   if (e.key === 'm' || e.key === 'M') toggleSound();
 });
 document.addEventListener('keyup', e => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (e.code === 'Space' || e.code === 'ArrowUp') player.holdJump = 0;
   if (e.code === 'ArrowDown' || e.key === 's') player.ducking = false;
 });
@@ -643,7 +708,13 @@ el('rankTabs').addEventListener('click', e => {
   renderRanking(rankDiff);
 });
 el('btnSaveScore').addEventListener('click', async () => {
-  const r = await saveScore(el('playerName').value.trim());
+  // guard anti-doble-toque: antes un segundo toque guardaba la puntuación DOS veces
+  // (dos filas en local y dos POST al ranking)
+  if (savingScore) return;
+  savingScore = true;
+  const b = el('btnSaveScore'); if (b) { b.disabled = true; b.textContent = 'Guardando…'; }
+  let r = { online: false };
+  try { r = await saveScore(el('playerName').value.trim()); } catch (e) {}
   savePref(el('playerName').value.trim(), undefined);
   el('nameRow').classList.add('hidden'); updateBest();
   toast(r.online ? '¡Puntuación guardada! 🏆' : 'Guardada en este dispositivo', 2200);
@@ -658,7 +729,40 @@ function toast(msg, ms = 1600) {
 
 /* ---------------- Arranque ---------------- */
 resize();
-window.addEventListener('resize', () => { if (!running) { resize(); resetPlayer(); draw(); } });
+// Girar el móvil a mitad de carrera antes dejaba el canvas con el tamaño viejo
+// (letterbox: la olla se salía del encuadre). En plena partida NO se puede llamar
+// a resetPlayer() sin perder el estado, así que se reescala todo en suave.
+function softResize() {
+  const oldGround = GROUND_Y, oldS = S || 1, oldW = W || 1;
+  const alturaJugador = Math.max(0, oldGround - (player.y + player.h));   // en coords viejas
+  resize();
+  const kS = S / oldS, kW = W / oldW;
+  player.w = 74 * S; player.h = 56 * S;
+  player.x = Math.max(70 * S, W * 0.17);
+  if (player.onGround) player.y = GROUND_Y - player.h;
+  else player.y = Math.min(GROUND_Y - player.h, GROUND_Y - player.h - alturaJugador * kS);
+  for (const o of obstacles) {
+    const altura = o.type === 'air' ? Math.max(20 * S, (oldGround - (o.y + o.h)) * kS) : 0;
+    o.w = (o.type === 'air' ? 44 : 58) * S; o.h = o.w;
+    o.x *= kW;
+    o.y = GROUND_Y - o.h - altura;
+  }
+  for (const it of items) {
+    const altura = Math.max(6 * S, (oldGround - (it.y + it.h)) * kS);
+    it.w *= kS; it.h *= kS; it.x *= kW;
+    it.y = GROUND_Y - it.h - altura;
+  }
+  // Que ningún obstáculo quede encima de la olla tras el giro (sería un golpe gratis)
+  const pr = playerRect();
+  for (const o of obstacles) {
+    const ob = { x: o.x + o.w * 0.18, y: o.y + o.h * 0.12, w: o.w * 0.64, h: o.h * 0.76 };
+    if (hit(pr, ob)) o.x = pr.x + pr.w + 40 * S;
+  }
+}
+window.addEventListener('resize', () => {
+  if (running) { softResize(); draw(); }
+  else { resize(); resetPlayer(); draw(); }
+});
 setBg(0); loadBg(1); loadBg(2);
 resetPlayer();
 draw();
@@ -675,4 +779,8 @@ updateBest();
     }
   } catch (e) {}
 })();
+
+/* Auto-pausa al ocultar la pestaña: se registra UNA sola vez (no por partida,
+   que acumulaba listeners y aplicaba el toggle 2, 3… veces al volver). */
+document.addEventListener('visibilitychange', onVisibility);
 
