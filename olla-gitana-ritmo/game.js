@@ -252,7 +252,7 @@ function endGame(timedOut) {
     logros.set('nivel10', Math.floor(score / 1000) + 1);
     if (zenMode) logros.check('zenpartida');
     if (miss === 0 && hitsCount > 50) logros.check('perfecto');
-    if (lives === cfg.lives && !zenMode && timedOut) logros.check('sinfallo');
+    if (lives === DIFF[difficulty].lives && !zenMode && timedOut) logros.check('sinfallo');
   } catch (e) {}
   // ¿récord nuevo? (antes de guardar, comparamos con el mejor local)
   try {
