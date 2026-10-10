@@ -5,6 +5,7 @@ Menú + los tres juegos de la banda **Olla Gitana**, con ranking compartido.
 | Ruta | Juego |
 |---|---|
 | `index.html` | Menú de juegos |
+| `olla-gitana-maraton/` | **Nena y Miguel — La Maratón 42K** — runner pseudo-3D: los dos corredores, público, vicios y avituallamiento cada 5 km |
 | `olla-gitana/` | **El Juego** — arcade clásico (recuperado de `AntonioXam/olla-gitana`, ranking arreglado) |
 | `olla-gitana-ritmo/` | **El Ritmo** — 4 carriles al ritmo de «Los Olla Gitana» (beatmap generado con librosa) |
 | `olla-gitana-runner/` | **La Huerta Runner** — endless runner (salto, doble salto, agacharse) |

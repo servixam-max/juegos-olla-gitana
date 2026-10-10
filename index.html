@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Olla Gitana — Juegos 🥘</title>
 <meta name="theme-color" content="#0b0705">
-<meta name="description" content="Siete juegos huertanos de la banda Olla Gitana: aventura 3D, arcade, ritmo, runner, cartas, burbujas y duelo 1v1.">
+<meta name="description" content="Ocho juegos huertanos de la banda Olla Gitana: la maratón 42K, aventura 3D, arcade, ritmo, runner, cartas, burbujas y duelo 1v1.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Olla Gitana">
@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
 <meta property="og:title" content="Olla Gitana — Los Juegos">
-<meta property="og:description" content="Siete juegos huertanos con la música y las fotos de la banda.">
+<meta property="og:description" content="Ocho juegos huertanos con la música y las fotos de la banda.">
 <meta property="og:image" content="icons/icon-512.png">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -105,12 +105,26 @@
   <div class="heroIn">
     <h1>OLLA GITANA</h1>
     <h2>Los juegos de la banda 🥘🎸🎴</h2>
-    <p class="sub">Siete juegos huertanos con la música y las fotos del grupo. Elige el tuyo y a echar la tarde.</p>
+    <p class="sub">Ocho juegos huertanos con la música y las fotos del grupo. Elige el tuyo y a echar la tarde.</p>
     <span class="badge">🎵 Con «Los Olla Gitana»</span>
   </div>
 </header>
 
 <div class="wrap">
+
+<a class="card" href="olla-gitana-maraton/" data-game="maraton">
+    <div class="thumb">
+      <img src="olla-gitana-maraton/assets/foto.jpg" alt="">
+      <span class="tag new">NUEVO · MARATÓN 42K</span>
+      <div class="thumbTitle"><h3>Nena y Miguel <span class="emoji">🏃</span></h3></div>
+    </div>
+    <div class="body">
+      <p>¡La maratón de la banda! Elige entre <b>Nena</b> y <b>Miguel</b> y cruza la ciudad a la carrera entre la gente. Esquiva los <b>vicios</b> (cigarros, chocolatinas, pastillas, birras…) y agáchate bajo las pancartas. Meta: <b>42,2 km</b>.</p>
+      <div class="meta"><span class="pill">🏃 Maratón 42K</span><span class="pill">👫 2 corredores</span><span class="pill">🍌 Avituallamiento</span><span class="pill">🏆 Ranking</span></div>
+      <div class="topScores"></div>
+      <div class="play">▶ JUGAR</div>
+    </div>
+  </a>
 
 <a class="card" href="olla-gitana-crash-3d-servido/" data-game="crash3d">
     <div class="thumb">
@@ -253,6 +267,7 @@ if (window.matchMedia('(display-mode: standalone)').matches) ib.style.display = 
 // ---------- Compartir por WhatsApp ----------
 const shareBtn = document.getElementById('shareBtn');
 const SHARE_TEXTO = '¡Mira los juegos de la banda Olla Gitana! 🥘🎸🎴\n\n' +
+  '· Nena y Miguel 🏃 — la maratón de los 42K esquivando vicios entre el público\n' +
   '· Olla Gitana 3D 🎮 — la aventura en 3D: 7 mundos, 2 jefes e intro de cine\n' +
   '· El Juego 🥘 — el arcade clásico de los ingredientes\n' +
   '· El Ritmo 🎵 — toca nuestra canción, nota a nota\n' +

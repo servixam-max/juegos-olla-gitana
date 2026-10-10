@@ -32,7 +32,11 @@
     { id: 'sieteymedia',  n: 'Siete y media',      d: 'Haz 7½ exacto en las cartas',           i: '🎴', meta: 1 },
     { id: 'doblar',       n: 'Farolero',           d: 'Gana una mano doblada en las cartas',   i: '💰', meta: 1 },
     { id: 'zarangollo10', n: 'Fan del zarangollo', d: 'Coge 10 zarangollos',                   i: '🥘', meta: 10 },
-    { id: 'velocidad',    n: 'A toda mecha',       d: 'Llega al nivel 5 en el runner',         i: '🏃', meta: 5 }
+    { id: 'velocidad',    n: 'A toda mecha',       d: 'Llega al nivel 5 en el runner',         i: '🏃', meta: 5 },
+    { id: 'maraton5k',    n: 'Avituallamiento',    d: 'Llega al km 5 en la maratón',           i: '🥤', meta: 5 },
+    { id: 'maraton21k',   n: 'Media maratón',      d: 'Pasa el km 21 de la maratón',           i: '🥇', meta: 21 },
+    { id: 'maraton42k',   n: 'Finisher 42K',       d: 'Termina la maratón completa (42,2 km)', i: '🏅', meta: 1 },
+    { id: 'esquiva50',    n: 'Reflejos de liebre', d: 'Esquiva 50 vicios en la maratón',      i: '💨', meta: 50 }
   ];
   const BY_ID = {};
   DEFS.forEach(d => { BY_ID[d.id] = d; });

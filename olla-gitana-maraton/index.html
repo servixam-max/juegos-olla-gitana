@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Olla Gitana: Nena y Miguel — La Maratón 42K 🏃</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <button id="btnMenu" aria-label="Menú">⬅️</button>
+    <div class="chip lives"><span>❤️</span><b id="lives">3</b></div>
+    <div class="chip km" id="kmChip">🏁 0.0 km</div>
+  </div>
+  <div class="hud-center">
+    <div id="mult" class="mult">x1</div>
+  </div>
+  <div class="hud-right">
+    <div class="chip score">🍲 <b id="score">0</b></div>
+    <button id="btnSound" aria-label="Sonido">🔊</button>
+    <button id="btnPause" aria-label="Pausa">⏸️</button>
+  </div>
+  <div id="progressWrap"><div id="progressBar"></div><span id="metaFlag">🏁</span></div>
+</div>
+
+<!-- Pantalla de inicio (con selección de corredor) -->
+<div id="startScreen" class="screen">
+  <img src="assets/foto.jpg" alt="" class="bg-blur">
+  <div class="scrim"></div>
+  <div class="pane">
+    <h1 class="title">OLLA GITANA</h1>
+    <h2 class="subtitle">NENA Y MIGUEL · LA MARATÓN 42K 🏃</h2>
+    <p class="tag">Elige corredor y cruza la ciudad entre la gente. Esquiva los <b>vicios</b> (cigarros, chocolatinas, pastillas, birras…) y <b>agáchate</b> bajo las pancartas. ¡La meta está en el km 42,2!</p>
+    <div class="charRow" id="charRow">
+      <button type="button" class="charCard sel" id="card_miguel" data-chr="miguel">
+        <canvas id="prev_miguel"></canvas>
+        <span class="cName">MIGUEL <small>dorsal 2015</small></span>
+      </button>
+      <button type="button" class="charCard" id="card_nena" data-chr="nena">
+        <canvas id="prev_nena"></canvas>
+        <span class="cName">NENA <small>dorsal 301</small></span>
+      </button>
+    </div>
+    <button id="btnPlay" class="btn btn-play">▶ ¡A CORRER!</button>
+    <button id="btnHow" class="btn btn-ghost">ℹ️ Cómo se juega</button>
+    <div class="diffRow" id="diffRow">
+      <button class="diff" data-diff="easy">FÁCIL 🐢</button>
+      <button class="diff active" data-diff="normal">NORMAL 🥘</button>
+      <button class="diff" data-diff="hard">CANALLA 🔥</button>
+    </div>
+    <button id="btnRanking" class="btn btn-ghost">🏆 RANKING</button>
+    <button id="btnLogros" class="btn btn-ghost">🏅 LOGROS</button>
+    <p class="foot" id="bestScore"></p>
+    <p class="foot">Desliza ←/→ carril · toca para saltar · desliza ↓ para agacharte · Hecho en Murcia</p>
+  </div>
+</div>
+
+<!-- Instrucciones -->
+<div id="howModal" class="modal hidden">
+  <div class="modalBox">
+    <button id="btnCloseHow" class="x">✕</button>
+    <h3>CÓMO SE JUEGA</h3>
+    <ul>
+      <li><b>Corre 42,2 km</b> por la calle, con público animando a los dos lados.</li>
+      <li><b>Desliza ← / →</b> (o <b>A/D</b>) para cambiar de carril.</li>
+      <li><b>Toca la pantalla</b> (o <b>ESPACIO</b> / <b>↑</b>) para <b>saltar</b> los vicios del suelo: 🚬 🍫 💊 🍺 🍩</li>
+      <li><b>Pancartas bajas</b> cruzando la calle (⬇): <b>desliza hacia abajo</b> (o <b>↓</b>) para agacharte. ¡Saltar NO vale!</li>
+      <li><b>Vallas y bidones</b> 🚧🛢️ son altos: ni saltando pasas — <b>cambia de carril</b>.</li>
+      <li>Recoge <b>fruta</b> 🍌🍊💧 y <b>geles</b> ⚡ para subir el combo (x1 → x5). La <b>isotónica</b> 🧃 da escudo.</li>
+      <li>Cada <b>5 km</b> hay avituallamiento: <b>+1 vida</b> ❤️ y víveres.</li>
+      <li><b>3 vidas</b>. La meta, en el km <b>42,2</b>: ¡la medalla Mensajero de la Cruz te espera! 🏅</li>
+    </ul>
+    <button id="btnCloseHow2" class="btn btn-play">¡ENTENDIDO!</button>
+  </div>
+</div>
+
+<!-- Pausa -->
+<div id="pauseScreen" class="modal hidden">
+  <div class="modalBox center">
+    <h3>PAUSA</h3>
+    <p class="muted">El corredor se rehidrata…</p>
+    <button id="btnResume" class="btn btn-play">▶ Seguir</button>
+    <button id="btnRestart" class="btn btn-ghost">↻ Reiniciar</button>
+    <button id="btnQuit" class="btn btn-ghost">⬅️ Menú</button>
+  </div>
+</div>
+
+<!-- Ranking -->
+<div id="rankScreen" class="modal hidden">
+  <div class="modalBox">
+    <button id="btnCloseRank" class="x">✕</button>
+    <h3>🏆 RANKING</h3>
+    <div class="tabs" id="rankTabs">
+      <button class="tab active" data-diff="easy">FÁCIL</button>
+      <button class="tab" data-diff="normal">NORMAL</button>
+      <button class="tab" data-diff="hard">CANALLA</button>
+    </div>
+    <table class="rankTable">
+      <thead><tr><th>#</th><th>Nombre</th><th>Km</th><th>Puntos</th></tr></thead>
+      <tbody id="rankBody"><tr><td colspan="4" class="muted">Cargando…</td></tr></tbody>
+    </table>
+    <p class="muted tiny" id="rankSource"></p>
+  </div>
+</div>
+
+<!-- Resultado -->
+<div id="endScreen" class="modal hidden">
+  <div class="modalBox center">
+    <h3 id="endTitle">¡SE TE HA IDO LA OLLA!</h3>
+    <p id="endPhrase" class="phrase">¡Menudo calentón!</p>
+    <div class="resultGrid">
+      <div><span class="k">Puntos</span><b id="endScore">0</b></div>
+      <div><span class="k">Km</span><b id="endKm">0</b></div>
+      <div><span class="k">Esquivados</span><b id="endVicios">0</b></div>
+      <div><span class="k">Fruta</span><b id="endItems">0</b></div>
+    </div>
+    <div id="nameRow">
+      <input id="playerName" maxlength="14" placeholder="Tu nombre (corredor/a)">
+      <button id="btnSaveScore" class="btn btn-play small">Guardar</button>
+    </div>
+    <button id="btnAgain" class="btn btn-play">↻ Otra vez</button>
+    <button id="btnEndMenu" class="btn btn-ghost">⬅️ Menú</button>
+  </div>
+</div>
+
+<!-- FINISHER: victoria de la maratón -->
+<div id="winScreen" class="modal hidden">
+  <div class="modalBox center win">
+    <h3 id="winTitle">🏅 ¡FINISHER DE LA MARATÓN!</h3>
+    <p class="phrase winPhrase">42,195 km y la medalla Mensajero de la Cruz 🏅 ¡Menuda carrera!</p>
+    <div class="resultGrid">
+      <div><span class="k">Puntos</span><b id="winScore">0</b></div>
+      <div><span class="k">Km</span><b id="winKm">0</b></div>
+      <div><span class="k">Esquivados</span><b id="winVicios">0</b></div>
+      <div><span class="k">Fruta</span><b id="winItems">0</b></div>
+    </div>
+    <div id="winNameRow">
+      <input id="winName" maxlength="14" placeholder="Tu nombre (finisher)">
+      <button id="btnWinSave" class="btn btn-play small">Guardar</button>
+    </div>
+    <button id="btnWinAgain" class="btn btn-play">↻ Otra maratón</button>
+    <button id="btnWinMenu" class="btn btn-ghost">⬅️ Menú</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="../logros.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
