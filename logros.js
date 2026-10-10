@@ -36,6 +36,8 @@
     { id: 'maraton5k',    n: 'Avituallamiento',    d: 'Llega al km 5 en la maratón',           i: '🥤', meta: 5 },
     { id: 'maraton21k',   n: 'Media maratón',      d: 'Pasa el km 21 de la maratón',           i: '🥇', meta: 21 },
     { id: 'maraton42k',   n: 'Finisher 42K',       d: 'Termina la maratón completa (42,2 km)', i: '🏅', meta: 1 },
+    { id: 'platanos10',   n: 'Bananero',           d: 'Coge 10 plátanos en la maratón',        i: '🍌', meta: 10 },
+    { id: 'platanos100',  n: 'Platanera humana',   d: 'Coge 100 plátanos en total',            i: '🍌', meta: 100 },
     { id: 'esquiva50',    n: 'Reflejos de liebre', d: 'Esquiva 50 vicios en la maratón',      i: '💨', meta: 50 }
   ];
   const BY_ID = {};

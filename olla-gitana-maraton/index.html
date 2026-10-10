@@ -17,6 +17,7 @@
     <div class="chip km" id="kmChip">🏁 0.0 km</div>
   </div>
   <div class="hud-center">
+    <div class="chip bana">🍌 <b id="bananas">0</b></div>
     <div id="mult" class="mult">x1</div>
     <div id="powers"></div>
   </div>
@@ -35,7 +36,7 @@
   <div class="pane">
     <h1 class="title">NENA Y MIGUEL</h1>
     <h2 class="subtitle">LA MARATÓN 42K 🏃</h2>
-    <p class="tag">Elige corredor y cruza la ciudad entre la gente. Esquiva los <b>vicios</b> (cigarros, chocolatinas, pastillas, birras…) y <b>agáchate</b> bajo las pancartas. ¡La meta está en el km 42,2!</p>
+    <p class="tag">Elige corredor y cruza la ciudad entre la gente. Esquiva los <b>vicios</b> (cigarros, chocolatinas, pastillas, birras…) y <b>agáchate</b> bajo las pancartas. Recoge todos los <b>plátanos</b> 🍌 que puedas. ¡La meta está en el km 42,2!</p>
     <div class="charRow" id="charRow">
       <button type="button" class="charCard sel" id="card_miguel" data-chr="miguel">
         <canvas id="prev_miguel"></canvas>
@@ -71,8 +72,8 @@
       <li><b>Toca la pantalla</b> (o <b>ESPACIO</b> / <b>↑</b>) para <b>saltar</b> los vicios del suelo: 🚬 🍫 💊 🍺 🍩</li>
       <li><b>Pancartas bajas</b> cruzando la calle (⬇): <b>desliza hacia abajo</b> (o <b>↓</b>) para agacharte. ¡Saltar NO vale!</li>
       <li><b>Vallas y bidones</b> 🚧🛢️ son altos: ni saltando pasas — <b>cambia de carril</b>.</li>
-      <li>Recoge <b>fruta</b> 🍌🍊💧 y <b>geles</b> ⚡ para subir el combo (x1 → x5).</li>
-      <li><b>Power-ups</b>: 🧃 isotónica = <b>escudo</b> 🛡️ · 🚀 = <b>turbo</b> (+50% de velocidad, ¡más puntos!) · 🧲 = <b>imán</b> (la fruta viene sola) · ⏳ = <b>cámara lenta</b> (todo va más despacio, más fácil esquivar).</li>
+      <li>Recoge <b>plátanos</b> 🍌 — ¡son lo <b>ÚNICO</b> que da puntos! Y suben el combo (x1 → x5).</li>
+      <li><b>Power-ups</b>: 🧃 isotónica = <b>escudo</b> 🛡️ · 🚀 = <b>turbo</b> (+50% de velocidad) · 🧲 = <b>imán</b> (los plátanos vienen solos) · ⏳ = <b>cámara lenta</b> (todo va más despacio, más fácil esquivar).</li>
       <li>Cada <b>kilómetro</b> la velocidad sube un poco más (verás el aviso ⚡) — y cada <b>5 km</b> hay avituallamiento: <b>+1 vida</b> ❤️ y víveres.</li>
       <li><b>3 vidas</b>. La meta, en el km <b>42,2</b>: ¡la medalla Mensajero de la Cruz te espera! 🏅</li>
     </ul>
@@ -118,7 +119,7 @@
       <div><span class="k">Puntos</span><b id="endScore">0</b></div>
       <div><span class="k">Km</span><b id="endKm">0</b></div>
       <div><span class="k">Esquivados</span><b id="endVicios">0</b></div>
-      <div><span class="k">Fruta</span><b id="endItems">0</b></div>
+      <div><span class="k">Plátanos</span><b id="endItems">0</b></div>
     </div>
     <div id="nameRow">
       <input id="playerName" maxlength="14" placeholder="Tu nombre (corredor/a)">
@@ -138,7 +139,7 @@
       <div><span class="k">Puntos</span><b id="winScore">0</b></div>
       <div><span class="k">Km</span><b id="winKm">0</b></div>
       <div><span class="k">Esquivados</span><b id="winVicios">0</b></div>
-      <div><span class="k">Fruta</span><b id="winItems">0</b></div>
+      <div><span class="k">Plátanos</span><b id="winItems">0</b></div>
     </div>
     <div id="winNameRow">
       <input id="winName" maxlength="14" placeholder="Tu nombre (finisher)">

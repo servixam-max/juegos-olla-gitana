@@ -25,6 +25,7 @@ html, body {
 .chip.lives { border-color: #ef4444; color: #fecaca; }
 .chip.score { border-color: #22c55e; color: #bbf7d0; }
 .chip.km { font-size: 12px; letter-spacing: .03em; color: #fde68a; border-color: #f59e0b; padding: 5px 9px; }
+.chip.bana { font-size: 14.5px; color: #fef9c3; border-color: #facc15; padding: 4px 11px; box-shadow: 0 0 0 2px rgba(250,204,21,.15); }
 .mult { font-weight: 900; font-size: 20px; color: #fbbf24; text-shadow: 0 2px 0 rgba(0,0,0,.6); transition: transform .15s ease; margin-top: 2px; }
 .mult.pop { transform: scale(1.35); }
 #btnMenu, #btnSound, #btnPause {

@@ -93,12 +93,11 @@ const DUCK_H = 0.55;                      // altura agachado (en "hombres")
 const VICE_EMOJI = ['🚬', '🍫', '💊', '🍺', '🍩', '🍭'];
 const TALL_EMOJI = ['🚧', '🛢️'];
 const ITEMS = [
-  { k: '🍌', w: 0.22, v: 10 }, { k: '💧', w: 0.20, v: 10 },
-  { k: '🍊', w: 0.16, v: 15 }, { k: '⚡', w: 0.08, v: 20 },
-  { k: '🧃', w: 0.10, v: 10, power: 'shield' },
-  { k: '🚀', w: 0.09, v: 10, power: 'turbo' },
-  { k: '🧲', w: 0.08, v: 10, power: 'magnet' },
-  { k: '⏳', w: 0.07, v: 15, power: 'slow' }
+  { k: '🍌', w: 0.62, v: 10 },                          // el plátano: ÚNICO que da puntos
+  { k: '🧃', w: 0.13, v: 0, power: 'shield' },
+  { k: '🚀', w: 0.10, v: 0, power: 'turbo' },
+  { k: '🧲', w: 0.09, v: 0, power: 'magnet' },
+  { k: '⏳', w: 0.06, v: 0, power: 'slow' }
 ];
 
 const PHRASES_HIT = ['¡Ojú, la mala vida!', '¡Aparta, trasto!', '¡Eso no es de corredores!',
@@ -124,6 +123,19 @@ const CHARS = {
     skin: '#e9b48c', skinD: '#cf9770', hair: '#6b4a33', cap: '#1d1d20', capD: '#2b2b30',
     shirtA: '#e8437a', shirtB: '#f6e7ec', shorts: '#1b1d22', shoe: '#141414',
     vest: '#232326', vestL: '#3c3c41', sleeve: '#e9b48c'
+  },
+  /* Corredores rivales de la calle (ambiente, se van adelantando) */
+  corr1: {
+    nombre: '', dorsal: '88', label: 'Corredor',
+    skin: '#e0a878', skinD: '#c08a5c', hair: '#2b2b2b', cap: '#3d7edb', capD: '#2f63ad',
+    shirtA: '#2ecc71', shirtB: '#e2f9ec', shorts: '#22252b', shoe: '#1a1a1e',
+    logo: '#17181c', sleeve: '#e0a878'
+  },
+  corr2: {
+    nombre: '', dorsal: '147', label: 'Corredora',
+    skin: '#d99a6c', skinD: '#b87c50', hair: '#3a2a1c', cap: '#e67e22', capD: '#c0661a',
+    shirtA: '#9b59b6', shirtB: '#f0e6f7', shorts: '#1d2026', shoe: '#15161a',
+    logo: '#17181c', sleeve: '#d99a6c'
   }
 };
 
@@ -134,8 +146,9 @@ let difficulty = 'normal';
 let charId = 'miguel';
 
 let km = 0, kmShown = 0, kmGate = 5, traveled = 0, score = 0, itemPoints = 0;
-let lives = 3, combo = 0, maxCombo = 0, itemsGot = 0, vicios = 0, invuln = 0, shield = 0;
+let lives = 3, combo = 0, maxCombo = 0, itemsGot = 0, bananas = 0, vicios = 0, invuln = 0, shield = 0;
 let turbo = 0, magnet = 0, slow = 0;
+let runners = [], runnerTimer = 6;
 let shake = 0, comboTimer = 0, lastPowers = '';
 let speed = 0, spawnTimer = 1.0, itemTimer = 1.2, countT = 0, mediaDone = false;
 let phase = 0;                            // ciclo de carrera del personaje
@@ -214,7 +227,8 @@ function startGame(diff, chr) {
   if (chr) charId = chr;
   const cfg = DIFF[difficulty];
   km = 0; kmShown = 0; kmGate = 5; traveled = 0; score = 0; itemPoints = 0;
-  lives = 3; combo = 0; maxCombo = 0; itemsGot = 0; vicios = 0;
+  lives = 3; combo = 0; maxCombo = 0; itemsGot = 0; bananas = 0; vicios = 0;
+  runners = []; runnerTimer = 6;
   invuln = 0; shield = 0; turbo = 0; magnet = 0; slow = 0; shake = 0; comboTimer = 0; mediaDone = false;
   speed = V_BASE * speedFactor(0) * cfg.speed * 0.95;   // arranque ya a ritmo (sin rampa muerta)
   spawnTimer = 0.9; itemTimer = 1.0; phase = 0; lastPowers = '';
@@ -230,6 +244,7 @@ function startGame(diff, chr) {
   el('progressBar').style.width = '0%';
   el('kmChip').textContent = '🏁 0.0 km';
   el('lives').textContent = lives;
+  el('bananas').textContent = bananas;
   el('score').textContent = 0;
   el('mult').textContent = 'x1';
   try { bestAtStart = readLocal().reduce((m, r) => Math.max(m, r.score || 0), 0); } catch (e) { bestAtStart = 0; }
@@ -249,7 +264,7 @@ function gameOver() {
   el('endScore').textContent = score;
   el('endKm').textContent = km.toFixed(2);
   el('endVicios').textContent = vicios;
-  el('endItems').textContent = itemsGot;
+  el('endItems').textContent = bananas;
   try {
     logros.set('puntos1k', score); logros.set('puntos5k', score);
     logros.set('nivel5', kmFloor()); logros.set('nivel10', kmFloor());
@@ -284,7 +299,7 @@ function winGame() {
   el('winScore').textContent = score;
   el('winKm').textContent = '42,195';
   el('winVicios').textContent = vicios;
-  el('winItems').textContent = itemsGot;
+  el('winItems').textContent = bananas;
   try {
     logros.set('nivel5', kmFloor()); logros.set('nivel10', kmFloor());
     logros.set('puntos1k', score); logros.set('puntos5k', score);
@@ -348,6 +363,18 @@ function spawnItemString() {
     items.push({ k: kind.k, v: kind.v, power: kind.power || null, lane, x: LANES[lane], z: 100 + i * 1.6, y: 1.15 });
   }
   itemTimer = rand(1.6, 3.0);
+}
+
+/* Corredores rivales de ambiente (los vas adelantando por la calle) */
+function spawnRunner() {
+  const chr = Math.random() < 0.5 ? 'corr1' : 'corr2';
+  const lane = Math.floor(Math.random() * 3);
+  runners.push({
+    chr, lane, x: LANES[lane], z: 100,
+    ph: Math.random() * 6, sway: Math.random() * 6,
+    vRel: 0.30 + Math.random() * 0.15, passed: false, sidestep: 0
+  });
+  runnerTimer = 7 + Math.random() * 7;
 }
 
 /* Aplica el efecto de un power-up (🚀 turbo, 🧲 imán, ⏳ cámara lenta, 🧃 escudo) */
@@ -476,12 +503,23 @@ function update(dt) {
     }
     if (Math.abs(it.z - ZP) < 0.65 && Math.abs(it.x - player.x) < (magnet > 0 ? 3.4 : 1.05) && player.y < 2.4) {
       itemsGot++; combo++; maxCombo = Math.max(maxCombo, combo); comboTimer = 0;
-      try { logros.set('combo10', combo); logros.set('combo25', combo); logros.count('items50'); } catch (e) {}
-      if (it.power) applyPower(it.power);
-      itemPoints += it.v * mult();
-      const [ix, iy] = proj(player.x, 1.1 + player.y * 0.5, ZP);
-      popup('+' + it.v * mult(), '#fde68a', ix, iy - 60 * S);
-      burst(ix, iy, 7, '#fcd34d');
+      try { logros.set('combo10', combo); logros.set('combo25', combo); } catch (e) {}
+      if (it.power) {
+        applyPower(it.power);
+      } else {
+        // 🍌 el plátano: lo ÚNICO que da puntos
+        bananas++;
+        itemPoints += it.v * mult();
+        const [ix, iy] = proj(player.x, 1.1 + player.y * 0.5, ZP);
+        popup('+' + it.v * mult(), '#fde68a', ix, iy - 60 * S);
+        if (bananas === 10 || bananas === 25 || bananas === 50 || bananas === 100) {
+          const frase = bananas === 10 ? '🍌×10 ¡Platanero oficial!' : bananas === 25 ? '🍌×25 ¡Menudo mono! 🐒' :
+                        bananas === 50 ? '🍌×50 ¡Potasio a tope!' : '🍌×100 ¡PLATANERA HUMANA! 🏆';
+          popup(frase, '#fde047', CX, H * 0.30, 20 * S);
+        }
+        try { logros.count('items50'); logros.count('platanos10', 1); logros.count('platanos100', 1); } catch (e) {}
+      }
+      burst(proj(player.x, 1.1 + player.y * 0.5, ZP)[0], proj(player.x, 1.1 + player.y * 0.5, ZP)[1], 7, '#fcd34d');
       beep(784 + Math.min(6, Math.floor(combo / 4)) * 66, 0.07, 0.08);
       buzz(8);
       items.splice(i, 1);
@@ -507,6 +545,27 @@ function update(dt) {
   }
   gates = gates.filter(g => g.z > 0.9);
   if (state !== 'run') return;
+
+  // corredores rivales: avanzan más despacio (se les adelanta) y se apartan
+  runnerTimer -= dt;
+  if (runnerTimer <= 0 && runners.length < 2) spawnRunner();
+  for (const r of runners) {
+    r.z -= speed * (1 - r.vRel) * dt;
+    r.ph += dt * (6 + speed * 0.7);
+    r.x = LANES[r.lane] + Math.sin(r.ph * 0.35 + r.sway) * 0.18;
+    if (Math.abs(r.z - ZP) < 1.6 && Math.abs(r.x - player.x) < 1.1) {
+      r.sidestep += ((player.x >= r.x ? -1 : 1) * 1.3 - r.sidestep) * Math.min(1, dt * 2.5);
+    } else {
+      r.sidestep += (0 - r.sidestep) * Math.min(1, dt * 1.5);
+    }
+    r.x = clamp(r.x + r.sidestep, -3.6, 3.6);
+    if (!r.passed && r.z < ZP - 0.6) {
+      r.passed = true;
+      popup('¡Adelantado! 🏃💨', '#a7f3d0', CX + r.x * 30, H * 0.5, 15 * S);
+      beep(660, 0.05, 0.045);
+    }
+  }
+  runners = runners.filter(r => r.z > 0.8);
 
   // combo se enfría si no coges nada en 4 s
   comboTimer += dt;
@@ -537,6 +596,7 @@ function update(dt) {
   // HUD
   el('lives').textContent = Math.max(0, lives);
   el('score').textContent = score;
+  el('bananas').textContent = bananas;
   el('kmChip').textContent = `🏁 ${km.toFixed(1)} km`;
   el('progressBar').style.width = Math.min(100, (km / MARATHON_KM) * 100) + '%';
   const m = el('mult'); m.textContent = 'x' + mult(); m.classList.toggle('pop', mult() > 1);
@@ -1308,12 +1368,21 @@ function draw() {
   for (const o of obstacles) list.push({ z: o.z, kind: 'obs', o });
   for (const it of items) list.push({ z: it.z, kind: 'item', o: it });
   for (const g of gates) list.push({ z: g.z, kind: 'gate', o: g });
+  for (const r of runners) list.push({ z: r.z, kind: 'runner', o: r });
   list.push({ z: ZP, kind: 'player' });
   list.sort((a, b) => b.z - a.z);
   for (const e of list) {
     if (e.kind === 'obs') drawObstacle(e.o);
     else if (e.kind === 'item') drawItem(e.o, t);
     else if (e.kind === 'gate') drawGate(e.o);
+    else if (e.kind === 'runner') {
+      const r = e.o;
+      const [rx, ry] = proj(r.x, 0, r.z);
+      const rh = hPx * (ZP / r.z);
+      ctx.fillStyle = 'rgba(0,0,0,.32)';
+      ctx.beginPath(); ctx.ellipse(rx, ry, rh * 0.32, rh * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+      drawRunnerBack(rx, ry, rh, r.chr, r.ph, { crouch: false, air: false, tilt: 0 });
+    }
     else {
       // jugador
       const [px, py, sc] = proj(player.x, player.y, ZP);
@@ -1399,11 +1468,11 @@ function draw() {
 }
 
 window.__maratonState = () => ({
-  state, km: +km.toFixed(3), score, lives, combo: maxCombo, vicios, items: itemsGot,
+  state, km: +km.toFixed(3), score, lives, combo: maxCombo, vicios, items: itemsGot, bananas,
   lane: player.lane, x: +player.x.toFixed(2), y: +player.y.toFixed(2),
   ducking: player.ducking, shield: +shield.toFixed(2), turbo: +turbo.toFixed(2),
   magnet: +magnet.toFixed(2), slow: +slow.toFixed(2), speed: +speed.toFixed(2),
-  obstacles: obstacles.length, itemsOnScreen: items.length, gates: gates.length,
+  obstacles: obstacles.length, itemsOnScreen: items.length, gates: gates.length, rivals: runners.length,
   char: charId, difficulty, api: API, sound: soundOn
 });
 
@@ -1702,6 +1771,7 @@ window.__maraton = {
   power: k => applyPower(k),
   obstacles: () => obstacles.map(o => ({ type: o.type, z: +o.z.toFixed(2), x: +o.x.toFixed(2), hit: o.hit })),
   itemsDbg: () => items.map(it => ({ k: it.k, z: +it.z.toFixed(2), x: +it.x.toFixed(2) })),
+  runnersDbg: () => runners.map(r => ({ chr: r.chr, z: +r.z.toFixed(1), x: +r.x.toFixed(2) })),
   hitDebug: () => { lives = Math.max(0, lives - 1); if (lives <= 0) gameOver(); },
   win: () => { km = MARATHON_KM; winGame(); }
 };
