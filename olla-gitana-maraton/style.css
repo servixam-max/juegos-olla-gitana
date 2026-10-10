@@ -34,6 +34,7 @@ html, body {
 #progressWrap { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(255,255,255,.14); }
 #progressBar { height: 100%; width: 0; background: linear-gradient(90deg,#f59e0b,#ef4444); transition: width .25s linear; }
 #metaFlag { position: absolute; right: 5px; top: -17px; font-size: 13px; filter: drop-shadow(0 1px 0 rgba(0,0,0,.7)); }
+#powers { min-height: 17px; margin-top: 3px; font-size: 13px; font-weight: 800; color: #fde68a; text-shadow: 0 2px 0 rgba(0,0,0,.6); letter-spacing: .02em; }
 
 /* ---------- Pantallas ---------- */
 .screen { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; }

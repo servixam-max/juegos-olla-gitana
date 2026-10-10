@@ -80,12 +80,12 @@ const STORAGE_KEY = 'olla_maraton_scores_v1';
 const MARATHON_KM = 42.195;
 
 const DIFF = {
-  easy:   { label: 'FÁCIL 🐢',   speed: 0.85, spawn: 1.25 },
+  easy:   { label: 'FÁCIL 🐢',   speed: 0.85, spawn: 1.30 },
   normal: { label: 'NORMAL 🥘',  speed: 1.00, spawn: 1.00 },
-  hard:   { label: 'CANALLA 🔥', speed: 1.18, spawn: 0.82 }
+  hard:   { label: 'CANALLA 🔥', speed: 1.20, spawn: 0.80 }
 };
 
-const V_BASE = 6.4;                        // m/s del mundo a ritmo normal
+const V_BASE = 7.4;                        // m/s del mundo a ritmo normal (arranque ya vivo)
 const KM_RATE = 0.0125;                    // km mostrados por metro de mundo (≈12 s/km)
 const GRAV = 19;                           // m/s²
 const JUMP_V = 6.3;                       // ≈ 1,05 m de salto
@@ -93,9 +93,12 @@ const DUCK_H = 0.55;                      // altura agachado (en "hombres")
 const VICE_EMOJI = ['🚬', '🍫', '💊', '🍺', '🍩', '🍭'];
 const TALL_EMOJI = ['🚧', '🛢️'];
 const ITEMS = [
-  { k: '🍌', w: 0.30, v: 10 }, { k: '💧', w: 0.28, v: 10 },
-  { k: '🍊', w: 0.22, v: 15 }, { k: '⚡', w: 0.10, v: 20 },
-  { k: '🧃', w: 0.10, v: 10, shield: true }
+  { k: '🍌', w: 0.22, v: 10 }, { k: '💧', w: 0.20, v: 10 },
+  { k: '🍊', w: 0.16, v: 15 }, { k: '⚡', w: 0.08, v: 20 },
+  { k: '🧃', w: 0.10, v: 10, power: 'shield' },
+  { k: '🚀', w: 0.09, v: 10, power: 'turbo' },
+  { k: '🧲', w: 0.08, v: 10, power: 'magnet' },
+  { k: '⏳', w: 0.07, v: 15, power: 'slow' }
 ];
 
 const PHRASES_HIT = ['¡Ojú, la mala vida!', '¡Aparta, trasto!', '¡Eso no es de corredores!',
@@ -131,7 +134,9 @@ let difficulty = 'normal';
 let charId = 'miguel';
 
 let km = 0, kmShown = 0, kmGate = 5, traveled = 0, score = 0, itemPoints = 0;
-let lives = 3, combo = 0, maxCombo = 0, itemsGot = 0, vicios = 0, invuln = 0, shield = 0, shake = 0, comboTimer = 0;
+let lives = 3, combo = 0, maxCombo = 0, itemsGot = 0, vicios = 0, invuln = 0, shield = 0;
+let turbo = 0, magnet = 0, slow = 0;
+let shake = 0, comboTimer = 0, lastPowers = '';
 let speed = 0, spawnTimer = 1.0, itemTimer = 1.2, countT = 0, mediaDone = false;
 let phase = 0;                            // ciclo de carrera del personaje
 let obstacles = [], items = [], gates = [], particles = [], popups = [];
@@ -150,7 +155,7 @@ const audio = {
 function multTier(c) { return c >= 40 ? 5 : c >= 25 ? 4 : c >= 12 ? 3 : c >= 5 ? 2 : 1; }
 const mult = () => multTier(combo);
 const kmFloor = () => Math.floor(km);
-const speedFactor = k => Math.min(1.75, 1 + k * 0.02);
+const speedFactor = k => Math.min(1.9, 1 + k * 0.021);   // ~+2,1% por km, todo el maratón subiendo
 
 /* ---------------- Preferencias (compartidas con los otros juegos) ---------------- */
 const PREFS_KEY = 'olla_prefs_v1';
@@ -207,14 +212,16 @@ function beep(freq = 880, dur = 0.075, vol = 0.085) {
 function startGame(diff, chr) {
   if (diff) difficulty = diff;
   if (chr) charId = chr;
+  const cfg = DIFF[difficulty];
   km = 0; kmShown = 0; kmGate = 5; traveled = 0; score = 0; itemPoints = 0;
   lives = 3; combo = 0; maxCombo = 0; itemsGot = 0; vicios = 0;
-  invuln = 0; shield = 0; shake = 0; comboTimer = 0; mediaDone = false;
-  speed = 0; spawnTimer = 1.2; itemTimer = 1.6; phase = 0;
+  invuln = 0; shield = 0; turbo = 0; magnet = 0; slow = 0; shake = 0; comboTimer = 0; mediaDone = false;
+  speed = V_BASE * speedFactor(0) * cfg.speed * 0.95;   // arranque ya a ritmo (sin rampa muerta)
+  spawnTimer = 0.9; itemTimer = 1.0; phase = 0; lastPowers = '';
   obstacles = []; items = []; gates = []; particles = []; popups = [];
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0;
   player.ducking = false; player.holdJump = 0; player.tilt = 0;
-  countT = 2.1;
+  countT = 1.8;
   crowdSeed = Math.floor(Math.random() * 1000);
   try { logros.check('primera'); logros.count('partidas10'); } catch (e) {}
   hide(el('startScreen')); hide(el('endScreen')); hide(el('winScreen'));
@@ -271,6 +278,8 @@ function winGame() {
   km = MARATHON_KM;                        // la carrera terminada es la maratón exacta
   score = Math.floor(km * 1000) + itemPoints;
   sfx('up', 0.9); buzz([40, 60, 40]);
+  // confeti de meta (se anima también con la pantalla de victoria encima)
+  for (let k = 0; k < 4; k++) burst(W * (0.2 + k * 0.2), H * (0.3 + (k % 2) * 0.12), 26, ['#fde047', '#fca5a5', '#86efac', '#93c5fd'][k]);
   hide(el('hud'));
   el('winScore').textContent = score;
   el('winKm').textContent = '42,195';
@@ -334,11 +343,28 @@ function spawnItemString() {
   const r = Math.random();
   let acc = 0, kind = ITEMS[0];
   for (const it of ITEMS) { acc += it.w; if (r <= acc) { kind = it; break; } }
-  const n = kind.shield ? 1 : (Math.random() < 0.5 ? 2 : 3);
+  const n = kind.power ? 1 : (Math.random() < 0.5 ? 2 : 3);
   for (let i = 0; i < n; i++) {
-    items.push({ k: kind.k, v: kind.v, shield: !!kind.shield, lane, x: LANES[lane], z: 100 + i * 1.6, y: 1.15 });
+    items.push({ k: kind.k, v: kind.v, power: kind.power || null, lane, x: LANES[lane], z: 100 + i * 1.6, y: 1.15 });
   }
   itemTimer = rand(1.6, 3.0);
+}
+
+/* Aplica el efecto de un power-up (🚀 turbo, 🧲 imán, ⏳ cámara lenta, 🧃 escudo) */
+function applyPower(kind) {
+  if (kind === 'shield') {
+    shield = Math.max(shield, 6);
+    popup('🧃 ¡ISOTÓNICA! ESCUDO 🛡️', '#a5f3fc', CX, H * 0.34); beep(1200, 0.1, 0.09);
+  } else if (kind === 'turbo') {
+    turbo = Math.max(turbo, 5);
+    popup('🚀 ¡TURBO! +50% velocidad', '#fdba74', CX, H * 0.34); beep(1400, 0.12, 0.1); buzz(20);
+  } else if (kind === 'magnet') {
+    magnet = Math.max(magnet, 6);
+    popup('🧲 ¡IMÁN! la fruta viene sola', '#d8b4fe', CX, H * 0.34); beep(1100, 0.1, 0.09);
+  } else if (kind === 'slow') {
+    slow = Math.max(slow, 4);
+    popup('⏳ ¡CÁMARA LENTA!', '#93c5fd', CX, H * 0.34); beep(520, 0.14, 0.09);
+  }
 }
 
 /* ---------------- Update ---------------- */
@@ -356,9 +382,11 @@ function update(dt) {
     return;
   }
 
-  // velocidad (sube con el km) y avance
-  const targetSpeed = V_BASE * speedFactor(kmFloor()) * cfg.speed;
-  speed += (targetSpeed - speed) * Math.min(1, dt * 0.8);
+  // velocidad (sube con el km) y avance; turbo acelera, cámara lenta frena
+  let targetSpeed = V_BASE * speedFactor(kmFloor()) * cfg.speed;
+  if (turbo > 0) targetSpeed *= 1.5;
+  if (slow > 0) targetSpeed *= 0.65;
+  speed += (targetSpeed - speed) * Math.min(1, dt * 1.3);
   traveled += speed * dt;
   km += speed * dt * KM_RATE;
 
@@ -366,6 +394,8 @@ function update(dt) {
   if (kmFloor() > kmShown) {
     kmShown = kmFloor();
     beep(988 + Math.min(6, kmShown % 10) * 40, 0.05, 0.05);
+    // aviso pequeño de km: la velocidad va subiendo en todos y cada uno
+    popup(`km ${kmShown} · +2% ⚡`, '#a7f3d0', W * 0.5, H * 0.22, 14 * S);
     try { logros.set('maraton5k', kmShown); logros.set('maraton21k', kmShown); logros.set('nivel5', kmShown); logros.set('velocidad', kmShown); } catch (e) {}
     if (!mediaDone && km >= 21.1) {
       mediaDone = true;
@@ -397,6 +427,9 @@ function update(dt) {
 
   if (invuln > 0) invuln -= dt;
   if (shield > 0) shield -= dt;
+  if (turbo > 0) turbo -= dt;
+  if (magnet > 0) magnet -= dt;
+  if (slow > 0) slow -= dt;
   if (shake > 0) shake -= dt * 2.2;
   if (duckTimer > 0) { duckTimer -= dt; if (duckTimer <= 0 && !duckHold) setDuck(false); }
 
@@ -436,13 +469,19 @@ function update(dt) {
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i];
     if (it.z < 0.9) { items.splice(i, 1); continue; }
-    if (Math.abs(it.z - ZP) < 0.65 && Math.abs(it.x - player.x) < 1.05 && player.y < 2.4) {
+    // imán: los items cercanos se vienen al corredor
+    if (magnet > 0 && it.z < 45) {
+      it.x += (player.x - it.x) * Math.min(1, dt * 7);
+      it.y += ((1.1 + player.y) - it.y) * Math.min(1, dt * 3.5);
+    }
+    if (Math.abs(it.z - ZP) < 0.65 && Math.abs(it.x - player.x) < (magnet > 0 ? 3.4 : 1.05) && player.y < 2.4) {
       itemsGot++; combo++; maxCombo = Math.max(maxCombo, combo); comboTimer = 0;
       try { logros.set('combo10', combo); logros.set('combo25', combo); logros.count('items50'); } catch (e) {}
-      if (it.shield) { shield = Math.max(shield, 6); popup('🧃 ¡ISOTÓNICA! ESCUDO', '#a5f3fc', CX, H * 0.36); beep(1200, 0.1, 0.09); }
+      if (it.power) applyPower(it.power);
       itemPoints += it.v * mult();
-      popup('+' + it.v * mult(), '#fde68a', it.x * 40 + CX, H * 0.55);
-      burst(CX + it.x * 40, H * 0.56, 7, '#fcd34d');
+      const [ix, iy] = proj(player.x, 1.1 + player.y * 0.5, ZP);
+      popup('+' + it.v * mult(), '#fde68a', ix, iy - 60 * S);
+      burst(ix, iy, 7, '#fcd34d');
       beep(784 + Math.min(6, Math.floor(combo / 4)) * 66, 0.07, 0.08);
       buzz(8);
       items.splice(i, 1);
@@ -476,10 +515,15 @@ function update(dt) {
     combo = Math.max(0, combo - Math.ceil(combo * 0.25));
   }
 
-  // estela de polvo
+  // estela de polvo en la posición real del corredor + llamas de turbo
+  const [ppx] = proj(player.x, 0, ZP);
   if (Math.random() < 0.5) {
-    particles.push({ x: CX + player.x * 40 + rand(-14, 14), y: feetY - rand(0, 8), vx: rand(-90, -30), vy: rand(-40, 0),
+    particles.push({ x: ppx + rand(-14, 14), y: feetY - rand(0, 8), vx: rand(-90, -30), vy: rand(-40, 0),
       life: rand(0.25, 0.5), color: 'rgba(255,255,255,.4)', r: rand(1.4, 2.8) * S });
+  }
+  if (turbo > 0 && Math.random() < 0.85) {
+    particles.push({ x: ppx + rand(-12, 12), y: feetY - rand(0, 10), vx: rand(-300, -140), vy: rand(-60, 20),
+      life: rand(0.14, 0.3), color: Math.random() < 0.5 ? 'rgba(255,166,60,.85)' : 'rgba(255,224,130,.85)', r: rand(1.6, 3.2) * S });
   }
 
   updateFx(dt);
@@ -496,6 +540,9 @@ function update(dt) {
   el('kmChip').textContent = `🏁 ${km.toFixed(1)} km`;
   el('progressBar').style.width = Math.min(100, (km / MARATHON_KM) * 100) + '%';
   const m = el('mult'); m.textContent = 'x' + mult(); m.classList.toggle('pop', mult() > 1);
+  const pstr = (turbo > 0 ? `🚀${Math.ceil(turbo)} ` : '') + (shield > 0 ? `🛡️${Math.ceil(shield)} ` : '') +
+    (magnet > 0 ? `🧲${Math.ceil(magnet)} ` : '') + (slow > 0 ? `⏳${Math.ceil(slow)}` : '');
+  if (pstr !== lastPowers) { lastPowers = pstr; el('powers').textContent = pstr; }
 }
 
 function updateFx(dt) {
@@ -510,7 +557,7 @@ function burst(x, y, n, color) {
     particles.push({ x, y, vx: rand(-150, 150) * S, vy: rand(-300, -60) * S, life: rand(0.4, 0.95), color, r: rand(2, 5) * S });
   }
 }
-function popup(text, color, x, y) { popups.push({ text, color, x, y, life: 1, size: 22 * S }); }
+function popup(text, color, x, y, size) { popups.push({ text, color, x, y, life: 1, size: size || 22 * S }); }
 
 /* ---------------- Dibujo de escena ---------------- */
 function drawSky() {
@@ -522,6 +569,10 @@ function drawSky() {
     skyH = H;
   }
   ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, yH + 40);
+  // suelo base bajo el horizonte: sin esto, las zonas fuera de la calle no se
+  // repintan cada frame y el tinte de cámara lenta se acumulaba hasta saturar
+  ctx.fillStyle = '#7d7365';
+  ctx.fillRect(0, yH + 38, W, H - (yH + 38));
   // sol
   ctx.fillStyle = 'rgba(255,236,170,.85)';
   ctx.beginPath(); ctx.arc(W * 0.78, yH * 0.30, 26 * S, 0, Math.PI * 2); ctx.fill();
@@ -602,6 +653,60 @@ function drawBuildings() {
   }
 }
 
+/* Vallas de carrera (a los lados, con el público detrás) y coches aparcados:
+   llenan los arcenes y dan aspecto real de maratón por la calle. */
+function drawStreetFurniture() {
+  const step = 2.6;
+  const phaseZ = traveled % step;
+  for (let side = -1; side <= 1; side += 2) {
+    // barrotes longitudinales (dos travesaños) como polilínea hacia el horizonte
+    ctx.strokeStyle = 'rgba(245,245,245,.75)'; ctx.lineWidth = Math.max(1, 0.05 * (F / 10));
+    for (const hy of [0.32, 0.6]) {
+      ctx.beginPath();
+      let first = true;
+      for (let z = 2.6; z <= 60; z += 2.6) {
+        const [x1, y1] = proj(side * 4.15, hy, z);
+        if (first) { ctx.moveTo(x1, y1); first = false; } else ctx.lineTo(x1, y1);
+      }
+      ctx.stroke();
+    }
+    // postes naranjas
+    for (let k = 23; k >= 1; k--) {
+      const z = k * step - phaseZ + 2.2;
+      if (z < 2.6 || z > 60) continue;
+      const [x1, y1, sc] = proj(side * 4.15, 0.62, z);
+      const [, y2] = proj(side * 4.15, 0, z);
+      const w = Math.max(1.2, 0.07 * sc);
+      ctx.fillStyle = '#e8542f';
+      ctx.fillRect(x1 - w / 2, y1, w, y2 - y1);
+    }
+  }
+  // coches aparcados en los arcenes (x ≈ ±6,3)
+  const carCols = ['#c0392b', '#2f6fd0', '#bdc3c7', '#27ae60', '#8e44ad', '#e67e22', '#34495e'];
+  const cstep = 13;
+  const cphase = traveled % cstep;
+  for (let side = -1; side <= 1; side += 2) {
+    for (let k = 1; k <= 5; k++) {
+      const z = k * cstep - cphase + 4.5;
+      if (z < 3.4 || z > 52) continue;
+      const idx = Math.round((traveled - cphase) / cstep) + k;
+      if (hash(idx * 19 + side * 3) < 0.28) continue;      // algún hueco
+      const [cx2, cy2, csc] = proj(side * 6.3, 0, z);
+      const bw = 1.85 * csc, bh = 0.62 * csc, ch = 0.5 * csc;
+      const col = carCols[Math.floor(hash(idx * 29 + side) * carCols.length)];
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      ctx.beginPath(); ctx.ellipse(cx2, cy2, bw * 0.55, bh * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col;
+      R(ctx, cx2 - bw / 2, cy2 - bh, bw, bh, bh * 0.3); ctx.fill();                    // carrocería
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      R(ctx, cx2 - bw * 0.34, cy2 - bh - ch, bw * 0.68, ch, ch * 0.4); ctx.fill();     // cabina
+      ctx.fillStyle = 'rgba(20,20,24,.85)';
+      ctx.beginPath(); ctx.arc(cx2 - bw * 0.3, cy2 - bh * 0.08, bh * 0.28, 0, Math.PI * 2);
+      ctx.arc(cx2 + bw * 0.3, cy2 - bh * 0.08, bh * 0.28, 0, Math.PI * 2); ctx.fill(); // ruedas
+    }
+  }
+}
+
 /* Público animado a los dos lados de la calle */
 function drawCrowd(t) {
   const colP = ['#e74c3c', '#f39c12', '#27ae60', '#2980b9', '#8e44ad', '#e84393', '#16a085', '#f1c40f', '#ecf0f1'];
@@ -610,8 +715,9 @@ function drawCrowd(t) {
   for (let side = -1; side <= 1; side += 2) {
     for (let k = 16; k >= 1; k--) {          // de lejos a cerca
       const z = k * spacing - phaseZ + 2.4;
-      if (z < 1.8 || z > 52) continue;
+      if (z < 2.4 || z > 52) continue;              // de cerca ya pasan fuera de encuadre
       const idx = Math.round((traveled - phaseZ) / spacing) + k;
+      if (z < 4.2 && idx % 2) continue;             // de muy cerca, la mitad (menos amontonamiento)
       const h2 = hash(idx * 13 + side * 7);
       const xc = side * (4.75 + hash(idx * 3 + side) * 0.55);
       const [xs, ys, sc] = proj(xc, 0, z);
@@ -1193,6 +1299,7 @@ function draw() {
   drawBuildings();
   drawRoad();
   drawFog();
+  drawStreetFurniture();
   drawStreetBanners();
   drawCrowd(t);
 
@@ -1242,16 +1349,25 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // líneas de velocidad a ritmo alto
-  if (state === 'run' && speed > 8.2) {
-    ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 2;
-    for (let i = 0; i < 6; i++) {
-      const yy = (i * 137) % H;
-      const ln = 40 + ((i * 61) % 70);
-      const xx = ((traveled * 130 * (1 + (i % 3) * 0.4)) % (W + 200)) - 100;
+  // líneas de velocidad (solo sobre la calzada; doradas durante el turbo)
+  const speedFx = clamp((speed - 6.6) / 5.2, 0, 1) + (turbo > 0 ? 0.35 : 0);
+  if (state === 'run' && speedFx > 0.18) {
+    const nL = 3 + Math.round(speedFx * 8);
+    const bandY = yH + 26, bandH = Math.max(80, H - yH - 70);
+    ctx.strokeStyle = turbo > 0 ? 'rgba(255,205,120,.34)' : `rgba(255,255,255,${(0.07 + speedFx * 0.1).toFixed(3)})`;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < nL; i++) {
+      const yy = bandY + ((i * 97) % bandH);
+      const ln = (46 + ((i * 61) % 70)) * (1 + speedFx * 0.9);
+      const xx = ((traveled * 190 * (1 + (i % 3) * 0.4)) % (W + 260)) - 130;
       ctx.beginPath();
       ctx.moveTo(W - xx, yy); ctx.lineTo(W - xx + ln, yy); ctx.stroke();
     }
+  }
+  // tinte azulado suave en cámara lenta
+  if (state === 'run' && slow > 0) {
+    ctx.fillStyle = 'rgba(120,180,255,.09)';
+    ctx.fillRect(0, 0, W, H);
   }
 
   // popups
@@ -1285,7 +1401,8 @@ function draw() {
 window.__maratonState = () => ({
   state, km: +km.toFixed(3), score, lives, combo: maxCombo, vicios, items: itemsGot,
   lane: player.lane, x: +player.x.toFixed(2), y: +player.y.toFixed(2),
-  ducking: player.ducking, shield: +shield.toFixed(2), speed: +speed.toFixed(2),
+  ducking: player.ducking, shield: +shield.toFixed(2), turbo: +turbo.toFixed(2),
+  magnet: +magnet.toFixed(2), slow: +slow.toFixed(2), speed: +speed.toFixed(2),
   obstacles: obstacles.length, itemsOnScreen: items.length, gates: gates.length,
   char: charId, difficulty, api: API, sound: soundOn
 });
@@ -1380,6 +1497,7 @@ function loop(now) {
   const dt = clamp((now - lastT) / 1000, 0, 0.05);
   lastT = now;
   if (state === 'run' || state === 'count') { update(dt); }
+  else if (state === 'end' || state === 'win') { updateFx(dt); }   // el confeti sigue vivo tras la meta
   else if (state === 'menu') { drawPreviews(now / 1000); }
   if (state === 'run' || state === 'count' || state === 'pause' || state === 'end' || state === 'win') draw();
   checkFps(dt);
@@ -1581,6 +1699,7 @@ window.__maraton = {
   jump, duck: on => setDuck(!!on), lane: l => setLane(l),
   setKm: v => { km = v; kmShown = Math.floor(v) - 1; },
   god: v => { invuln = v; },
+  power: k => applyPower(k),
   obstacles: () => obstacles.map(o => ({ type: o.type, z: +o.z.toFixed(2), x: +o.x.toFixed(2), hit: o.hit })),
   itemsDbg: () => items.map(it => ({ k: it.k, z: +it.z.toFixed(2), x: +it.x.toFixed(2) })),
   hitDebug: () => { lives = Math.max(0, lives - 1); if (lives <= 0) gameOver(); },
