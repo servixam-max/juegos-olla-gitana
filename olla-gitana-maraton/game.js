@@ -162,7 +162,8 @@ function savePref(obj) {
 /* ---------------- Audio ---------------- */
 function initMusic() {
   if (audio.music) return;
-  audio.music = new Audio('assets/music.mp3');
+  // tema original de la maratón (NO es la canción de la banda, para no repetirla)
+  audio.music = new Audio('assets/maraton_theme.mp3');
   audio.music.loop = true;
   audio.music.volume = 0.5;
 }
@@ -1291,10 +1292,16 @@ window.__maratonState = () => ({
 
 /* ---------------- Ranking ---------------- */
 const API = (function () {
+  // Montajes válidos: hub (/ollagitana/olla-gitana-maraton/…) y enlace directo (/nena-y-miguel/)
   const p = location.pathname;
-  const i = p.indexOf('/olla-gitana-maraton');
-  const base = i >= 0 ? p.slice(0, i) : '/';
-  return base.replace(/\/$/, '') + '/api';
+  for (const marker of ['/olla-gitana-maraton', '/nena-y-miguel', '/gitana-nena-miguel']) {
+    const i = p.indexOf(marker);
+    if (i >= 0) {
+      const prefix = p.slice(0, i);
+      return (prefix ? prefix.replace(/\/$/, '') : marker) + '/api';
+    }
+  }
+  return p.replace(/\/index\.html$/, '').replace(/\/$/, '') + '/api';
 })();
 
 function readLocal() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; } }

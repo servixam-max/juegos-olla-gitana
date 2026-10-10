@@ -15,6 +15,10 @@ Menú + los tres juegos de la banda **Olla Gitana**, con ranking compartido.
 
 - **Sirve el Mac**: Caddy → `https://servi.tail31979d.ts.net/juegos-olla/`
   - Alias corto: `https://servi.tail31979d.ts.net/champi/`
+  - **Enlace directo de la maratón (sin menú)**: `https://servi.tail31979d.ts.net/nena-y-miguel/`
+    (alias `/gitana-nena-miguel` → redirige). Se sirve solo `olla-gitana-maraton/` con su
+    propia ruta `/nena-y-miguel/api` → rankings. El juego usa una copia local de `logros.js`
+    (con respaldo a la compartida) para funcionar desde los dos montajes.
 - **Rankings**: API local en el Mac (launchd `com.servimac.ollajuegos`, `127.0.0.1:8093`,
   datos en `~/scripts/ollajuegos/scores.json`).
   Los juegos guardan primero en localStorage (respaldo) y luego POSTean al Mac; si la API
